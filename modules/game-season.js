@@ -337,7 +337,7 @@ function startNextSeason(){
   gameState.fixtures = generateFixtures(gameState.teams.map(t => t.name));
   gameState.shadowLeagues = createShadowLeagues(gameState);
   gameState.cup = createFreshCup(gameState);
-  gameState.board = createFreshBoard(getOwnClubStrength(gameState), gameState.division,
+  gameState.board = createFreshBoard(getBoardReferenceStrength(gameState), gameState.division,
     gameState.board ? gameState.board.patience : null);
 
   const qualifiedForEurope = gameState.lastSeasonWasDivision1 && (gameState.lastTopFour || []).includes(gameState.clubName);

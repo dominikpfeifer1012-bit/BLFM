@@ -106,6 +106,117 @@ const PRESS_SITUATIONS = [
       { text: "Für ganz oben brauchen wir erfahrene Spieler.", morale: -4, patience: 2,
         folge: "Der Vorstand hört Ehrgeiz, die Talente hören etwas anderes." }
     ]
+  },
+  {
+    key: "saisonstart",
+    gewicht: 3,
+    bedingung: gs => gs.matchday >= 1 && gs.matchday <= 2,
+    frage: gs => `Die Saison läuft. Ihr Ziel lautet „${gs.board ? gs.board.goalLabel : "—"}“. Reicht Ihnen das?`,
+    antworten: [
+      { text: "Wir wollen mehr als das.", morale: 4, patience: 3, target: -1,
+        folge: "Ehrgeizig — der Vorstand nimmt Sie beim Wort." },
+      { text: "Das Ziel ist realistisch, genau so gehen wir es an.", morale: 1, patience: 2,
+        folge: "Solide und unaufgeregt." },
+      { text: "Erst mal abwarten, wie wir reinkommen.", morale: -2, patience: -1,
+        folge: "Vorsichtig — manche lesen es als Zweifel." }
+    ]
+  },
+  {
+    key: "tabellenfuehrer",
+    gewicht: 3,
+    bedingung: gs => gs.matchday >= 8 && eigenePosition(gs) === 1,
+    frage: () => "Sie stehen an der Tabellenspitze. Wird man Sie da noch verdrängen?",
+    antworten: [
+      { text: "Da oben bleiben wir.", morale: 5, patience: 3, target: -2,
+        folge: "Kampfansage — jetzt zählt nur noch Platz eins." },
+      { text: "Die Tabelle ist eine Momentaufnahme.", morale: 1, patience: 1,
+        folge: "Klassisch und unangreifbar." },
+      { text: "Wir sind selbst überrascht.", morale: -3, patience: 0,
+        folge: "Sympathisch, aber die Kabine will Führung hören." }
+    ]
+  },
+  {
+    key: "ungeschlagen",
+    gewicht: 2,
+    bedingung: gs => gs.records && (gs.records.currentUnbeaten || 0) >= 6,
+    frage: gs => `${gs.records.currentUnbeaten} Spiele ohne Niederlage. Was ist Ihr Geheimnis?`,
+    antworten: [
+      { text: "Die Mannschaft ist eine Einheit.", morale: 5, patience: 1,
+        folge: "Die Spieler fühlen sich gesehen." },
+      { text: "Harte Arbeit im Training.", morale: 2, patience: 2,
+        folge: "Der Vorstand mag diese Antwort." },
+      { text: "Ehrlich gesagt auch etwas Glück.", morale: -2, patience: -1,
+        folge: "Bescheiden — vielleicht zu bescheiden." }
+    ]
+  },
+  {
+    key: "torflaute",
+    gewicht: 3,
+    bedingung: gs => {
+      const letzte = typeof getOwnResults === "function" ? getOwnResults(gs).slice(-3) : [];
+      return letzte.length === 3 && letzte.reduce((s, r) => s + r.goalsFor, 0) <= 1;
+    },
+    frage: () => "Ein Tor in drei Spielen. Haben Sie ein Stürmerproblem?",
+    antworten: [
+      { text: "Die Tore kommen, ich vertraue meinen Stürmern.", morale: 5, patience: -2,
+        folge: "Rückendeckung für die Offensive." },
+      { text: "Wir arbeiten an der Chancenverwertung.", morale: 0, patience: 1,
+        folge: "Nüchtern und richtig." },
+      { text: "Wir schauen uns auf dem Markt um.", morale: -5, patience: 2,
+        folge: "Die Stürmer haben es gelesen." }
+    ]
+  },
+  {
+    key: "pokalaus",
+    gewicht: 4,
+    bedingung: gs => {
+      const c = gs.cup;
+      if(!c || !c.eliminated || !c.exitRound) return false;
+      const termin = CUP_ROUND_TRIGGER_MATCHDAYS[c.exitRound - 1];
+      return termin != null && gs.matchday >= termin - 1 && gs.matchday <= termin + 1;
+    },
+    frage: gs => `Aus im DFB-Pokal (${CUP_ROUND_LABELS[gs.cup.exitRound - 1] || "Pokal"}). Wie bitter ist das?`,
+    antworten: [
+      { text: "Jetzt zählt nur noch die Liga.", morale: 2, patience: 1,
+        folge: "Der Blick geht nach vorn." },
+      { text: "Das war eine Blamage, dafür entschuldige ich mich.", morale: -4, patience: 3,
+        folge: "Der Vorstand schätzt die Ehrlichkeit, die Spieler weniger." },
+      { text: "Der Pokal hat seine eigenen Gesetze.", morale: 1, patience: -2,
+        folge: "Abgedroschen — oben kommt das nicht gut an." }
+    ]
+  },
+  {
+    key: "pokallauf",
+    gewicht: 3,
+    bedingung: gs => {
+      const c = gs.cup;
+      if(!c || !c.active || c.eliminated || c.round < 2) return false;
+      const naechster = CUP_ROUND_TRIGGER_MATCHDAYS[c.round];
+      return naechster != null && naechster - (gs.matchday + 1) <= 1 && naechster - (gs.matchday + 1) >= 0;
+    },
+    frage: gs => `Als Nächstes steht das ${CUP_ROUND_LABELS[gs.cup.round] || "nächste Pokalspiel"} an. Träumen Sie schon von Berlin?`,
+    antworten: [
+      { text: "Natürlich, wir wollen den Pokal.", morale: 5, patience: -2,
+        folge: "Die Mannschaft brennt — der Vorstand fürchtet um die Liga." },
+      { text: "Wir denken von Runde zu Runde.", morale: 1, patience: 1,
+        folge: "Vernünftig." },
+      { text: "Die Liga hat Vorrang.", morale: -3, patience: 2,
+        folge: "Der Vorstand nickt, die Spieler sind enttäuscht." }
+    ]
+  },
+  {
+    key: "vorstandwackelt",
+    gewicht: 5,
+    bedingung: gs => gs.board && !gs.board.dismissed && gs.board.patience < BOARD_WARN_THRESHOLD + 5 && gs.matchday >= 6,
+    frage: () => "Es heißt, Ihr Stuhl wackelt. Haben Sie noch das Vertrauen des Vorstands?",
+    antworten: [
+      { text: "Ich bin überzeugt, dass wir die Wende schaffen.", morale: 3, patience: 3,
+        folge: "Kämpferisch — der Vorstand gibt Ihnen noch etwas Zeit." },
+      { text: "Das müssen Sie den Vorstand fragen.", morale: -2, patience: -4,
+        folge: "Patzig — oben kommt das schlecht an." },
+      { text: "Ich konzentriere mich auf die Mannschaft.", morale: 4, patience: 0,
+        folge: "Die Kabine steht hinter Ihnen." }
+    ]
   }
 ];
 
@@ -138,9 +249,12 @@ function pickPressSituation(gameState){
   const letzte = gameState.lastPressMatchday != null ? gameState.lastPressMatchday : -99;
   if(gameState.matchday - letzte < PRESS_MIN_GAP) return null;
 
-  const passend = PRESS_SITUATIONS.filter(s => {
+  let passend = PRESS_SITUATIONS.filter(s => {
     try { return s.bedingung(gameState); } catch(e) { return false; }
   });
+  // Dieselbe Frage nicht zweimal hintereinander, sofern es eine andere gibt.
+  const zuletzt = (gameState.pressHistory || []).slice(-1)[0];
+  if(zuletzt && passend.length > 1) passend = passend.filter(s => s.key !== zuletzt.situation);
   if(passend.length === 0) return null;
 
   // Nach Gewicht ziehen, damit brisante Lagen haeufiger drankommen.

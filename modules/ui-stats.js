@@ -212,7 +212,7 @@ function buildTrendChart(werte, beschriftungen, farbe, invertiert){
   const gueltig = werte.map((w, i) => ({ w, i })).filter(x => x.w != null);
   if(gueltig.length < 2){
     return `<p class="muted" style="text-align:center; padding:14px 0; font-size:12px;">
-      Ab der zweiten Saison sichtbar.</p>`;
+      Sichtbar, sobald zwei Saisons abgeschlossen sind.</p>`;
   }
 
   const zahlen = gueltig.map(x => x.w);

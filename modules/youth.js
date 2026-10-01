@@ -256,11 +256,15 @@ function getYouthSquadSalary(gameState){
 // derselben Position.
 function isReadyForPromotion(gameState, player){
   const day = gameState.matchday + 1;
+  const eigene = getStrengthOnSlot(player, player.pos);
+  // Eine freie Position allein macht noch keinen Profi: sonst galt ein
+  // 46er-Talent in einer 73er-Mannschaft als bereit.
+  if(eigene < teamRating(gameState.squad, day) - YOUTH_READY_MAX_BELOW_TEAM) return false;
   const konkurrenz = gameState.squad
     .filter(p => p.pos === player.pos && !isUnavailable(p, day))
     .map(p => getStrengthOnSlot(p, p.pos));
   if(konkurrenz.length === 0) return true;
-  return getStrengthOnSlot(player, player.pos) >= Math.min(...konkurrenz);
+  return eigene >= Math.min(...konkurrenz);
 }
 
 
@@ -281,10 +285,15 @@ function ensureMinimumSquad(gameState){
     hochgezogen.push(result.player);
   }
 
-  // 2. Danach vereinslose Spieler aus dem Bestand.
+  // 2. Danach vereinslose Spieler aus dem Bestand — aber nur solche, die zum
+  // Verein passen. Frueher kamen hier die besten Vereinslosen der Welt
+  // kostenlos, und ein Drittligist hatte nach drei Sommern Nationalspieler,
+  // ohne je selbst zu handeln. Notverpflichtungen liegen hoechstens auf
+  // Vereinsniveau und kosten das uebliche Handgeld, sofern es bezahlbar ist.
+  const deckel = getOwnClubStrength(gameState) + REFILL_MAX_ABOVE_CLUB;
   while(gameState.squad.length < SQUAD_REFILL_THRESHOLD){
     const frei = (gameState.pool && gameState.pool.players || [])
-      .filter(p => !p.clubName)
+      .filter(p => !p.clubName && p.strength <= deckel)
       .sort((a, b) => b.strength - a.strength);
 
     if(frei.length === 0){
@@ -299,6 +308,8 @@ function ensureMinimumSquad(gameState){
     }
 
     const spieler = frei[0];
+    const handgeld = getTransferFee(spieler);
+    if(handgeld <= gameState.budget) gameState.budget -= handgeld;
     gameState.pool.players = gameState.pool.players.filter(p => p.id !== spieler.id);
     delete spieler.clubName;
     delete spieler.clubTier;

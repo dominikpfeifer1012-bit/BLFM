@@ -180,7 +180,7 @@ check("Jeder Saisoneintrag trägt die Analysewerte", () => {
 
 check("Die Transferbilanz wird geführt", () => {
   gs.matchday=1; gs.budget=100000000;
-  const kandidat=win.filterPool(gs.pool,{maxFee:8000000})[0];
+  const kandidat=win.filterPool(gs.pool,{maxFee:8000000}).filter(p=>win.isWillingToJoin(gs,p))[0];
   const vorher=gs.seasonTransferOut||0;
   win.handleSignPlayer(kandidat.id);
   return (gs.seasonTransferOut||0)>vorher ? true : "Ablöse nicht gezählt";
@@ -216,7 +216,7 @@ check("Eine Zusammenfassung in Worten erscheint", () => {
 check("Zu wenig Daten erzeugen keinen Fehler", () => {
   const leer=win.buildTrendChart([null,null],["A","B"],"#fff",false);
   const eins=win.buildTrendChart([5],["A"],"#fff",false);
-  return /zweiten Saison/.test(leer) && /zweiten Saison/.test(eins) ? true : "kein Hinweis";
+  return /zwei Saisons/.test(leer) && /zwei Saisons/.test(eins) ? true : "kein Hinweis";
 });
 
 check("Keine Laufzeitfehler", () => errors.length===0 ? true : errors.join(" | "));

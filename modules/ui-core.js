@@ -6,13 +6,14 @@
 
 const LOG_BADGE_LABELS = { win: "Sieg", loss: "Niederlage", draw: "Remis" };
 
+// short: Beschriftung in der Tab-Leiste am unteren Rand auf dem Handy.
 const TABS = [
-  { id:"uebersicht",  label:"Übersicht" },
-  { id:"kader",       label:"Kader" },
-  { id:"transfers",   label:"Transfers" },
-  { id:"wettbewerbe", label:"Wettbewerbe" },
-  { id:"statistik",   label:"Statistik" },
-  { id:"verlauf",     label:"Verlauf" }
+  { id:"uebersicht",  label:"Übersicht",   short:"Start",     icon:"🏠" },
+  { id:"kader",       label:"Kader",       short:"Kader",     icon:"👥" },
+  { id:"transfers",   label:"Transfers",   short:"Transfers", icon:"🔁" },
+  { id:"wettbewerbe", label:"Wettbewerbe", short:"Tabellen",  icon:"🏆" },
+  { id:"statistik",   label:"Statistik",   short:"Statistik", icon:"📊" },
+  { id:"verlauf",     label:"Verlauf",     short:"Verlauf",   icon:"📜" }
 ];
 
 let activeTab = "uebersicht";
@@ -20,8 +21,13 @@ let activeTab = "uebersicht";
 function renderTabBar(){
   const bar = document.getElementById("tabBar");
   if(!bar) return;
+  // Gruener Punkt am Transfers-Tab, solange das Transferfenster offen ist.
+  const fensterOffen = typeof gameState !== "undefined" && gameState && gameState.fixtures
+    && typeof isTransferWindowOpen === "function" && isTransferWindowOpen(gameState.matchday + 1);
   bar.innerHTML = TABS.map(t =>
-    `<button class="tabBtn${t.id === activeTab ? " active" : ""}" onclick="switchTab('${t.id}')">${t.label}</button>`
+    `<button class="tabBtn${t.id === activeTab ? " active" : ""}" onclick="switchTab('${t.id}')">` +
+      `<span class="tabIcon">${t.icon}</span><span class="tabLong">${t.label}</span><span class="tabShort">${t.short}</span>` +
+      `${t.id === "transfers" && fensterOffen ? '<span class="tabDot" title="Transferfenster offen"></span>' : ""}</button>`
   ).join("");
   TABS.forEach(t => {
     const panel = document.getElementById("tab-" + t.id);
@@ -170,6 +176,7 @@ function renderAll(gameState){
   renderTable(gameState);
   renderShadowTable(gameState);
   renderSquad(gameState);
+  renderContractPanel(gameState);
   renderSquadStats(gameState);
   renderMarket(gameState);
   renderSeasonStats(gameState);

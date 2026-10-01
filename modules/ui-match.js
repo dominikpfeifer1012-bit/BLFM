@@ -7,7 +7,8 @@
 let liveState = { timer: null, onDone: null, running: false };
 
 const LIVE_EVENT_ICONS = {
-  goal: "⚽", yellow: "🟨", yellowRed: "🟨🟥", red: "🟥", injury: "🩹"
+  goal: "⚽", yellow: "🟨", yellowRed: "🟨🟥", red: "🟥", injury: "🩹",
+  chance: "💨", save: "🧤", post: "🥅", half: "⏸", end: "🏁"
 };
 
 function isLiveEnabled(){
@@ -81,8 +82,20 @@ function appendLiveEvent(evt, match, ownIsHome){
   }
 
   const own = evt.side === "own" || evt.type !== "goal";
+  const teamOf = seite => (seite === "own") === ownIsHome ? match.home : match.away;
+  const wer = evt.player ? `<b>${evt.player}</b>` : teamOf(evt.side);
   let text;
-  if(evt.type === "goal"){
+  if(evt.type === "half"){
+    text = `<b>Halbzeit</b> · ${evt.homeScore}:${evt.awayScore}`;
+  } else if(evt.type === "end"){
+    text = `<b>Abpfiff</b> · ${evt.homeScore}:${evt.awayScore}`;
+  } else if(evt.type === "chance"){
+    text = `${wer} (${teamOf(evt.side)}) verzieht knapp`;
+  } else if(evt.type === "save"){
+    text = `${wer} zieht ab — ${evt.keeper ? `<b>${evt.keeper}</b> pariert` : "der Torwart pariert"}`;
+  } else if(evt.type === "post"){
+    text = `${wer} (${teamOf(evt.side)}) trifft nur den Pfosten!`;
+  } else if(evt.type === "goal"){
     const team = (evt.side === "own") === ownIsHome ? match.home : match.away;
     text = evt.scorer ? `<b>${evt.scorer}</b> trifft für ${team}` : `Tor für ${team}`;
   } else if(evt.type === "yellow"){

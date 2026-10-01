@@ -141,7 +141,7 @@ check("Transferfenster wird durchgesetzt", () => {
 
 check("Verpflichtung entnimmt dem Bestand", () => {
   gs.budget = 100000000;
-  const kandidat = win.filterPool(gs.pool, { maxFee: 15000000 })[0];
+  const kandidat = win.filterPool(gs.pool, { maxFee: 15000000 }).filter(p => win.isWillingToJoin(gs, p))[0];
   const kader = gs.squad.length, bestand = gs.pool.players.length;
   win.handleSignPlayer(kandidat.id);
   return gs.squad.length === kader + 1 && gs.pool.players.length === bestand - 1
