@@ -52,7 +52,7 @@ check("Alle 54 Vereine stehen zur Wahl", () => {
 });
 
 console.log("\n--- Start in jeder Liga ---");
-[[1,"FC Bayern München"],[2,"Hamburger SV"],[3,"TSV 1860 München"]].forEach(([nr,verein])=>{
+[[1,"FC Bayern München"],[2,"Hertha BSC"],[3,"Rot-Weiss Essen"]].forEach(([nr,verein])=>{
   const win=neueWelt();
   const $=id=>win.document.getElementById(id);
   $("clubSelect").value=verein;
@@ -106,7 +106,7 @@ console.log("\n--- Start in jeder Liga ---");
 console.log("\n--- Auf- und Abstieg über drei Ligen ---");
 const w=neueWelt();
 const $w=id=>w.document.getElementById(id);
-$w("clubSelect").value="Hamburger SV"; w.startCareer();
+$w("clubSelect").value="Hertha BSC"; w.startCareer();
 const gw=w.gameState; gw.liveMatches=false; gw.pressConferences=false;
 
 check("Vor der Saison: 18 Vereine je Liga", () =>

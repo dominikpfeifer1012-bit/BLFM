@@ -2,46 +2,48 @@
 // CONFIG.JS - Zentrale Konstanten und Einstellungen
 // ============================================
 
+// Bundesliga 2026/27. Staerken nach Abschlusstabelle 2025/26, Kaderwert und Groesse.
 const CLUBS = [
   {name:"FC Bayern München", strength:92},
-  {name:"Bayer Leverkusen", strength:87},
-  {name:"RB Leipzig", strength:85},
-  {name:"Borussia Dortmund", strength:84},
-  {name:"VfB Stuttgart", strength:78},
+  {name:"Borussia Dortmund", strength:85},
+  {name:"Bayer Leverkusen", strength:84},
+  {name:"RB Leipzig", strength:84},
+  {name:"VfB Stuttgart", strength:80},
+  {name:"TSG Hoffenheim", strength:78},
   {name:"Eintracht Frankfurt", strength:77},
   {name:"SC Freiburg", strength:75},
-  {name:"1. FC Union Berlin", strength:74},
-  {name:"Werder Bremen", strength:72},
-  {name:"VfL Wolfsburg", strength:73},
-  {name:"1. FSV Mainz 05", strength:70},
-  {name:"Borussia Mönchengladbach", strength:71},
-  {name:"TSG Hoffenheim", strength:69},
-  {name:"FC Augsburg", strength:66},
-  {name:"1. FC Heidenheim", strength:64},
-  {name:"FC St. Pauli", strength:62},
-  {name:"Holstein Kiel", strength:61},
-  {name:"FC Schalke 04", strength:68}
+  {name:"Borussia Mönchengladbach", strength:72},
+  {name:"1. FC Union Berlin", strength:71},
+  {name:"1. FSV Mainz 05", strength:71},
+  {name:"FC Augsburg", strength:70},
+  {name:"Werder Bremen", strength:70},
+  {name:"Hamburger SV", strength:69},
+  {name:"FC Schalke 04", strength:68},
+  {name:"1. FC Köln", strength:68},
+  {name:"SC Paderborn 07", strength:64},
+  {name:"SV Elversberg", strength:64}
 ];
 
+// 2. Bundesliga 2026/27 (Absteiger Wolfsburg, St. Pauli, Heidenheim; Aufsteiger Osnabrueck, Cottbus).
 const SECOND_DIVISION_CLUBS = [
-  {name:"Hamburger SV", strength:66},
-  {name:"1. FC Köln", strength:65},
-  {name:"Hertha BSC", strength:63},
-  {name:"Fortuna Düsseldorf", strength:62},
-  {name:"1. FC Kaiserslautern", strength:60},
-  {name:"Karlsruher SC", strength:60},
-  {name:"Hannover 96", strength:59},
-  {name:"SC Paderborn 07", strength:59},
-  {name:"1. FC Nürnberg", strength:58},
-  {name:"SV Elversberg", strength:57},
+  {name:"VfL Wolfsburg", strength:67},
+  {name:"Hannover 96", strength:64},
+  {name:"FC St. Pauli", strength:63},
+  {name:"1. FC Heidenheim", strength:62},
+  {name:"SV Darmstadt 98", strength:61},
+  {name:"1. FC Kaiserslautern", strength:61},
+  {name:"Hertha BSC", strength:61},
+  {name:"VfL Bochum", strength:60},
+  {name:"1. FC Nürnberg", strength:59},
+  {name:"Karlsruher SC", strength:58},
+  {name:"Holstein Kiel", strength:58},
+  {name:"Dynamo Dresden", strength:57},
+  {name:"Arminia Bielefeld", strength:57},
   {name:"1. FC Magdeburg", strength:57},
-  {name:"SpVgg Greuther Fürth", strength:56},
-  {name:"SV Darmstadt 98", strength:56},
-  {name:"Eintracht Braunschweig", strength:54},
-  {name:"Hansa Rostock", strength:53},
-  {name:"Preußen Münster", strength:52},
-  {name:"SSV Ulm 1846", strength:52},
-  {name:"SSV Jahn Regensburg", strength:51}
+  {name:"VfL Osnabrück", strength:56},
+  {name:"Energie Cottbus", strength:55},
+  {name:"Eintracht Braunschweig", strength:55},
+  {name:"SpVgg Greuther Fürth", strength:54}
 ];
 
 const SQUAD_COMPOSITION = [
@@ -156,20 +158,20 @@ const EUROPE_ROUND_BONUS = 400000;
 const EUROPE_CHAMPION_BONUS = 6000000;
 
 const EURO_CLUBS = [
-  {name:"Real Madrid", strength:93},
-  {name:"Manchester City", strength:92},
-  {name:"FC Barcelona", strength:90},
+  {name:"Real Madrid", strength:92},
+  {name:"Manchester City", strength:90},
+  {name:"FC Barcelona", strength:91},
   {name:"FC Liverpool", strength:90},
-  {name:"Paris Saint-Germain", strength:89},
+  {name:"Paris Saint-Germain", strength:91},
   {name:"Inter Mailand", strength:88},
-  {name:"FC Arsenal", strength:88},
+  {name:"FC Arsenal", strength:90},
   {name:"Atlético Madrid", strength:86},
   {name:"FC Chelsea", strength:85},
   {name:"Juventus Turin", strength:85},
   {name:"SSC Neapel", strength:84},
   {name:"Atalanta Bergamo", strength:83},
   {name:"AC Mailand", strength:83},
-  {name:"Manchester United", strength:82},
+  {name:"Manchester United", strength:80},
   {name:"Benfica Lissabon", strength:81},
   {name:"Sporting Lissabon", strength:81},
   {name:"FC Porto", strength:80},
@@ -748,28 +750,27 @@ const FACILITIES = {
 // ============================================
 // Ligen
 // ============================================
-// Die 3. Liga wechselt jaehrlich stark in ihrer Zusammensetzung. Die Namen
-// sind typische Vertreter, die Staerken sind Schaetzungen — beides laesst
-// sich hier jederzeit anpassen.
+// 3. Liga 2026/27. Die echte Liga hat 20 Vereine; das Spiel rechnet mit 18 pro Liga,
+// deshalb fehlen vorerst die Aufsteiger SG Sonnenhof Grossaspach und Fortuna Koeln.
 const THIRD_DIVISION_CLUBS = [
-  {name:"TSV 1860 München", strength:51},
-  {name:"Dynamo Dresden", strength:50},
-  {name:"Rot-Weiss Essen", strength:49},
-  {name:"1. FC Saarbrücken", strength:49},
-  {name:"Energie Cottbus", strength:48},
-  {name:"SV Waldhof Mannheim", strength:48},
-  {name:"VfL Osnabrück", strength:47},
-  {name:"Arminia Bielefeld", strength:47},
-  {name:"FC Erzgebirge Aue", strength:46},
-  {name:"SpVgg Unterhaching", strength:45},
-  {name:"VfB Stuttgart II", strength:45},
-  {name:"Hallescher FC", strength:44},
-  {name:"SC Verl", strength:44},
-  {name:"FC Viktoria Köln", strength:43},
-  {name:"SV Sandhausen", strength:43},
-  {name:"Alemannia Aachen", strength:42},
-  {name:"TSV Havelse", strength:41},
-  {name:"FC Ingolstadt 04", strength:41}
+  {name:"Fortuna Düsseldorf", strength:52},
+  {name:"Rot-Weiss Essen", strength:51},
+  {name:"MSV Duisburg", strength:51},
+  {name:"Preußen Münster", strength:50},
+  {name:"Hansa Rostock", strength:50},
+  {name:"SC Verl", strength:49},
+  {name:"Alemannia Aachen", strength:49},
+  {name:"SV Wehen Wiesbaden", strength:48},
+  {name:"SV Waldhof Mannheim", strength:47},
+  {name:"FC Viktoria Köln", strength:46},
+  {name:"FC Ingolstadt 04", strength:46},
+  {name:"SSV Jahn Regensburg", strength:46},
+  {name:"1. FC Saarbrücken", strength:46},
+  {name:"VfB Stuttgart II", strength:44},
+  {name:"TSG Hoffenheim II", strength:44},
+  {name:"Würzburger Kickers", strength:44},
+  {name:"SV Meppen", strength:43},
+  {name:"TSV Havelse", strength:41}
 ];
 
 // Ziele fuer die dritte Liga
