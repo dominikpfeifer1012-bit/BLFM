@@ -18,7 +18,6 @@
 <!-- Schriften liegen lokal in modules/fonts.css — kein Internet noetig. -->
 <link rel="stylesheet" href="modules/fonts.css">
 <style>
-body{ padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
 :root{
   --bg:#0B1620; --bg-deep:#071019;
   --panel:#16232F; --panel-2:#1E2E3D; --line:#2A3D4F;
@@ -85,7 +84,14 @@ tr.rowLink:hover{ background:var(--panel-2); }
 .tableWrap{ overflow-x:auto; }
 
 /* ---- Kopfbereich ---- */
-#stickyBar{ position:sticky; top:0; z-index:60; background:rgba(11,22,32,.94); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+/* padding-top: Platz fuer Uhr und Notch, wenn das Spiel vom Startbildschirm laeuft */
+#stickyBar{ position:sticky; top:0; z-index:60; background:rgba(11,22,32,.94); backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top,0px); }
+#setup{ margin-top:calc(70px + env(safe-area-inset-top,0px)) !important; }
+.onlyMobile,.tabIcon,.tabShort{ display:none; }
+.btnIcon{ margin-right:6px; }
+.iconBtn.off{ opacity:.55; }
+.tabDot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--win); margin-left:5px; vertical-align:middle; }
 .idRow{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:14px 0 10px; }
 .crest{ width:44px; height:44px; border-radius:var(--r-sm); background:linear-gradient(150deg,var(--gold),var(--gold-deep));
   display:grid; place-items:center; font-family:var(--display); font-size:20px; color:#10202C; flex:none; }
@@ -234,6 +240,9 @@ tr.dim:hover td{ opacity:1; }
 .toast.error{ border-left-color:var(--loss); }
 @keyframes toastIn{ from{opacity:0; transform:translateX(12px);} to{opacity:1; transform:none;} }
 
+.contractRow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-top:1px solid var(--line); font-size:13px; }
+.contractRow button{ padding:5px 10px; font-size:12px; white-space:nowrap; }
+.contractName{ min-width:0; }
 #log{ max-height:440px; overflow-y:auto; font-size:13px; }
 #log > div{ padding:5px 0; }
 .logDivider{ border-top:1px solid var(--line); margin-top:7px; padding-top:9px; }
@@ -257,6 +266,44 @@ tr.dim:hover td{ opacity:1; }
   /* Unten statt oben, damit Meldungen die Spielknoepfe nicht verdecken */
   .toastContainer{ left:12px; right:12px; top:auto; bottom:12px; max-width:none; }
   .crest{ width:36px; height:36px; }
+}
+/* ---- Handy: kompakter Kopf, Tabs als Leiste unten ----
+   Vorher belegte der feste Kopf ueber die Haelfte des Bildschirms. Jetzt:
+   eine Zeile Verein + Kennzahlen, ein schmales Formband, eine Aktionszeile
+   mit Hauptknopf und Symbolknoepfen. Die Tabs wandern wie in einer App an
+   den unteren Rand, in Reichweite des Daumens. */
+@media (max-width:640px){
+  #stickyBar{ backdrop-filter:none; background:var(--bg); }
+  .idRow{ flex-wrap:nowrap; gap:8px; padding:6px 0 4px; }
+  .crest{ width:30px; height:30px; font-size:15px; }
+  .idText{ min-width:0; flex:1; }
+  .idText h2{ font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #statusLine{ font-size:11px; margin:0 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chipRow{ flex-wrap:nowrap; gap:4px; flex:none; }
+  .chip{ padding:3px 6px; font-size:12px; }
+  .chip .chipLabel,.chipSalary{ display:none; }
+  .divisionBadge{ padding:3px 5px; }
+  .formBand{ padding:0 0 6px; }
+  .formSeg{ height:5px; } .formSeg.now{ height:8px; margin-top:-1.5px; }
+  #nextOpponentLine,#transferWindowBadge,.hideMobile{ display:none !important; }
+  .onlyMobile{ display:inline; }
+  .actionRow{ flex-wrap:nowrap; gap:6px; padding-bottom:8px; }
+  .actionRow button{ padding:8px 10px; }
+  #simulateBtn{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .iconBtn{ width:42px; flex:none; padding:7px 0 !important; font-size:17px; letter-spacing:0; }
+  .iconBtn .btnLabel{ display:none; } .iconBtn .btnIcon{ margin:0; }
+  #tabBar{ position:fixed; left:0; right:0; bottom:0; z-index:70; background:var(--bg-deep); border-top:1px solid var(--line);
+    padding:0 0 env(safe-area-inset-bottom,0px); gap:0; overflow:visible; }
+  .tabBtn{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:7px 0 6px;
+    border-bottom:none; border-top:2px solid transparent; font-size:10px; letter-spacing:.03em; }
+  .tabBtn.active{ border-top-color:var(--gold); border-bottom-color:transparent; }
+  .tabIcon{ display:block; font-size:18px; line-height:1; }
+  .tabLong{ display:none; } .tabShort{ display:inline; }
+  .tabDot{ position:absolute; margin:0 0 0 14px; }
+  .tabPanel{ padding-top:12px; }
+  #squadTable td,#squadTable th{ padding:6px 5px; }
+  body{ padding-bottom:calc(76px + env(safe-area-inset-bottom,0px)); }
+  .toastContainer{ bottom:calc(68px + env(safe-area-inset-bottom,0px)) !important; }
 }
 @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
 </style>
@@ -289,10 +336,10 @@ tr.dim:hover td{ opacity:1; }
     <p id="nextOpponentLine"></p>
     <div class="actionRow">
       <button id="simulateBtn" onclick="handleSimulateMatchday()">Spieltag simulieren</button>
-      <button class="ghost" onclick="openTransferMarket()">Transfermarkt</button>
-      <button class="ghost" onclick="openSaveModal()">Spielstände</button>
-      <button class="ghost" id="liveToggleBtn" onclick="toggleLiveMatches()">Live: an</button>
-      <button class="ghost" id="pressToggleBtn" onclick="togglePressConferences()">Presse: an</button>
+      <button class="ghost hideMobile" onclick="openTransferMarket()">Transfermarkt</button>
+      <button class="ghost iconBtn" onclick="openSaveModal()" title="Spielstände" aria-label="Spielstände"><span class="btnIcon">💾</span><span class="btnLabel">Spielstände</span></button>
+      <button class="ghost iconBtn" id="liveToggleBtn" onclick="toggleLiveMatches()" title="Live-Spiele an/aus">Live: an</button>
+      <button class="ghost iconBtn" id="pressToggleBtn" onclick="togglePressConferences()" title="Pressekonferenzen an/aus">Presse: an</button>
       <span id="transferWindowBadge" class="windowBadge"></span>
     </div>
     <nav id="tabBar"></nav>
@@ -364,6 +411,10 @@ tr.dim:hover td{ opacity:1; }
             <span id="teamRatingLine" hidden></span>
             <span id="budgetLine" hidden></span>
             <span id="salaryLine" hidden></span>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Auslaufende Verträge</h3><span class="eyebrow">Ende der Saison</span></div>
+            <div id="contractPanel"></div>
           </div>
         </div>
       </div>

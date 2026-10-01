@@ -18,6 +18,14 @@ function getSeasonGoal(clubStrength, division){
   return list.find(g => clubStrength >= g.minStrength) || list[list.length - 1];
 }
 
+// Der Vorstand misst am Kader, nicht nur am Ruf: wer kraeftig aufruestet,
+// soll auch mehr liefern. Sonst blieb ein Verein mit Teamstaerke 89 beim
+// Ziel "Mittelfeld", weil die Vereinsstaerke nur langsam nachzieht.
+function getBoardReferenceStrength(gameState){
+  const kader = (gameState.squad || []).length ? teamRating(gameState.squad, 1) : 0;
+  return Math.max(getOwnClubStrength(gameState), kader);
+}
+
 function createFreshBoard(clubStrength, division, carryPatience){
   const goal = getSeasonGoal(clubStrength, division);
   return {

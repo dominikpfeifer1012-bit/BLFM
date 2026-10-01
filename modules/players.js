@@ -153,6 +153,11 @@ function calculatePlayerValue(strength, age, maxStrength){
   return Math.max(PRICE_CONFIG.minValue, Math.round(rawValue / PRICE_CONFIG.roundTo) * PRICE_CONFIG.roundTo);
 }
 
+function getPotentialAgeFactor(age){
+  const stufe = POTENTIAL_AGE_FACTORS.find(s => age <= s.maxAge);
+  return stufe ? stufe.factor : POTENTIAL_AGE_FACTORS[POTENTIAL_AGE_FACTORS.length - 1].factor;
+}
+
 function calculateMaxPotentialGain(baseStrength){
   const rawGain = DEV_POTENTIAL_SLOPE * baseStrength + DEV_POTENTIAL_INTERCEPT;
   return Math.max(DEV_POTENTIAL_GAIN_MIN, Math.min(DEV_POTENTIAL_GAIN_MAX, rawGain));
@@ -184,7 +189,10 @@ function genPlayer(baseStrength, pos, ageRange, allowScouting){
   const strength = Math.max(40, Math.min(99, baseStrength + randInt(-10, 10)));
   const range = ageRange || [18, 34];
   const age = randInt(range[0], range[1]);
-  const maxPotentialGain = calculateMaxPotentialGain(strength);
+  // Potenzial haengt vom Alter ab: ein 18-Jaehriger hat viel Luft nach oben,
+  // ein 31-Jaehriger kaum noch. Vorher hatten beide im Schnitt fast gleich viel.
+  const maxPotentialGain = Math.max(DEV_POTENTIAL_GAIN_MIN, Math.min(DEV_POTENTIAL_GAIN_MAX,
+    Math.round(calculateMaxPotentialGain(strength) * getPotentialAgeFactor(age) * randFloat(0.7, 1.3))));
   let maxStrength = Math.min(99, strength + maxPotentialGain);
   let isScoutingFind = false;
 

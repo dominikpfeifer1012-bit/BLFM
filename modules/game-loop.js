@@ -219,6 +219,8 @@ function runMatchdaySimulation(){
     addLogEntry(gameState, "⚠️ Das Konto ist im Minus. Transfers sind erst wieder möglich, wenn es ausgeglichen ist.", "loss", false);
     showToast("⚠️ Konto im Minus — verkaufe Spieler oder senke die Gehaltslast.", "error");
   }
+  handleDebt();
+  remindExpiringContracts();
 
   if(result.injuries && result.injuries.length > 0){
     result.injuries.forEach(inj => {
@@ -280,7 +282,8 @@ function runMatchdaySimulation(){
         clubName: gameState.clubName,
         home: ownEvt.home, away: ownEvt.away,
         homeGoals: ownEvt.homeGoals, awayGoals: ownEvt.awayGoals,
-        scorers: ownEvt.scorers, cards: result.cards, injuries: result.injuries
+        scorers: ownEvt.scorers, opponentScorers: ownEvt.opponentScorers,
+        cards: result.cards, injuries: result.injuries
       }),
       summaryLine: `Einnahmen ${fmtMoney(ownBonus + baseRevenue)} · Gehälter ${fmtMoney(salaryCost)}`
     });
@@ -309,3 +312,42 @@ function announceTransferWindowChange(){
 
 // Der Transfers-Tab ist immer erreichbar. Ob gehandelt werden darf,
 // entscheidet die Kauf- bzw. Verkaufslogik.
+
+// Schulden haben Folgen: der Vorstand verliert pro Spieltag im Minus Geduld,
+// und haelt das Minus an, verkauft er selbst den wertvollsten Spieler.
+function handleDebt(){
+  if(gameState.budget >= 0){ gameState.debtMatchdays = 0; return; }
+  gameState.debtMatchdays = (gameState.debtMatchdays || 0) + 1;
+  if(gameState.board && !gameState.board.dismissed){
+    gameState.board.patience = Math.max(0, gameState.board.patience - DEBT_PATIENCE_PER_MATCHDAY);
+  }
+  if(gameState.debtMatchdays < DEBT_FORCED_SALE_AFTER || !canSellFromSquad(gameState.squad)) return;
+
+  const idx = gameState.squad.reduce((best, p, i, arr) => p.value > arr[best].value ? i : best, 0);
+  const spieler = gameState.squad[idx];
+  const erloes = calculateSellValue(spieler.value);
+  gameState.squad.splice(idx, 1);
+  pruneLineup(gameState);
+  const club = findNewClubFor(gameState, spieler);
+  spieler.clubName = club ? club.name : null;
+  spieler.clubTier = club ? club.tier : "frei";
+  spieler.transferListed = false;
+  spieler.consecutiveStarts = 0;
+  if(gameState.pool) gameState.pool.players.push(spieler);
+  gameState.budget += erloes;
+  gameState.seasonTransferIn = (gameState.seasonTransferIn || 0) + erloes;
+  gameState.debtMatchdays = 0;
+  const text = `🏦 Zwangsverkauf: Der Vorstand gibt ${spieler.name} (${Math.round(spieler.strength)}) für ${fmtMoney(erloes)} an ${club ? club.name : "einen anderen Verein"} ab, um die Schulden zu decken.`;
+  addLogEntry(gameState, text, "loss", false);
+  showToast(text, "error");
+}
+
+// Rechtzeitig vor dem Sommer an auslaufende Vertraege erinnern.
+function remindExpiringContracts(){
+  if(!CONTRACT_REMINDER_MATCHDAYS.includes(gameState.matchday)) return;
+  const n = (gameState.squad || []).filter(p => isContractExpiring(p) && p.age < RETIREMENT_FORCED_AGE - 1).length;
+  if(n === 0) return;
+  const text = `📝 ${n} Vertrag${n === 1 ? " läuft" : "e laufen"} zum Saisonende aus — Übersicht im Kader-Tab.`;
+  addLogEntry(gameState, text, null, false);
+  showToast(text, "info");
+}

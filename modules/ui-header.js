@@ -9,8 +9,10 @@ function renderHeader(gameState){
   if(crest) crest.textContent = gameState.clubName.replace(/^\d+\.\s*/, "").charAt(0);
 
   document.getElementById("clubHeader").textContent = gameState.clubName;
+  const tag = Math.min(gameState.matchday + 1, TOTAL_MATCHDAYS);
   document.getElementById("statusLine").innerHTML =
-    `${getManagerLabel(gameState)} · Saison <span class="num">${gameState.season}/${gameState.season + 1}</span> · Spieltag <span class="num">${Math.min(gameState.matchday + 1, TOTAL_MATCHDAYS)}</span> von <span class="num">${TOTAL_MATCHDAYS}</span>`;
+    `<span class="hideMobile">${getManagerLabel(gameState)} · Saison <span class="num">${gameState.season}/${gameState.season + 1}</span> · Spieltag <span class="num">${tag}</span> von <span class="num">${TOTAL_MATCHDAYS}</span></span>` +
+    `<span class="onlyMobile">Saison ${String(gameState.season).slice(2)}/${String(gameState.season + 1).slice(2)} · Spieltag ${tag}/${TOTAL_MATCHDAYS}</span>`;
 
   const chips = document.getElementById("headerChips");
   if(chips){
@@ -19,8 +21,8 @@ function renderHeader(gameState){
     chips.innerHTML = `
       <span class="divisionBadge ${gameState.division === 1 ? "div1" : "div2"}">${getDivisionConfig(gameState.division).short}</span>
       <span class="chip">Team <b>${rating}</b></span>
-      <span class="chip${negBudget}">Budget <b>${fmtMoney(gameState.budget)}</b></span>
-      <span class="chip">Gehalt <b>${fmtMoney(getMatchdaySalaryCost(gameState.squad))}</b>/ST</span>`;
+      <span class="chip${negBudget}"><span class="chipLabel">Budget </span><b>${fmtMoney(gameState.budget)}</b></span>
+      <span class="chip chipSalary">Gehalt <b>${fmtMoney(getMatchdaySalaryCost(gameState.squad))}</b>/ST</span>`;
   }
 
   renderFormBand(gameState);
@@ -28,11 +30,16 @@ function renderHeader(gameState){
   const simBtn = document.getElementById("simulateBtn");
   if(simBtn && !simBtn.disabled) simBtn.textContent = getNextEventLabel();
 
-  const pressBtn = document.getElementById("pressToggleBtn");
-  if(pressBtn) pressBtn.textContent = isPressEnabled(gameState) ? "Presse: an" : "Presse: aus";
-
-  const liveBtn = document.getElementById("liveToggleBtn");
-  if(liveBtn) liveBtn.textContent = isLiveEnabled() ? "Live: an" : "Live: aus";
+  // Symbol plus Beschriftung; auf dem Handy bleibt nur das Symbol, der
+  // Aus-Zustand ist dann am abgeblendeten Knopf erkennbar.
+  const toggle = (btn, icon, label, an) => {
+    if(!btn) return;
+    btn.innerHTML = `<span class="btnIcon">${icon}</span><span class="btnLabel">${label}: ${an ? "an" : "aus"}</span>`;
+    btn.classList.toggle("off", !an);
+    btn.setAttribute("aria-label", `${label} ${an ? "an" : "aus"}`);
+  };
+  toggle(document.getElementById("pressToggleBtn"), "🎤", "Presse", isPressEnabled(gameState));
+  toggle(document.getElementById("liveToggleBtn"), "📡", "Live", isLiveEnabled());
 
   const badgeEl = document.getElementById("transferWindowBadge");
   if(badgeEl){
@@ -257,7 +264,13 @@ function renderTacticMatchup(info){
   const bewerten = w => w > 0.02 ? { text: "mehr", farbe: "var(--win)" }
                      : w < -0.02 ? { text: "weniger", farbe: "var(--loss)" }
                      : { text: "unverändert", farbe: "var(--ink-dim)" };
-  const an = bewerten(wirkung.own), ab = bewerten(-wirkung.opp);
+  const an = bewerten(wirkung.own);
+  // Gegentore: Farbe nach Wirkung (mehr = schlecht = rot), Text nach Richtung.
+  // Vorher wurde beides umgedreht, und es hiess "Gegentorgefahr weniger",
+  // obwohl sie stieg.
+  const ab = wirkung.opp > 0.02 ? { text: "höher", farbe: "var(--loss)" }
+           : wirkung.opp < -0.02 ? { text: "geringer", farbe: "var(--win)" }
+           : { text: "unverändert", farbe: "var(--ink-dim)" };
 
   // Empfehlung: welche eigene Ausrichtung bringt gegen diesen Gegner das
   // beste Verhaeltnis aus eigenen und gegnerischen Chancen?

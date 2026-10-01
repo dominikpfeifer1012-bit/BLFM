@@ -74,7 +74,11 @@ function applyTactic(gameState, lambdaOwn, lambdaOpp){
 function getTeamSides(gameState, teamName){
   if(teamName === gameState.clubName){
     const ad = getTeamAttackDefence(gameState.squad, gameState.matchday + 1);
-    return { attack: ad.attack, defence: ad.defence };
+    // Der Trainingsschwerpunkt wirkt sofort auf die Spielweise, nicht nur
+    // ueber die langsame Entwicklung der Attribute.
+    const training = typeof getActiveTraining === "function" ? getActiveTraining() : null;
+    const effekt = (training && training.match) || { att: 0, def: 0 };
+    return { attack: ad.attack + effekt.att, defence: ad.defence + effekt.def };
   }
   const strength = getTeamStrength(gameState, teamName);
   return { attack: strength, defence: strength };
@@ -85,8 +89,10 @@ function simulateMatch(gameState, home, away){
   const a = getTeamSides(gameState, away);
   const homeAttack = h.attack + 3, homeDefence = h.defence + 3;
 
-  let lambdaHome = Math.max(0.3, 1.4 + (homeAttack - a.defence) / 25);
-  let lambdaAway = Math.max(0.3, 1.2 + (a.attack - homeDefence) / 25);
+  // Grundwerte so, dass im Schnitt knapp 2,8 Tore pro Spiel fallen
+  // (Bundesliga: rund 3). Vorher waren es 2,57.
+  let lambdaHome = Math.max(0.3, 1.5 + (homeAttack - a.defence) / 25);
+  let lambdaAway = Math.max(0.3, 1.27 + (a.attack - homeDefence) / 25);
 
   // Grundausrichtung der eigenen Mannschaft
   if(home === gameState.clubName){
@@ -228,9 +234,16 @@ function simulateMatchday(gameState){
 
     // Tore der KI-Vereine ihren Spielern zuordnen — Grundlage fuer die
     // ligaweite Torschuetzenliste.
+    let gegnerTorschuetzen = [];
     if(typeof assignPoolScorers === "function"){
-      if(f.home !== gameState.clubName) assignPoolScorers(gameState, f.home, homeGoals);
-      if(f.away !== gameState.clubName) assignPoolScorers(gameState, f.away, awayGoals);
+      if(f.home !== gameState.clubName){
+        const namen = assignPoolScorers(gameState, f.home, homeGoals);
+        if(f.away === gameState.clubName) gegnerTorschuetzen = namen;
+      }
+      if(f.away !== gameState.clubName){
+        const namen = assignPoolScorers(gameState, f.away, awayGoals);
+        if(f.home === gameState.clubName) gegnerTorschuetzen = namen;
+      }
     }
 
     if(f.home === gameState.clubName || f.away === gameState.clubName){
@@ -252,7 +265,8 @@ function simulateMatchday(gameState){
         result,
         ownStrength,
         opponentStrength,
-        scorers
+        scorers,
+        opponentScorers: gegnerTorschuetzen
       });
 
       injuries = processInjuries(gameState, day + 1);
@@ -329,6 +343,35 @@ function drawDistinctMinutes(count, bias, used){
 
 // Baut die vollstaendige Zeitachse eines Spiels: Tore mit Torschuetzen,
 // Karten und Verletzungen, chronologisch sortiert.
+// Torchancen, Paraden und Aluminium: damit ein 0:0 im Ticker nicht leer
+// bleibt. Die Zahl richtet sich nach den Toren — wer trifft, hatte meist
+// auch sonst mehr vom Spiel. Namen kommen aus der eigenen Startelf bzw.
+// dem Kader des Gegners im Weltbestand.
+function addChanceEvents(input, ownIsHome, ownGoals, oppGoals, used, events){
+  const gs = typeof gameState !== "undefined" ? gameState : null;
+  const eigene = gs && gs.squad ? getStartingXI(gs.squad, gs.matchday) : [];
+  const gegnerName = ownIsHome ? input.away : input.home;
+  const gegner = gs && gs.pool ? getClubRoster(gs.pool, gegnerName) : [];
+
+  const schuetze = kader => {
+    const feld = kader.filter(p => p.pos !== "TW");
+    if(feld.length === 0) return null;
+    const gewichtet = [];
+    feld.forEach(p => { for(let i = 0; i < (SCORER_WEIGHTS[p.pos] || 1); i++) gewichtet.push(p); });
+    return randChoice(gewichtet).name;
+  };
+  const torwart = kader => { const tw = kader.find(p => p.pos === "TW"); return tw ? tw.name : null; };
+
+  const anzahl = tore => Math.min(5, randInt(1, 3) + Math.round(tore * 0.6));
+  [["own", anzahl(ownGoals), eigene, gegner], ["opp", anzahl(oppGoals), gegner, eigene]].forEach(([seite, n, angreifer, verteidiger]) => {
+    drawDistinctMinutes(n, 0.5, used).forEach(minute => {
+      const r = Math.random();
+      const type = r < 0.45 ? "chance" : r < 0.85 ? "save" : "post";
+      events.push({ minute, type, side: seite, player: schuetze(angreifer), keeper: torwart(verteidiger) });
+    });
+  });
+}
+
 function buildMatchTimeline(input){
   const used = new Set();
   const events = [];
@@ -341,9 +384,12 @@ function buildMatchTimeline(input){
   drawDistinctMinutes(ownGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach((minute, i) => {
     events.push({ minute, type: "goal", side: "own", scorer: scorers[i] || null });
   });
-  drawDistinctMinutes(oppGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach(minute => {
-    events.push({ minute, type: "goal", side: "opp", scorer: null });
+  const oppScorers = (input.opponentScorers || []).slice();
+  drawDistinctMinutes(oppGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach((minute, i) => {
+    events.push({ minute, type: "goal", side: "opp", scorer: oppScorers[i] || null });
   });
+
+  addChanceEvents(input, ownIsHome, ownGoals, oppGoals, used, events);
 
   (input.cards || []).forEach(c => {
     const minute = drawDistinctMinutes(1, 0.55, used)[0];
@@ -356,7 +402,9 @@ function buildMatchTimeline(input){
     events.push({ minute, type: "injury", player: inj.player.name, duration: inj.duration });
   });
 
-  events.sort((a, b) => a.minute - b.minute);
+  events.push({ minute: 45, type: "half", order: 1 });
+  events.push({ minute: 90, type: "end", order: 1 });
+  events.sort((a, b) => a.minute - b.minute || (a.order || 0) - (b.order || 0));
 
   // Zwischenstand nach jedem Ereignis mitfuehren, damit die Anzeige beim
   // Abspielen nicht nachrechnen muss.

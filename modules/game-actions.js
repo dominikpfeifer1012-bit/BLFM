@@ -41,7 +41,9 @@ function handleRenewContract(playerId){
   showToast(result.message, result.success ? "success" : "error");
   if(result.success){
     addLogEntry(gameState, result.message);
-    showPlayerDetail(playerId);
+    // Nur das offene Profil auffrischen; aus der Vertragsliste heraus kein neues Fenster.
+    const profil = document.getElementById("playerModalOverlay");
+    if(profil && profil.classList.contains("show")) showPlayerDetail(playerId);
     refreshSquadViews();
   }
 }

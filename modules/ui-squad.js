@@ -82,9 +82,9 @@ function renderSquad(gameState){
     <th class="sortable" onclick="handleSquadSort('name')">Name${sortArrow('name')}</th>
     <th class="sortable" onclick="handleSquadSort('strength')">Bewertung${sortArrow('strength')}</th>
     <th class="sortable" onclick="handleSquadSort('age')">Alter${sortArrow('age')}</th>
-    <th class="sortable" onclick="handleSquadSort('goals')">Tore${sortArrow('goals')}</th>
-    <th class="sortable" onclick="handleSquadSort('value')">Marktwert${sortArrow('value')}</th>
-    <th class="sortable" onclick="handleSquadSort('salary')">Gehalt${sortArrow('salary')}</th>
+    <th class="sortable hideMobile" onclick="handleSquadSort('goals')">Tore${sortArrow('goals')}</th>
+    <th class="sortable hideMobile" onclick="handleSquadSort('value')">Marktwert${sortArrow('value')}</th>
+    <th class="sortable hideMobile" onclick="handleSquadSort('salary')">Gehalt${sortArrow('salary')}</th>
     <th class="sortable" onclick="handleSquadSort('contract')">Vertrag${sortArrow('contract')}</th>
     <th>Status</th>
   </tr>`;
@@ -146,7 +146,7 @@ function renderSquad(gameState){
     const youthTag = p.isYouthProduct ? ' <span title="Eigengewächs aus der Jugend">🌱</span>' : "";
     const flag = getFlag(p) ? `<span title="${getNationality(p).name}">${getFlag(p)}</span> ` : "";
     const ageStyle = p.age >= RETIREMENT_MIN_AGE ? ' style="color:#fca311;" title="Karriereende möglich"' : "";
-    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b>${icon} ${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n">${p.goalsSeason || 0}</td><td class="n">${fmtMoney(p.value)}</td><td class="n">${fmtMoney(calculatePlayerSalary(p.strength, p.age))}</td><td class="n"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft am Saisonende aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
+    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b>${icon} ${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(calculatePlayerSalary(p.strength, p.age))}</td><td class="n"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft am Saisonende aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
   });
 
   document.getElementById("squadTable").innerHTML = html;
@@ -373,6 +373,7 @@ function resetLineup(){
 // bis zum naechsten Spieltag still.
 function refreshSquadViews(){
   renderHeader(gameState);
+  renderContractPanel(gameState);
   renderOpponentPreview(gameState);
   renderNextMatch(gameState);
   renderSquad(gameState);
@@ -493,7 +494,7 @@ function showPlayerDetail(playerId){
         <p class="muted" style="margin:8px 0 0; font-size:12px;">
           ${isReadyForPromotion(gameState, player)
             ? "Stark genug für die erste Mannschaft."
-            : "Noch schwächer als jeder Profi auf dieser Position."}</p>
+            : "Noch nicht so weit: zu weit unter dem Niveau der Mannschaft oder schwächer als jeder Profi auf dieser Position."}</p>
       </div>` : `
     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="ghost" onclick="handleRenewContract('${player.id}')">
@@ -728,4 +729,28 @@ function showYouthIntakeModal(){
 function closeYouthIntakeModal(){
   const el = document.getElementById("youthIntakeOverlay");
   if(el) el.classList.remove("show");
+}
+
+// Wer am Saisonende ablösefrei geht, wenn nichts passiert. Vorher kam das
+// ohne Vorwarnung: jeden Sommer verliessen sieben bis neun Spieler den Verein.
+function renderContractPanel(gameState){
+  const el = document.getElementById("contractPanel");
+  if(!el) return;
+  const xi = new Set(getStartingXIIds(gameState.squad, gameState.matchday + 1));
+  const liste = (gameState.squad || []).filter(p => isContractExpiring(p))
+    .sort((a, b) => (xi.has(b.id) - xi.has(a.id)) || b.strength - a.strength);
+  if(liste.length === 0){
+    el.innerHTML = '<p class="muted" style="margin:0;">Kein Vertrag läuft zum Saisonende aus.</p>';
+    return;
+  }
+  el.innerHTML = `<p class="muted" style="margin:0 0 8px;">${liste.length} Spieler gehen zum Saisonende ablösefrei, wenn du nicht verlängerst.</p>` +
+    liste.map(p => {
+      const zuAlt = p.age >= RETIREMENT_FORCED_AGE - 1;
+      return `<div class="contractRow">
+        <span class="contractName"><b>${p.pos}</b> ${p.name}${xi.has(p.id) ? ' <span class="badge win">Startelf</span>' : ""}
+          <span class="muted"> · ${Math.round(p.strength)} · ${p.age} J.</span></span>
+        ${zuAlt ? '<span class="muted" style="font-size:12px;">beendet Karriere</span>'
+          : `<button class="ghost" onclick="handleRenewContract('${p.id}')">Verlängern · ${fmtMoney(getRenewalFee(p))}</button>`}
+      </div>`;
+    }).join("");
 }

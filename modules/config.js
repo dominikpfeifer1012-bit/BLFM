@@ -74,7 +74,10 @@ const POSITION_FLANK_PENALTY = 5;     // aussen <-> zentral
 const POSITION_KEEPER_PENALTY = 22;   // Torwart ist nicht ersetzbar
 const POSITION_MAX_PENALTY = 20;
 
-const SCORER_WEIGHTS = { TW:0, RV:1, IV:2, LV:1, DM:2, ZM:3, LM:3, RM:3, OM:6, ST:10 };
+// Wer trifft: Stuermer erzielen wie in der Bundesliga gut ein Drittel der
+// Mannschaftstore. Vorher waren die Tore so breit verteilt, dass der
+// Torschuetzenkoenig nur 14 bis 18 Tore schaffte.
+const SCORER_WEIGHTS = { TW:0, RV:1, IV:1, LV:1, DM:1, ZM:3, LM:4, RM:4, OM:7, ST:16 };
 
 // --- Formationen ---
 // needs bestimmt die elf Plaetze, rows die Darstellung auf dem Spielfeld.
@@ -96,9 +99,9 @@ const DEFAULT_FORMATION = "4-2-3-1";
 
 // --- Grundausrichtung ---
 const TACTICS = {
-  offensive: { label:"Offensiv",      own:+0.25, opp:+0.20, desc:"Mehr eigene Chancen, dafür mehr Gegentore." },
+  offensive: { label:"Offensiv",      own:+0.25, opp:+0.22, desc:"Mehr eigene Chancen, dafür mehr Gegentore." },
   balanced:  { label:"Ausgeglichen",  own:0,     opp:0,     desc:"Keine Verschiebung in eine Richtung." },
-  defensive: { label:"Defensiv",      own:-0.20, opp:-0.25, desc:"Weniger Gegentore, dafür weniger eigene Chancen." }
+  defensive: { label:"Defensiv",      own:-0.22, opp:-0.25, desc:"Weniger Gegentore, dafür weniger eigene Chancen." }
 };
 const DEFAULT_TACTIC = "balanced";
 
@@ -108,6 +111,7 @@ const CONTRACT_MAX_YEARS = 5;
 const CONTRACT_YOUTH_YEARS = 3;
 const CONTRACT_RENEWAL_YEARS = 3;
 const CONTRACT_RENEWAL_FEE_FACTOR = 0.12;   // Anteil des Marktwerts als Handgeld
+const CONTRACT_REMINDER_MATCHDAYS = [26, 32];   // Erinnerung an auslaufende Vertraege
 
 // --- Belastung durch Pokalspiele ---
 const CUP_INJURY_FACTOR = 0.8;   // etwas geringer als im Ligaspiel
@@ -258,6 +262,15 @@ const DEV_POTENTIAL_SLOPE = -1/3;
 const DEV_POTENTIAL_INTERCEPT = 30;
 const DEV_POTENTIAL_GAIN_MIN = 1;
 const DEV_POTENTIAL_GAIN_MAX = 25;
+// Anteil des staerkeabhaengigen Potenzials, der je nach Alter noch offen ist.
+const POTENTIAL_AGE_FACTORS = [
+  { maxAge: 19, factor: 1.6 },
+  { maxAge: 21, factor: 1.3 },
+  { maxAge: 23, factor: 1.0 },
+  { maxAge: 26, factor: 0.6 },
+  { maxAge: 29, factor: 0.3 },
+  { maxAge: 99, factor: 0.12 }
+];
 
 const SCOUTING_CHANCE = 0.12;
 const SCOUTING_POTENTIAL_BONUS_MIN = 10;
@@ -353,7 +366,10 @@ const BOARD_MAX_SWING = 25;
 const BOARD_WARN_THRESHOLD = 30;
 const BOARD_CUP_ROUND_CREDIT = 5;
 const BOARD_EUROPE_ROUND_CREDIT = 7;
-const BOARD_GOAL_MET_BONUS = 4;          // Ziel genau erreicht: kleines Plus statt Stillstand
+// Konto im Minus: Geduldsverlust je Spieltag, Zwangsverkauf nach so vielen Spieltagen
+const DEBT_PATIENCE_PER_MATCHDAY = 1;
+const DEBT_FORCED_SALE_AFTER = 6;
+const BOARD_GOAL_MET_BONUS = 2;          // Ziel genau erreicht: kleines Plus statt Stillstand
 
 // Saisonziele haengen am Staerke-Rang innerhalb der eigenen Liga (maxRank:
 // hoechstens so viele Vereine sind staerker, plus eins). Feste Staerkewerte
@@ -493,6 +509,12 @@ const TRANSFER_MAX_ABOVE_CLUB = 10;
 // niemand fuer ein bis zwei Punkte auf einen fremden Platz rutscht.
 const AUTO_LINEUP_NATURAL_BONUS = 1.5;
 
+// Notverpflichtungen bei zu kleinem Kader: hoechstens so stark wie der Verein.
+const REFILL_MAX_ABOVE_CLUB = 0;
+
+// Jugend gilt erst als bereit, wenn sie hoechstens so weit unter der Teamstaerke liegt.
+const YOUTH_READY_MAX_BELOW_TEAM = 12;
+
 // Entwicklung des Pools zwischen den Saisons
 const POOL_DEV_YOUNG_GAIN = 2.2;
 const POOL_DEV_DECLINE = 1.6;
@@ -590,31 +612,31 @@ const TRAINING_FOCUS = {
     label: "Ausgeglichen",
     desc: "Kein Schwerpunkt. Alles entwickelt sich gleichmäßig.",
     attr: { def:1.0, pas:1.0, sho:1.0, pac:1.0 },
-    injury: 1.0, fatigue: 1.0, morale: 0
+    injury: 1.0, fatigue: 1.0, morale: 0, match: { att: 0, def: 0 }
   },
   offense: {
     label: "Offensive",
-    desc: "Abschluss und Aufbau wachsen schneller, die Abwehrarbeit leidet.",
+    desc: "Abschluss und Aufbau wachsen schneller, die Abwehrarbeit leidet. Im Spiel: Angriff +2,5, Abwehr −1,5.",
     attr: { def:0.65, pas:1.35, sho:1.45, pac:1.0 },
-    injury: 1.0, fatigue: 1.0, morale: 0.1
+    injury: 1.0, fatigue: 1.0, morale: 0.1, match: { att: 2.5, def: -1.5 }
   },
   defense: {
     label: "Defensive",
-    desc: "Abwehrarbeit wächst schneller, dafür fehlt es vorne an Schliff.",
+    desc: "Abwehrarbeit wächst schneller, dafür fehlt es vorne an Schliff. Im Spiel: Abwehr +2,5, Angriff −1,5.",
     attr: { def:1.50, pas:1.0, sho:0.60, pac:0.95 },
-    injury: 0.9, fatigue: 1.0, morale: -0.1
+    injury: 0.9, fatigue: 1.0, morale: -0.1, match: { att: -1.5, def: 2.5 }
   },
   athletics: {
     label: "Athletik",
-    desc: "Tempo wächst deutlich, aber die Verletzungsgefahr steigt spürbar.",
+    desc: "Tempo wächst deutlich, aber die Verletzungsgefahr steigt spürbar. Im Spiel: Angriff und Abwehr je +1.",
     attr: { def:0.88, pas:0.75, sho:0.88, pac:1.60 },
-    injury: 1.45, fatigue: 0.85, morale: -0.2
+    injury: 1.45, fatigue: 0.85, morale: -0.2, match: { att: 1, def: 1 }
   },
   regeneration: {
     label: "Regeneration",
-    desc: "Schont die Beine und hebt die Stimmung, kostet aber Entwicklung.",
+    desc: "Schont die Beine und hebt die Stimmung, kostet aber Entwicklung. Im Spiel: Angriff und Abwehr je −1.",
     attr: { def:0.55, pas:0.55, sho:0.55, pac:0.55 },
-    injury: 0.55, fatigue: 0.45, morale: 0.9
+    injury: 0.55, fatigue: 0.45, morale: 0.9, match: { att: -1, def: -1 }
   }
 };
 const DEFAULT_TRAINING = "balanced";
@@ -628,20 +650,25 @@ const DEFAULT_TRAINING = "balanced";
 //
 // Die Werte verschieben die Torerwartung beider Seiten. Ueber alle neun
 // Paarungen gemittelt heben sie sich nahezu auf.
+// Schere-Stein-Papier: Defensiv kontert Offensiv, Offensiv drueckt
+// Ausgeglichen an die Wand, Ausgeglichen knackt den tiefen Block. Vorher
+// hatte Defensiv in keiner Paarung einen Nachteil und war im Schnitt vier
+// bis fuenf Punkte pro Saison besser als alles andere. Jede Zeile ist das
+// Spiegelbild der Gegenrichtung: [A][B] = {own:x, opp:y} <=> [B][A] = {own:y, opp:x}.
 const TACTIC_COUNTER = {
   offensive: {
     offensive: { own: 0.15, opp: 0.15 },   // offenes Spiel
-    balanced:  { own: 0.05, opp: 0.00 },
-    defensive: { own: -0.15, opp: 0.10 }   // wird abgefangen
+    balanced:  { own: 0.10, opp: 0.00 },   // Druck
+    defensive: { own: -0.12, opp: 0.08 }   // wird abgefangen
   },
   balanced: {
-    offensive: { own: 0.00, opp: 0.05 },
+    offensive: { own: 0.00, opp: 0.10 },
     balanced:  { own: 0.00, opp: 0.00 },
-    defensive: { own: -0.05, opp: 0.00 }
+    defensive: { own: 0.10, opp: -0.04 }   // geduldiger Aufbau knackt den Riegel
   },
   defensive: {
-    offensive: { own: 0.10, opp: -0.15 },  // Konter greift
-    balanced:  { own: 0.00, opp: -0.05 },
+    offensive: { own: 0.08, opp: -0.12 },  // Konter greift
+    balanced:  { own: -0.04, opp: 0.10 },
     defensive: { own: -0.15, opp: -0.15 }  // beide neutralisiert
   }
 };
