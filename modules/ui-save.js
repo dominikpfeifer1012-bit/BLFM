@@ -18,7 +18,17 @@ function renderSaveSlots(){
   if(!el) return;
 
   const aktiv = gameState ? gameState.saveSlot : null;
-  el.innerHTML = listSaveSlots().map(p => {
+  const auto = readAutoSaveInfo();
+  const autoZeile = auto ? `<div class="lineupOption" style="cursor:default;">
+      <span style="flex:1;">
+        <b>Automatisch</b> <span class="muted" style="font-size:11px;">nach jedem Spieltag</span>
+        <br>${auto.label}<br><span class="muted" style="font-size:11px;">Spieltag ${(auto.matchday || 0) + 1}${auto.savedAt ? " · " + new Date(auto.savedAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : ""}</span>
+      </span>
+      <span style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="ghost" onclick="handleLoadFromSlot(AUTOSAVE_SLOT)">Laden</button>
+      </span>
+    </div>` : "";
+  el.innerHTML = autoZeile + listSaveSlots().map(p => {
     const datum = p.savedAt
       ? new Date(p.savedAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })
       : null;

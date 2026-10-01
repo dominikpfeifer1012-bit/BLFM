@@ -106,6 +106,8 @@ function simulateCupRound(gameState){
   const ownMatch = matches.find(m => m.home === gameState.clubName || m.away === gameState.clubName);
   if(ownMatch && ownMatch.winner !== gameState.clubName){
     cup.eliminated = true;
+    // Festhalten, wo es endete: cup.round laeuft fuer die uebrigen Vereine weiter.
+    cup.exitRound = cup.round;
   }
 
   return { matches, byeTeam, round: cup.round, champion: cup.champion, ownMatch };

@@ -248,12 +248,14 @@ tr.dim:hover td{ opacity:1; }
 #setup label{ display:block; font-family:var(--display); text-transform:uppercase; letter-spacing:.1em; font-size:11px; color:var(--ink-faint); margin-bottom:5px; }
 #setup input,#setup select{ width:100%; }
 
-@media (max-width:820px){ .g2,.g3,.g23{ grid-template-columns:1fr; } }
+/* minmax(0,1fr) statt 1fr: sonst drueckt eine breite Tabelle die ganze Seite auseinander */
+@media (max-width:820px){ .g2,.g3,.g23{ grid-template-columns:minmax(0,1fr); } }
 @media (max-width:560px){
   body{ font-size:14px; } .wrap{ padding:0 12px; }
   .pitchSlot{ flex:0 1 96px; }
   th,td{ padding:6px 7px; font-size:13px; }
-  .toastContainer{ left:12px; right:12px; max-width:none; }
+  /* Unten statt oben, damit Meldungen die Spielknoepfe nicht verdecken */
+  .toastContainer{ left:12px; right:12px; top:auto; bottom:12px; max-width:none; }
   .crest{ width:36px; height:36px; }
 }
 @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
@@ -531,7 +533,7 @@ tr.dim:hover td{ opacity:1; }
   <div class="modalBox wide">
     <span class="modalClose" onclick="closeSaveModal()">✕</span>
     <p class="eyebrow">Spielstände</p>
-    <h3 style="margin:4px 0 14px;">Drei Plätze</h3>
+    <h3 style="margin:4px 0 14px;">Speicherplätze</h3>
     <div id="saveSlotList"></div>
     <p class="eyebrow" style="margin-top:18px;">Datei</p>
     <p class="muted" style="margin:2px 0 10px;">Funktioniert auch, wenn der Browser den lokalen Speicher blockiert.</p>

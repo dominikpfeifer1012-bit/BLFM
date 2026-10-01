@@ -23,12 +23,15 @@ function handleSimulateMatchday(){
 
   setTimeout(() => {
     // Ohne finally bliebe der Knopf nach einem Fehler dauerhaft gesperrt.
+    holdModals();
     try {
       runNextEvent();
+      autoSave();
     } catch(e) {
       console.error("Simulation fehlgeschlagen:", e);
       showToast("Die Simulation ist fehlgeschlagen. Details stehen in der Browser-Konsole.", "error");
     } finally {
+      releaseModals();
       if(btn){
         btn.disabled = false;
         btn.textContent = getNextEventLabel();

@@ -134,7 +134,7 @@ check("Höchste Teambewertung wurde erfasst", () => {
 
 check("Ein Transfer wird als Rekord vermerkt", () => {
   gs.budget=120000000; gs.matchday=1;
-  const kandidat=win.sortPoolResults(win.filterPool(gs.pool,{maxFee:30000000}),"fee","desc")[0];
+  const kandidat=win.sortPoolResults(win.filterPool(gs.pool,{maxFee:30000000}).filter(p=>win.isWillingToJoin(gs,p)),"fee","desc")[0];
   if(!kandidat) return "kein Kandidat";
   const fee=win.getTransferFee(kandidat);
   win.handleSignPlayer(kandidat.id);

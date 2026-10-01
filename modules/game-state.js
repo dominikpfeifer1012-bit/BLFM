@@ -49,7 +49,7 @@ function buildEuropeContext(){
 }
 
 function startCareer(){
-  const managerName = document.getElementById("managerName").value || "Trainer";
+  const managerName = document.getElementById("managerName").value.trim();
   const clubName = document.getElementById("clubSelect").value;
   const clubBase = DIVISIONS.flatMap(d => d.clubs).find(c => c.name === clubName);
 
@@ -134,7 +134,7 @@ function startCareer(){
   DIVISIONS.forEach(div => {
     const gruppe = document.createElement("optgroup");
     gruppe.label = div.label;
-    div.clubs.forEach(c => {
+    div.clubs.slice().sort((a, b) => b.strength - a.strength).forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.name;
       opt.dataset.division = div.nr;

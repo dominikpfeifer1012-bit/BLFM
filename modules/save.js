@@ -10,6 +10,10 @@ const SAVE_PREFIX = "bl_career_";
 const SAVE_SLOTS = 3;
 const SAVE_LEGACY_KEY = "bl_career";
 
+// Eigener Platz fuer das automatische Speichern. So ueberschreibt das Spiel
+// nie einen Platz, den der Spieler selbst belegt hat.
+const AUTOSAVE_SLOT = "auto";
+
 function slotKey(slot){
   return SAVE_PREFIX + slot;
 }
@@ -27,8 +31,17 @@ function buildSavePayload(gameState){
 
 function saveGameState(gameState, slot){
   const nummer = slot != null ? slot : 1;
+  const daten = JSON.stringify(buildSavePayload(gameState));
   try {
-    localStorage.setItem(slotKey(nummer), JSON.stringify(buildSavePayload(gameState)));
+    try {
+      localStorage.setItem(slotKey(nummer), daten);
+    } catch(voll) {
+      // Speicher voll: der automatische Stand darf ein bewusstes Speichern
+      // nie verhindern. Er wird beim naechsten Spieltag neu angelegt.
+      if(nummer === AUTOSAVE_SLOT || !localStorage.getItem(slotKey(AUTOSAVE_SLOT))) throw voll;
+      localStorage.removeItem(slotKey(AUTOSAVE_SLOT));
+      localStorage.setItem(slotKey(nummer), daten);
+    }
     return { success: true, message: `Spielstand auf Platz ${nummer} gespeichert.` };
   } catch(e) {
     console.error("saveGameState:", e);
@@ -37,6 +50,23 @@ function saveGameState(gameState, slot){
       message: "Speichern nicht möglich (der Browser blockiert den lokalen Speicher beim direkten Öffnen der Datei). Tipp: über einen lokalen Server öffnen oder den Export nutzen."
     };
   }
+}
+
+function autoSaveGameState(gameState){
+  if(!gameState || !gameState.clubName) return false;
+  try {
+    localStorage.setItem(slotKey(AUTOSAVE_SLOT), JSON.stringify(buildSavePayload(gameState)));
+    return true;
+  } catch(e) {
+    return false;   // Speicher blockiert: still bleiben, der Export funktioniert trotzdem
+  }
+}
+
+function readAutoSaveInfo(){
+  const daten = readSlot(AUTOSAVE_SLOT);
+  if(!daten) return null;
+  return { slot: AUTOSAVE_SLOT, belegt: true, label: daten.label || "Spielstand",
+    manager: daten.manager, matchday: daten.matchday, savedAt: daten.savedAt, version: daten.version };
 }
 
 function readSlot(slot){

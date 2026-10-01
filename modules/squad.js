@@ -166,6 +166,59 @@ function resetSeasonalPlayerState(squad){
   });
 }
 
+// Ungarische Methode: ordnet jeder Zeile (Platz) hoechstens eine Spalte
+// (Spieler) zu, sodass die Summe von value maximal wird. Bei weniger Spielern
+// als Plaetzen bleiben Plaetze leer (null). Bei 11 Plaetzen und gut 25
+// Spielern ist das in Sekundenbruchteilen erledigt.
+function solveBestAssignment(rows, cols, value){
+  const n = rows.length;
+  if(n === 0) return [];
+  // Platzhalter-Spalten, falls zu wenig Spieler da sind: Wert 0, also nur
+  // genommen, wenn nichts anderes uebrig ist.
+  const m = Math.max(cols.length, n);
+  const cost = rows.map(r => {
+    const zeile = new Array(m);
+    for(let j = 0; j < m; j++) zeile[j] = j < cols.length ? -value(cols[j], r) : 0;
+    return zeile;
+  });
+
+  const u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0);
+  const p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);
+  for(let i = 1; i <= n; i++){
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Array(m + 1).fill(Infinity);
+    const used = new Array(m + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = p[j0];
+      let delta = Infinity, j1 = 0;
+      for(let j = 1; j <= m; j++){
+        if(used[j]) continue;
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+        if(cur < minv[j]){ minv[j] = cur; way[j] = j0; }
+        if(minv[j] < delta){ delta = minv[j]; j1 = j; }
+      }
+      for(let j = 0; j <= m; j++){
+        if(used[j]){ u[p[j]] += delta; v[j] -= delta; }
+        else minv[j] -= delta;
+      }
+      j0 = j1;
+    } while(p[j0] !== 0);
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while(j0);
+  }
+
+  const ergebnis = new Array(n).fill(null);
+  for(let j = 1; j <= m; j++){
+    if(p[j] && j - 1 < cols.length) ergebnis[p[j] - 1] = j - 1;
+  }
+  return ergebnis;
+}
+
 function getStartingXIInfo(squad, currentMatchday1Based){
   currentMatchday1Based = currentMatchday1Based || 1;
   const lineup = getActiveLineup();
@@ -205,36 +258,32 @@ function getStartingXIInfo(squad, currentMatchday1Based){
 
   // Phase 2: alle freien Plaetze gemeinsam besetzen. Bewertet wird jede
   // Kombination aus Platz und Spieler mit dem Wert, den der Spieler DORT
-  // haette — Positionsmalus und Ermuedung eingerechnet. Danach wird immer
-  // das insgesamt beste Paar vergeben.
+  // haette — Positionsmalus und Ermuedung eingerechnet.
   //
-  // Wichtig: dadurch verdraengt ein starker Umsteller einen schwachen
-  // Positionsspieler. Ein LM mit 60 spielt als ST (60 - 12 = 48) statt einem
-  // gelernten ST mit 42. Die Reihenfolge sorgt gleichzeitig dafuer, dass
-  // niemand unnoetig umgestellt wird: der LM auf LM ist 60 wert und wird
-  // deshalb zuerst dort eingeplant, wenn der Platz noch frei ist.
+  // Vergeben wird die Zuordnung mit der hoechsten Summe fuer die ganze Elf,
+  // nicht Paar fuer Paar. Die fruehere Paar-fuer-Paar-Vergabe konnte einen
+  // Spieler auf einen fremden Platz ziehen, nur weil er dort minimal besser
+  // war, und dafuer die eigene Position schwaecher besetzen. Ein starker
+  // Umsteller verdraengt weiterhin einen deutlich schwaecheren
+  // Positionsspieler; bei knappen Unterschieden behaelt der gelernte Spieler
+  // dank AUTO_LINEUP_NATURAL_BONUS seinen Platz.
   const openSlots = slots.filter(s => !s.player);
   if(openSlots.length > 0){
     const available = squad.filter(p =>
       !usedIds.has(p.id) && !isUnavailable(p, currentMatchday1Based));
 
-    const pairs = [];
-    openSlots.forEach(slot => {
-      available.forEach(player => {
-        pairs.push({ slot, player, value: getStrengthOnSlot(player, slot.slotPos) });
-      });
-    });
-    pairs.sort((a, b) => b.value - a.value);
+    const value = (player, slot) => getStrengthOnSlot(player, slot.slotPos)
+      + (player.pos === slot.slotPos ? AUTO_LINEUP_NATURAL_BONUS : 0);
+    const zuordnung = solveBestAssignment(openSlots, available, value);
 
-    const takenSlots = new Set();
-    pairs.forEach(pair => {
-      if(takenSlots.has(pair.slot.slotKey) || usedIds.has(pair.player.id)) return;
-      const penalty = getPlayerSlotPenalty(pair.player, pair.slot.slotPos);
-      pair.slot.player = pair.player;
-      pair.slot.isEmergency = penalty > 0;
-      pair.slot.penalty = penalty;
-      takenSlots.add(pair.slot.slotKey);
-      usedIds.add(pair.player.id);
+    openSlots.forEach((slot, i) => {
+      const player = zuordnung[i] != null ? available[zuordnung[i]] : null;
+      if(!player) return;
+      const penalty = getPlayerSlotPenalty(player, slot.slotPos);
+      slot.player = player;
+      slot.isEmergency = penalty > 0;
+      slot.penalty = penalty;
+      usedIds.add(player.id);
     });
   }
 
