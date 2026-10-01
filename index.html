@@ -30,6 +30,11 @@
   --mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
 }
 *{box-sizing:border-box;}
+/* Seite immer mindestens bildschirmhoch: Bei kurzen Tabs (z. B. Verlauf)
+   setzte iOS im Startbildschirm-Modus die feste Tab-Leiste sonst ein Stueck
+   zu hoch an, weil das Dokument kuerzer als das Display war. */
+html{ min-height:100%; background:var(--bg); }
+body{ min-height:100vh; min-height:100dvh; }
 body{ font-family:var(--body); background:var(--bg); color:var(--ink); margin:0; padding:0 0 48px; font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased; }
 .wrap{ max-width:1240px; margin:0 auto; padding:0 18px; }
 
