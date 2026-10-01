@@ -1,0 +1,12 @@
+{
+  "name": "bundesliga-karrieremodus",
+  "version": "1.0.0",
+  "description": "Browserbasierter Fussballmanager in reinem JavaScript",
+  "private": true,
+  "scripts": {
+    "test": "for f in tests/test_*.js; do echo \"== $f\"; node \"$f\" || exit 1; done"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bundesliga Karrieremodus</title>
+
+<!-- Damit sich die Seite auf dem Handy zum Startbildschirm hinzufuegen laesst
+     und dann ohne Browserleiste startet. -->
+<meta name="theme-color" content="#0B1620">
+<meta name="description" content="Fussballmanager im Browser: drei Ligen, Pokal, Europapokal, Jugendarbeit und Transfers.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Karriere">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230B1620'/%3E%3Ctext y='.85em' x='8' font-size='78'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
+<!-- Schriften liegen lokal in modules/fonts.css — kein Internet noetig. -->
+<link rel="stylesheet" href="modules/fonts.css">
+<style>
+body{ padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+:root{
+  --bg:#0B1620; --bg-deep:#071019;
+  --panel:#16232F; --panel-2:#1E2E3D; --line:#2A3D4F;
+  --ink:#E8EDF2; --ink-dim:#8FA3B5; --ink-faint:#5D7285;
+  --gold:#FFB703; --gold-deep:#B98505;
+  --win:#35B08F; --draw:#E9C46A; --loss:#E5484D; --info:#219EBC;
+  --r:10px; --r-sm:6px;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow","Helvetica Neue",system-ui,sans-serif;
+  --mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+}
+*{box-sizing:border-box;}
+body{ font-family:var(--body); background:var(--bg); color:var(--ink); margin:0; padding:0 0 48px; font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:1240px; margin:0 auto; padding:0 18px; }
+
+h1,h2,h3,h4{ font-family:var(--display); text-transform:uppercase; letter-spacing:.045em; margin:0; font-weight:700; }
+h1{ font-size:30px; } h2{ font-size:23px; } h3{ font-size:17px; } h4{ font-size:14px; color:var(--ink-dim); }
+.num{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+.eyebrow{ font-family:var(--display); text-transform:uppercase; letter-spacing:.12em; font-size:11px; color:var(--ink-faint); }
+.muted{ color:var(--ink-dim); font-size:13px; }
+
+button{ font-family:var(--display); text-transform:uppercase; letter-spacing:.06em; font-weight:600; font-size:14px;
+  background:var(--gold); color:#10202C; border:none; padding:9px 16px; border-radius:var(--r-sm); cursor:pointer; transition:background .15s, transform .1s; }
+button:hover{ background:#FFC833; }
+button:active{ transform:translateY(1px); }
+button:disabled{ background:var(--panel-2); color:var(--ink-faint); cursor:default; transform:none; }
+button.ghost{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); }
+button.ghost:hover{ background:var(--panel-2); color:var(--ink); }
+:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+select,input{ font-family:var(--body); font-size:14px; background:var(--bg-deep); color:var(--ink);
+  border:1px solid var(--line); border-radius:var(--r-sm); padding:8px 10px; }
+input:focus,select:focus{ border-color:var(--gold); outline:none; }
+
+.card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:18px; }
+.cardHead{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.grid{ display:grid; gap:16px; }
+.g2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+.g3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+.g23{ grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
+
+table{ width:100%; border-collapse:collapse; }
+th,td{ padding:8px 10px; text-align:left; font-size:14px; border-bottom:1px solid var(--line); }
+th{ font-family:var(--display); text-transform:uppercase; letter-spacing:.07em; font-size:12px; color:var(--ink-dim); font-weight:600; background:transparent; border-bottom:1px solid var(--line); }
+tbody tr:last-child td,tr:last-child td{ border-bottom:none; }
+td.n,th.n{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.status{ white-space:nowrap; }
+td.status .badge,td.status .tag{ vertical-align:middle; }
+.natCode{ display:inline-block; min-width:23px; padding:1px 4px; border-radius:3px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--ink-dim);
+  font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.04em;
+  text-align:center; vertical-align:middle; }
+.profFlag .natCode{ font-size:15px; min-width:38px; padding:4px 7px; }
+.tagIcon{ display:inline-block; width:22px; text-align:center; border-radius:4px; font-size:12px;
+  margin-left:3px; padding:1px 0; background:var(--panel-2); border:1px solid var(--line); cursor:help; }
+.tagIcon.emergency{ border-color:#FCA311; }
+.tagIcon.manual{ border-color:var(--info); }
+.highlight{ background:rgba(255,183,3,.09); }
+.highlight td:first-child{ box-shadow:inset 3px 0 0 var(--gold); }
+th.sortable{ cursor:pointer; user-select:none; }
+th.sortable:hover{ color:var(--gold); }
+tr.rowLink{ cursor:pointer; }
+tr.rowLink:hover{ background:var(--panel-2); }
+.tableWrap{ overflow-x:auto; }
+
+/* ---- Kopfbereich ---- */
+#stickyBar{ position:sticky; top:0; z-index:60; background:rgba(11,22,32,.94); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+.idRow{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:14px 0 10px; }
+.crest{ width:44px; height:44px; border-radius:var(--r-sm); background:linear-gradient(150deg,var(--gold),var(--gold-deep));
+  display:grid; place-items:center; font-family:var(--display); font-size:20px; color:#10202C; flex:none; }
+.idText{ flex:1; min-width:180px; }
+.idText h2{ line-height:1.1; }
+.chipRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.chip{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-sm); padding:5px 10px; font-size:13px; white-space:nowrap; }
+.chip b{ font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--gold); }
+.chip.neg b{ color:var(--loss); }
+
+/* Signature: die Saison als Formband */
+.formBand{ display:flex; gap:2px; padding:2px 0 10px; }
+.formSeg{ flex:1; height:9px; border-radius:2px; background:var(--panel-2); transition:transform .12s; }
+.formSeg[data-r="win"]{ background:var(--win); }
+.formSeg[data-r="draw"]{ background:var(--draw); }
+.formSeg[data-r="loss"]{ background:var(--loss); }
+.formSeg.now{ background:var(--gold); height:13px; margin-top:-2px; }
+.formSeg:hover{ transform:scaleY(1.6); }
+
+.actionRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding-bottom:12px; }
+#nextOpponentLine{ font-size:13px; color:var(--ink-dim); margin:0 0 10px; }
+
+/* ---- Tabs ---- */
+#tabBar{ display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; }
+#tabBar::-webkit-scrollbar{ display:none; }
+.tabBtn{ background:transparent; color:var(--ink-faint); border:none; border-bottom:2px solid transparent;
+  border-radius:0; padding:11px 15px; white-space:nowrap; letter-spacing:.08em; }
+.tabBtn:hover{ background:transparent; color:var(--ink); }
+.tabBtn.active{ color:var(--gold); border-bottom-color:var(--gold); }
+.tabBtn .tabCount{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-left:5px; }
+.tabPanel{ display:none; padding-top:20px; }
+.tabPanel.active{ display:block; animation:fade .18s ease; }
+@keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+/* ---- Bausteine ---- */
+.badge{ padding:2px 7px; border-radius:4px; font-size:11px; font-family:var(--display); text-transform:uppercase; letter-spacing:.06em; font-weight:600; white-space:nowrap; }
+.win{ background:var(--win); color:#06231C; }
+.draw{ background:var(--draw); color:#2A2205; }
+.loss{ background:var(--loss); color:#fff; }
+.reserve{ background:transparent; color:var(--ink-faint); border:1px solid var(--line); }
+tr.dim td{ opacity:.62; }
+tr.dim:hover td{ opacity:1; }
+.tag{ padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; }
+.tag.emergency{ background:#FCA311; color:#10202C; }
+.tag.manual{ background:var(--info); color:#fff; }
+.tag.fatigue{ background:var(--panel-2); color:var(--ink-dim); border:1px solid var(--line); }
+.tag.suspended{ background:#6A040F; color:#fff; }
+.matchupTag{ padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.matchupTag.favored{ background:var(--win); color:#06231C; }
+.matchupTag.underdog{ background:var(--loss); color:#fff; }
+.matchupTag.neutral{ background:var(--draw); color:#2A2205; }
+.windowBadge{ padding:5px 10px; border-radius:var(--r-sm); font-size:12px; font-weight:600; }
+.windowBadge.open{ background:rgba(53,176,143,.16); color:var(--win); border:1px solid rgba(53,176,143,.4); }
+.windowBadge.closed{ background:var(--panel); color:var(--ink-faint); border:1px solid var(--line); }
+.divisionBadge{ padding:3px 8px; border-radius:4px; font-size:11px; font-family:var(--display); letter-spacing:.06em; font-weight:700; }
+.divisionBadge.div1{ background:var(--gold); color:#10202C; }
+.divisionBadge.div2{ background:var(--panel-2); color:var(--ink-dim); border:1px solid var(--line); }
+
+.statGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:10px; }
+.stat{ background:var(--bg-deep); border-radius:var(--r-sm); padding:11px 13px; }
+.stat .k{ font-family:var(--display); text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--ink-faint); }
+.stat .v{ font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:21px; font-weight:600; color:var(--ink); margin-top:2px; }
+.stat .v.gold{ color:var(--gold); }
+.stat .sub{ font-size:11px; color:var(--ink-faint); }
+
+.bar{ background:var(--bg-deep); border-radius:99px; height:7px; overflow:hidden; position:relative; }
+.bar > i{ display:block; height:100%; background:var(--gold); border-radius:99px; }
+.bar > i.ghost{ background:rgba(255,183,3,.22); position:absolute; inset:0 auto 0 0; }
+
+/* ---- Spielfeld ---- */
+.pitch{ background:
+    repeating-linear-gradient(0deg,#16402A 0 26px,#153C27 26px 52px);
+  border:1px solid #1E5233; border-radius:var(--r); padding:14px 10px; margin-top:12px; position:relative; }
+.pitch::after{ content:""; position:absolute; left:10%; right:10%; top:50%; height:1px; background:rgba(255,255,255,.12); }
+.pitchRow{ display:flex; justify-content:center; gap:8px; margin:10px 0; flex-wrap:nowrap; position:relative; z-index:1; }
+.pitchSlot{ background:rgba(7,16,25,.86); border:1px solid rgba(255,255,255,.09); border-radius:var(--r-sm);
+  padding:7px 6px; text-align:center; font-size:11px; cursor:pointer; transition:transform .12s, border-color .12s;
+  flex:0 1 132px; min-width:0; overflow:hidden; }
+.pitchSlot:hover{ transform:translateY(-2px); border-color:var(--gold); }
+.pitchSlot.emergency{ border-color:#FCA311; }
+.pitchSlot.manual{ border-color:var(--info); }
+.pitchSlot.empty{ border-style:dashed; border-color:var(--ink-faint); color:var(--ink-faint); }
+.pitchSlot .slotName{ display:block; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pitchSlot .slotPos{ display:block; font-size:9px; letter-spacing:.1em; color:var(--ink-faint); text-transform:uppercase; }
+.pitchSlot .slotRating{ font-family:var(--mono); color:var(--gold); font-size:13px; }
+
+/* ---- Modale ---- */
+.modalOverlay{ position:fixed; inset:0; background:rgba(4,10,16,.72); backdrop-filter:blur(3px);
+  display:none; align-items:center; justify-content:center; z-index:1000; padding:16px; }
+.modalOverlay.show{ display:flex; }
+.modalBox{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:22px; max-width:480px; width:100%; position:relative; max-height:88vh; overflow-y:auto; }
+.modalBox.wide{ max-width:560px; }
+.modalClose{ position:absolute; top:14px; right:16px; cursor:pointer; font-weight:700; color:var(--ink-faint); font-size:18px; line-height:1; }
+.modalClose:hover{ color:var(--loss); }
+.matchResultBox{ text-align:center; }
+.matchResultTitle{ font-family:var(--display); text-transform:uppercase; letter-spacing:.1em; font-size:16px; padding:6px 16px; border-radius:var(--r-sm); display:inline-block; }
+.matchResultScore{ font-family:var(--mono); font-size:34px; font-weight:600; margin:14px 0 6px; }
+
+.lineupList{ max-height:46vh; overflow-y:auto; margin-top:10px; }
+.lineupOption{ display:flex; justify-content:space-between; align-items:center; gap:10px;
+  background:var(--bg-deep); border:1px solid transparent; border-radius:var(--r-sm); padding:9px 11px; margin-bottom:6px; cursor:pointer; font-size:13px; }
+.lineupOption:hover{ background:var(--panel-2); border-color:var(--line); }
+.lineupOption.auto{ border-left:3px solid var(--gold); }
+.lineupOption.disabled{ opacity:.45; cursor:default; }
+.lineupOption.disabled:hover{ background:var(--bg-deep); border-color:transparent; }
+.lineupValue{ font-family:var(--mono); color:var(--gold); font-weight:600; font-size:17px; }
+
+/* ---- Spielerprofil ---- */
+.profHead{ display:flex; gap:14px; align-items:center; margin-bottom:16px; }
+.profFlag{ font-size:34px; line-height:1; }
+.profName h3{ font-size:21px; margin-bottom:2px; }
+.profRating{ margin-left:auto; text-align:right; }
+.profRating .v{ font-family:var(--mono); font-size:38px; font-weight:600; color:var(--gold); line-height:1; }
+.profRating .k{ font-family:var(--display); text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--ink-faint); }
+.profTags{ display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+.profTag{ background:var(--panel-2); border:1px solid var(--line); border-radius:99px; padding:3px 11px; font-size:12px; }
+.profTag.gold{ border-color:var(--gold-deep); color:var(--gold); }
+.profTag.warn{ border-color:#FCA311; color:#FCA311; }
+
+.liveBox{ max-width:520px; }
+.liveHead{ text-align:center; margin-bottom:14px; }
+.liveTeams{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0 6px; }
+.liveTeam{ flex:1; font-family:var(--display); text-transform:uppercase; letter-spacing:.04em;
+  font-size:15px; color:var(--ink-dim); line-height:1.15; }
+.liveTeam.own{ color:var(--gold); }
+.liveTeam:last-child{ text-align:right; }
+#liveScore{ font-family:var(--mono); font-size:36px; font-weight:600; white-space:nowrap;
+  transition:transform .2s ease; }
+#liveClock{ font-family:var(--mono); font-size:14px; color:var(--ink-faint); }
+.liveBar{ background:var(--bg-deep); border-radius:99px; height:5px; overflow:hidden; margin:10px 0 14px; }
+.liveBar > i{ display:block; height:100%; background:var(--gold); border-radius:99px; transition:width .12s linear; }
+#liveFeed{ min-height:130px; max-height:38vh; overflow-y:auto; }
+.liveEvent{ display:flex; align-items:baseline; gap:9px; padding:7px 9px; border-radius:var(--r-sm);
+  font-size:13px; margin-bottom:5px; background:var(--bg-deep); animation:liveIn .22s ease; }
+.liveEvent.own{ background:rgba(255,183,3,.12); }
+.liveMinute{ flex:0 0 30px; color:var(--ink-faint); font-size:12px; }
+.liveIcon{ flex:0 0 20px; }
+@keyframes liveIn{ from{opacity:0; transform:translateX(-6px);} to{opacity:1; transform:none;} }
+#liveFooter{ margin-top:14px; }
+
+.toastContainer{ position:fixed; top:16px; right:16px; z-index:1200; display:flex; flex-direction:column; gap:8px; max-width:340px; }
+.toast{ background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--info);
+  padding:11px 14px; border-radius:var(--r-sm); box-shadow:0 6px 22px rgba(0,0,0,.5); font-size:13px; animation:toastIn .2s ease; }
+.toast.success{ border-left-color:var(--win); }
+.toast.error{ border-left-color:var(--loss); }
+@keyframes toastIn{ from{opacity:0; transform:translateX(12px);} to{opacity:1; transform:none;} }
+
+#log{ max-height:440px; overflow-y:auto; font-size:13px; }
+#log > div{ padding:5px 0; }
+.logDivider{ border-top:1px solid var(--line); margin-top:7px; padding-top:9px; }
+.filterBar{ background:var(--bg-deep); border-radius:var(--r-sm); padding:11px; margin-bottom:12px; font-size:13px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.sparkBox{ background:var(--bg-deep); border-radius:var(--r-sm); padding:8px; }
+.achievement{ display:inline-block; padding:6px 12px; border-radius:99px; font-size:12px; margin:3px 3px 3px 0; border:1px solid var(--line); }
+.achievement.unlocked{ background:rgba(53,176,143,.14); border-color:rgba(53,176,143,.45); color:var(--win); }
+.achievement.locked{ background:transparent; color:var(--ink-faint); }
+
+#setup{ max-width:460px; margin:70px auto; }
+#setup .field{ margin-bottom:14px; }
+#setup label{ display:block; font-family:var(--display); text-transform:uppercase; letter-spacing:.1em; font-size:11px; color:var(--ink-faint); margin-bottom:5px; }
+#setup input,#setup select{ width:100%; }
+
+@media (max-width:820px){ .g2,.g3,.g23{ grid-template-columns:1fr; } }
+@media (max-width:560px){
+  body{ font-size:14px; } .wrap{ padding:0 12px; }
+  .pitchSlot{ flex:0 1 96px; }
+  th,td{ padding:6px 7px; font-size:13px; }
+  .toastContainer{ left:12px; right:12px; max-width:none; }
+  .crest{ width:36px; height:36px; }
+}
+@media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div id="toastContainer" class="toastContainer"></div>
+
+<div id="setup" class="card">
+  <p class="eyebrow">Neue Karriere</p>
+  <h1 style="margin:4px 0 18px;">Bundesliga Karrieremodus</h1>
+  <div class="field"><label for="managerName">Trainername</label>
+    <input id="managerName" placeholder="Dein Name" value="Dominik Pfeifer"></div>
+  <div class="field"><label for="clubSelect">Verein</label>
+    <select id="clubSelect"></select></div>
+  <button onclick="startCareer()">Karriere starten</button>
+</div>
+
+<div id="stickyBar" style="display:none;">
+  <div class="wrap">
+    <div class="idRow">
+      <div class="crest" id="clubCrest">⚽</div>
+      <div class="idText">
+        <h2 id="clubHeader"></h2>
+        <p class="muted" id="statusLine" style="margin:2px 0 0;"></p>
+      </div>
+      <div class="chipRow" id="headerChips"></div>
+    </div>
+    <div class="formBand" id="formBand" title="Saisonverlauf"></div>
+    <p id="nextOpponentLine"></p>
+    <div class="actionRow">
+      <button id="simulateBtn" onclick="handleSimulateMatchday()">Spieltag simulieren</button>
+      <button class="ghost" onclick="openTransferMarket()">Transfermarkt</button>
+      <button class="ghost" onclick="openSaveModal()">Spielstände</button>
+      <button class="ghost" id="liveToggleBtn" onclick="toggleLiveMatches()">Live: an</button>
+      <button class="ghost" id="pressToggleBtn" onclick="togglePressConferences()">Presse: an</button>
+      <span id="transferWindowBadge" class="windowBadge"></span>
+    </div>
+    <nav id="tabBar"></nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="seasonSummaryHost"></div>
+
+  <main id="game" style="display:none;">
+
+    <section class="tabPanel" id="tab-uebersicht">
+      <div class="grid g23">
+        <div class="grid" style="gap:16px;">
+          <div class="card">
+            <div class="cardHead"><h3>Nächstes Spiel</h3><span class="eyebrow" id="nextMatchDay"></span></div>
+            <div id="nextMatchCard"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Tabelle</h3><span class="eyebrow" id="miniTableLabel"></span></div>
+            <div class="tableWrap"><table id="miniTable"></table></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:16px;">
+          <div class="card">
+            <div class="cardHead"><h3>Saison</h3></div>
+            <div class="statGrid" id="overviewStats"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Vorstand</h3><span class="eyebrow">Geduld</span></div>
+            <div id="boardPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Investitionen</h3><span class="eyebrow">langfristig</span></div>
+            <div id="facilitiesPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Wettbewerbe</h3></div>
+            <div id="overviewCompetitions"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Letzte Ereignisse</h3></div>
+            <div id="overviewLog" style="font-size:13px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tab-kader">
+      <div class="grid g23">
+        <div class="card">
+          <div class="cardHead">
+            <h3>Kader <span class="num muted" id="squadCount"></span></h3>
+            <span class="eyebrow">Zeile anklicken für das Profil</span>
+          </div>
+          <div class="filterBar">
+            <label>Position
+              <select id="squadFilterPos" onchange="handleSquadFilterChange()"><option value="ALL">Alle</option></select>
+            </label>
+            <label>Suche <input type="text" id="squadFilterSearch" placeholder="Name..." oninput="handleSquadFilterChange()"></label>
+          </div>
+          <div class="tableWrap"><table id="squadTable"></table></div>
+        </div>
+        <div class="grid" style="gap:16px;">
+          <div class="card">
+            <div class="cardHead"><h3>Team</h3></div>
+            <div class="statGrid" id="squadStats"></div>
+            <p class="muted" id="ratingBreakdownLine" style="margin:12px 0 0;"></p>
+            <span id="teamRatingLine" hidden></span>
+            <span id="budgetLine" hidden></span>
+            <span id="salaryLine" hidden></span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Jugendkader</h3><span class="eyebrow">eigener Bereich</span></div>
+        <div id="youthSquadPanel"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Jugendmannschaft</h3><span class="eyebrow">Jugendkader plus Reserve</span></div>
+        <div id="youthPanel"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Aufstellung</h3><span class="eyebrow">Position anklicken zum Wechseln</span></div>
+        <div id="lineupControls"></div>
+        <div id="pitchView" class="pitch"></div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tab-transfers">
+      <div class="card" id="transferMarket">
+        <div class="cardHead"><h3>Transfermarkt</h3>
+          <span class="eyebrow">Zeile anklicken für das Profil</span></div>
+        <div id="marketList"></div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tab-wettbewerbe">
+      <div class="grid g23">
+        <div class="card">
+          <div class="cardHead"><h3>Tabelle</h3><span class="eyebrow" id="tableDivisionLabel"></span></div>
+          <div class="tableWrap"><table id="tableStandings"></table></div>
+        </div>
+        <div class="grid" style="gap:16px;">
+          <div class="card">
+            <div class="cardHead"><h3>Andere Liga</h3><span class="eyebrow" id="shadowTableLabel"></span></div>
+            <div class="tableWrap" style="max-height:420px; overflow-y:auto;"><table id="shadowTable"></table></div>
+          </div>
+          <div class="card"><div class="cardHead"><h3>DFB-Pokal</h3></div><div id="cupStatus"></div></div>
+          <div class="card"><div class="cardHead"><h3>Europapokal</h3></div><div id="europeStatus"></div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Spielplan</h3><span class="eyebrow">alle Termine der Saison</span></div>
+        <div class="tableWrap" style="max-height:520px; overflow-y:auto;"><table id="fixtureList"></table></div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tab-statistik">
+      <div class="grid g2">
+        <div class="card">
+          <div class="cardHead"><h3>Saisonbilanz</h3></div>
+          <div class="statGrid" id="seasonStats"></div>
+        </div>
+        <div class="card">
+          <div class="cardHead"><h3>Kaderanalyse</h3></div>
+          <div class="statGrid" id="squadAnalysis"></div>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:16px;">
+        <div class="card">
+          <div class="cardHead"><h3>Torjägerliste</h3><span class="eyebrow">gesamte Liga</span></div>
+          <div class="tableWrap"><table id="topScorersTable"></table></div>
+        </div>
+        <div class="card">
+          <div class="cardHead"><h3>Herkunft</h3></div>
+          <div id="nationBreakdown"></div>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:16px;">
+        <div class="card">
+          <div class="cardHead"><h4>Teambewertung</h4></div>
+          <div class="sparkBox" id="ratingSparkline"></div>
+        </div>
+        <div class="card">
+          <div class="cardHead"><h4>Budget in Mio. €</h4></div>
+          <div class="sparkBox" id="budgetSparkline"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Entwicklung</h3><span class="eyebrow">über alle Saisons</span></div>
+        <div id="trendPanel"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Bestmarken</h3><span class="eyebrow">gesamte Karriere</span></div>
+        <div id="recordsPanel"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Erfolge</h3><span class="eyebrow" id="achievementCount"></span></div>
+        <div id="achievementsList"></div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tab-verlauf">
+      <div class="grid g23">
+        <div class="card">
+          <div class="cardHead"><h3>Spielprotokoll</h3></div>
+          <div id="log"></div>
+        </div>
+        <div class="card">
+          <div class="cardHead"><h3>Vereinsgeschichte</h3></div>
+          <div class="tableWrap"><table id="seasonHistoryTable"></table></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="matchResultOverlay" class="modalOverlay">
+  <div class="modalBox">
+    <span class="modalClose" onclick="closeMatchResultModal()">✕</span>
+    <div id="matchResultContent" class="matchResultBox"></div>
+    <div style="text-align:center; margin-top:14px;"><button onclick="closeMatchResultModal()">Weiter</button></div>
+  </div>
+</div>
+
+<div id="liveOverlay" class="modalOverlay">
+  <div class="modalBox liveBox">
+    <div class="liveHead">
+      <p class="eyebrow" id="liveCompetition"></p>
+      <div class="liveTeams">
+        <span class="liveTeam" id="liveHome"></span>
+        <span id="liveScore" class="num">0 : 0</span>
+        <span class="liveTeam" id="liveAway"></span>
+      </div>
+      <span id="liveClock">0'</span>
+    </div>
+    <div class="liveBar"><i id="liveProgress" style="width:0%;"></i></div>
+    <div id="liveFeed"></div>
+    <div id="liveFooter"></div>
+  </div>
+</div>
+
+<div id="playerModalOverlay" class="modalOverlay">
+  <div class="modalBox wide">
+    <span class="modalClose" onclick="closePlayerModal()">✕</span>
+    <div id="playerModalContent"></div>
+  </div>
+</div>
+
+<div id="lineupModalOverlay" class="modalOverlay">
+  <div class="modalBox">
+    <span class="modalClose" onclick="closeLineupModal()">✕</span>
+    <div id="lineupModalContent"></div>
+  </div>
+</div>
+
+<div id="dismissalOverlay" class="modalOverlay">
+  <div class="modalBox" style="border-color:var(--loss);">
+    <div id="dismissalContent"></div>
+  </div>
+</div>
+
+<div id="youthIntakeOverlay" class="modalOverlay">
+  <div class="modalBox wide">
+    <div id="youthIntakeContent"></div>
+  </div>
+</div>
+
+<div id="pressOverlay" class="modalOverlay">
+  <div class="modalBox wide">
+    <div id="pressContent"></div>
+  </div>
+</div>
+
+<div id="saveOverlay" class="modalOverlay">
+  <div class="modalBox wide">
+    <span class="modalClose" onclick="closeSaveModal()">✕</span>
+    <p class="eyebrow">Spielstände</p>
+    <h3 style="margin:4px 0 14px;">Drei Plätze</h3>
+    <div id="saveSlotList"></div>
+    <p class="eyebrow" style="margin-top:18px;">Datei</p>
+    <p class="muted" style="margin:2px 0 10px;">Funktioniert auch, wenn der Browser den lokalen Speicher blockiert.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button class="ghost" onclick="handleExportSave()">Als Datei exportieren</button>
+      <label class="ghost" style="display:inline-block; padding:9px 16px; border:1px solid var(--line);
+        border-radius:var(--r-sm); cursor:pointer; font-family:var(--display); text-transform:uppercase;
+        letter-spacing:.06em; font-weight:600; font-size:14px; color:var(--ink-dim);">
+        Datei importieren
+        <input type="file" accept="application/json,.json" style="display:none;"
+          onchange="handleImportSave(this)">
+      </label>
+    </div>
+  </div>
+</div>
+
+<div id="loadConfirmOverlay" class="modalOverlay">
+  <div class="modalBox">
+    <h3>Gespeicherten Spielstand laden?</h3>
+    <p class="muted">Gefunden: <b id="loadConfirmInfo"></b></p>
+    <button onclick="confirmLoadGame(true)">Laden</button>
+    <button class="ghost" onclick="confirmLoadGame(false)">Neu starten</button>
+  </div>
+</div>
+
+<script src="modules/config.js"></script>
+<script src="modules/names.js"></script>
+<script src="modules/players.js"></script>
+<script src="modules/squad.js"></script>
+<script src="modules/morale.js"></script>
+<script src="modules/development.js"></script>
+<script src="modules/budget.js"></script>
+<script src="modules/transfermarkt.js"></script>
+<script src="modules/pool.js"></script>
+<script src="modules/youth.js"></script>
+<script src="modules/match.js"></script>
+<script src="modules/league.js"></script>
+<script src="modules/board.js"></script>
+<script src="modules/facilities.js"></script>
+<script src="modules/press.js"></script>
+<script src="modules/records.js"></script>
+<script src="modules/cup.js"></script>
+<script src="modules/europe.js"></script>
+<script src="modules/ui-core.js"></script>
+<script src="modules/ui-header.js"></script>
+<script src="modules/ui-squad.js"></script>
+<script src="modules/ui-market.js"></script>
+<script src="modules/ui-competitions.js"></script>
+<script src="modules/ui-stats.js"></script>
+<script src="modules/ui-match.js"></script>
+<script src="modules/ui-save.js"></script>
+<script src="modules/save.js"></script>
+<script src="modules/game-state.js"></script>
+<script src="modules/game-loop.js"></script>
+<script src="modules/game-competitions.js"></script>
+<script src="modules/game-season.js"></script>
+<script src="modules/game-actions.js"></script>
+
+</body>
+</html>
