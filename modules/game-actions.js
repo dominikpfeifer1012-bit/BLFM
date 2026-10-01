@@ -86,6 +86,17 @@ function handleSellPlayer(squadIndex){
   refreshSquadViews();
 }
 
+function autoSave(){
+  if(typeof gameState !== "undefined") autoSaveGameState(gameState);
+}
+
+// Auch Transfers und Umstellungen zwischen zwei Spieltagen sichern, wenn der
+// Tab geschlossen oder auf dem Handy in den Hintergrund geschoben wird.
+window.addEventListener("pagehide", autoSave);
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "hidden") autoSave();
+});
+
 function saveGame(slot){
   const result = saveGameState(gameState, slot != null ? slot : (gameState.saveSlot || 1));
   if(result.success) gameState.saveSlot = slot != null ? slot : (gameState.saveSlot || 1);
@@ -101,9 +112,9 @@ function handleLoadFromSlot(slot){
   const geladen = loadGameState(slot);
   if(!geladen.found){ showToast("Auf diesem Platz liegt kein Spielstand.", "error"); return; }
   applyLoadedState(geladen.state);
-  gameState.saveSlot = slot;
+  if(slot !== AUTOSAVE_SLOT) gameState.saveSlot = slot;
   closeSaveModal();
-  showToast(`Spielstand von Platz ${slot} geladen.`, "success");
+  showToast(slot === AUTOSAVE_SLOT ? "Automatisch gespeicherten Stand geladen." : `Spielstand von Platz ${slot} geladen.`, "success");
 }
 
 function handleDeleteSlot(slot){
@@ -135,6 +146,8 @@ function handleImportSave(input){
 window.onload = function(){
   migrateLegacySave();
   const belegt = listSaveSlots().filter(p => p.belegt);
+  const auto = readAutoSaveInfo();
+  if(auto) belegt.push(auto);
   if(belegt.length === 0) return;
 
   // Zuletzt gespeicherter Platz wird vorgeschlagen.
@@ -145,7 +158,7 @@ window.onload = function(){
 
   pendingLoad = geladen;
   const info = document.getElementById("loadConfirmInfo");
-  if(info) info.textContent = `${juengster.label} (Platz ${juengster.slot})`;
+  if(info) info.textContent = `${juengster.label} (${juengster.slot === AUTOSAVE_SLOT ? "automatisch gespeichert" : "Platz " + juengster.slot})`;
   document.getElementById("loadConfirmOverlay").classList.add("show");
 };
 
@@ -156,7 +169,6 @@ window.onload = function(){
 // zeigt das Spiel an. Wird von Ladedialog, Platzauswahl und Import genutzt.
 function applyLoadedState(state){
   gameState = state;
-gameState = state;
 
     if(Array.isArray(gameState.log)){
       gameState.log = gameState.log.map(entry =>
@@ -216,6 +228,7 @@ gameState = state;
       gameState.pool.players.forEach(p => {
         if(p.contractYears == null) p.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
       });
+      detachOwnClubFromPool(gameState);
     }
 
     (gameState.squad || []).forEach(p => {
@@ -246,7 +259,7 @@ function maybeOpenPressConference(){
   if(gameState.board && gameState.board.dismissed) return;
   const situation = pickPressSituation(gameState);
   if(!situation) return;
-  showPressConference(situation);
+  queueModal(() => showPressConference(situation));
 }
 
 function answerPressConference(situationKey, index){

@@ -5,7 +5,7 @@
 // damit die Ladereihenfolge unkritisch bleibt.
 
 let poolFilters = { pos:"ALL", nat:"ALL", minAge:16, maxAge:38, minStrength:0,
-  maxFeeMio:200, search:"", freeOnly:false, expiringOnly:false };
+  maxFeeMio:200, search:"", freeOnly:false, expiringOnly:false, willingOnly:true };
 
 let poolSort = { key:"strength", dir:"desc" };
 
@@ -25,7 +25,8 @@ function readPoolFilters(){
     maxFeeMio: parseFloat(v("poolMaxFee")) || 200,
     search: v("poolSearch") || "",
     freeOnly: c("poolFreeOnly"),
-    expiringOnly: c("poolExpiringOnly")
+    expiringOnly: c("poolExpiringOnly"),
+    willingOnly: c("poolWillingOnly")
   };
   poolPage = 0;
   renderMarket(gameState);
@@ -63,7 +64,7 @@ function renderMarket(gameState){
     maxFee: Math.round(poolFilters.maxFeeMio * 1000000),
     search: poolFilters.search,
     freeOnly: poolFilters.freeOnly, expiringOnly: poolFilters.expiringOnly
-  });
+  }).filter(p => !poolFilters.willingOnly || isWillingToJoin(gameState, p));
   const sortiert = sortPoolResults(treffer, poolSort.key, poolSort.dir);
 
   const seiten = Math.max(1, Math.ceil(sortiert.length / POOL_PAGE_SIZE));
@@ -72,7 +73,7 @@ function renderMarket(gameState){
   const seite = sortiert.slice(poolPage * POOL_PAGE_SIZE, (poolPage + 1) * POOL_PAGE_SIZE);
 
   const hinweis = tw.open
-    ? `<p class="muted" style="margin:0 0 12px;">Transferfenster offen bis Spieltag ${getCurrentWindowEnd(gameState.matchday + 1)} · <b>${stats.gelistet}</b> von ${stats.gesamt} Spielern sind diese Saison zu haben, davon ${stats.frei} ablösefrei.</p>`
+    ? `<p class="muted" style="margin:0 0 12px;">Transferfenster offen bis Spieltag ${getCurrentWindowEnd(gameState.matchday + 1)} · <b>${stats.gelistet}</b> von ${stats.gesamt} Spielern sind diese Saison zu haben, davon ${stats.frei} ablösefrei. Zu ${gameState.clubName} wechseln Spieler bis Stärke <b>${getTransferInterestLimit(gameState)}</b>.</p>`
     : `<p style="margin:0 0 12px; color:#FCA311;">🔒 ${tw.message} Du kannst suchen, aber nicht verpflichten.</p>`;
 
   const natOptionen = ['<option value="ALL">Alle Länder</option>'].concat(
@@ -92,6 +93,7 @@ function renderMarket(gameState){
     <label>bis <input type="number" id="poolMaxFee" value="${poolFilters.maxFeeMio}" style="width:62px;" step="0.5" onchange="readPoolFilters()"> Mio. €</label>
     <label><input type="checkbox" id="poolFreeOnly"${poolFilters.freeOnly ? " checked" : ""} onchange="readPoolFilters()"> nur ablösefrei</label>
     <label><input type="checkbox" id="poolExpiringOnly"${poolFilters.expiringOnly ? " checked" : ""} onchange="readPoolFilters()"> Vertrag läuft aus</label>
+    <label><input type="checkbox" id="poolWillingOnly"${poolFilters.willingOnly ? " checked" : ""} onchange="readPoolFilters()"> nur Wechselwillige</label>
     <input type="text" id="poolSearch" placeholder="Name oder Verein..." value="${poolFilters.search}" oninput="readPoolFilters()" style="min-width:150px;">
     <button class="ghost" onclick="resetPoolFilters()">Filter zurücksetzen</button>
   </div>`;
@@ -117,6 +119,7 @@ function renderMarket(gameState){
     seite.forEach(p => {
       const fee = getTransferFee(p);
       const bezahlbar = fee <= gameState.budget;
+      const interesse = isWillingToJoin(gameState, p);
       const vereinsText = p.clubName
         ? `${p.clubName}${isContractExpiring(p) ? ' <span class="tagIcon" title="Vertrag läuft aus">📝</span>' : ""}`
         : `<span style="color:var(--win);">ablösefrei</span>`;
@@ -132,7 +135,9 @@ function renderMarket(gameState){
         <td>${topAttributeTags(p)}</td>
         <td class="n"${bezahlbar ? "" : ' style="color:var(--loss);"'}>${fmtMoney(fee)}</td>
         <td class="n">${fmtMoney(calculatePlayerSalary(p.strength, p.age))}</td>
-        <td><button onclick="event.stopPropagation(); handleSignPlayer('${p.id}')"${tw.open && bezahlbar ? "" : " disabled"}>Holen</button></td>
+        <td>${interesse
+          ? `<button onclick="event.stopPropagation(); handleSignPlayer('${p.id}')"${tw.open && bezahlbar ? "" : " disabled"}>Holen</button>`
+          : `<button class="ghost" disabled title="Spieler wechseln bis Stärke ${getTransferInterestLimit(gameState)}">Kein Interesse</button>`}</td>
       </tr>`;
     });
     html += `</table></div>`;
@@ -163,7 +168,7 @@ function renderMarket(gameState){
 
 function resetPoolFilters(){
   poolFilters = { pos:"ALL", nat:"ALL", minAge:16, maxAge:38, minStrength:0,
-    maxFeeMio:200, search:"", freeOnly:false, expiringOnly:false };
+    maxFeeMio:200, search:"", freeOnly:false, expiringOnly:false, willingOnly:true };
   poolPage = 0;
   renderMarket(gameState);
 }
@@ -180,6 +185,7 @@ function showPoolPlayerDetail(playerId){
   const fee = getTransferFee(player);
   const tw = checkTransferWindow(gameState);
   const bezahlbar = fee <= gameState.budget;
+  const interesse = isWillingToJoin(gameState, player);
 
   const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
 
@@ -219,11 +225,12 @@ function showPoolPlayerDetail(playerId){
     ${player.isScoutingFind ? '<div class="profTags"><span class="profTag gold">🔍 Scouting-Fund</span></div>' : ""}
 
     <div style="margin-top:14px;">
-      <button onclick="handleSignPlayer('${player.id}')"${tw.open && bezahlbar ? "" : " disabled"}>
+      <button onclick="handleSignPlayer('${player.id}')"${tw.open && bezahlbar && interesse ? "" : " disabled"}>
         Verpflichten · ${fmtMoney(fee)}
       </button>
       ${!tw.open ? '<p class="muted" style="margin:8px 0 0;">Transferfenster geschlossen.</p>' : ""}
-      ${tw.open && !bezahlbar ? `<p class="muted" style="margin:8px 0 0; color:var(--loss);">Budget reicht nicht (${fmtMoney(gameState.budget)} verfügbar).</p>` : ""}
+      ${tw.open && !interesse ? `<p class="muted" style="margin:8px 0 0; color:var(--loss);">Kein Interesse: ${gameState.clubName} ist ihm zu klein. Spieler wechseln bis Stärke ${getTransferInterestLimit(gameState)}.</p>` : ""}
+      ${tw.open && interesse && !bezahlbar ? `<p class="muted" style="margin:8px 0 0; color:var(--loss);">Budget reicht nicht (${fmtMoney(gameState.budget)} verfügbar).</p>` : ""}
     </div>
   `;
   document.getElementById("playerModalOverlay").classList.add("show");

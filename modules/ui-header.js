@@ -10,7 +10,7 @@ function renderHeader(gameState){
 
   document.getElementById("clubHeader").textContent = gameState.clubName;
   document.getElementById("statusLine").innerHTML =
-    `Trainer ${gameState.manager} · Saison <span class="num">${gameState.season}/${gameState.season + 1}</span> · Spieltag <span class="num">${Math.min(gameState.matchday + 1, TOTAL_MATCHDAYS)}</span> von <span class="num">${TOTAL_MATCHDAYS}</span>`;
+    `${getManagerLabel(gameState)} · Saison <span class="num">${gameState.season}/${gameState.season + 1}</span> · Spieltag <span class="num">${Math.min(gameState.matchday + 1, TOTAL_MATCHDAYS)}</span> von <span class="num">${TOTAL_MATCHDAYS}</span>`;
 
   const chips = document.getElementById("headerChips");
   if(chips){
@@ -278,4 +278,11 @@ function renderTacticMatchup(info){
     </p>
     <p class="muted" style="margin:0; font-size:12px;">${hinweis}</p>
   </div>`;
+}
+
+// Ohne eingegebenen Namen nur "Trainer". Aeltere Spielstaende haben "Trainer"
+// als Ersatznamen gespeichert, daraus wurde sonst "Trainer Trainer".
+function getManagerLabel(gameState){
+  const name = (gameState.manager || "").trim();
+  return name && name !== "Trainer" ? `Trainer ${name}` : "Trainer";
 }

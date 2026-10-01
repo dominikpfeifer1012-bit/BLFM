@@ -192,6 +192,7 @@ function finishGroupStage(gameState){
 
   if(!qualified){
     eu.eliminated = true;
+    eu.exitLabel = "Gruppenphase";
     resolveRemainingEurope(gameState);
   }
 
@@ -274,6 +275,7 @@ function simulateEuropeKnockoutRound(gameState){
     eu.active = false;
   } else if(ownResult && !ownResult.won){
     eu.eliminated = true;
+    eu.exitLabel = `Aus im ${roundLabel}`;
     resolveRemainingEurope(gameState);
   }
 

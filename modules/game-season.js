@@ -41,7 +41,7 @@ function runBoardCheckpoint(){
 
   if(result.dismissed){
     addLogEntry(gameState, `\u{1F454} Der Vorstand hat dich freigestellt. Ziel verfehlt: ${board.goalLabel}.`, "loss", true);
-    showDismissalModal(result);
+    queueModal(() => showDismissalModal(result));
     return;
   }
 
@@ -68,6 +68,20 @@ function acceptJobOffer(clubName){
 
   const division = getClubDivision(gameState, clubName) || 1;
 
+  // Der bisherige Kader wandert in den Bestand des alten Vereins, damit die
+  // Spieler nicht einfach verschwinden und der Verein weiter Spieler hat.
+  const alterVerein = gameState.clubName;
+  const alteLiga = getClubDivision(gameState, alterVerein);
+  if(gameState.pool && gameState.pool.players){
+    (gameState.squad || []).forEach(p => {
+      p.clubName = alterVerein;
+      p.clubTier = alteLiga ? "div" + alteLiga : "frei";
+      p.transferListed = false;
+      p.consecutiveStarts = 0;
+      gameState.pool.players.push(p);
+    });
+  }
+
   gameState.clubName = clubName;
   gameState.division = division;
   gameState.clubStature = club.strength;
@@ -90,8 +104,6 @@ function acceptJobOffer(clubName){
   gameState.ratingHistory = [];
   gameState.budgetHistory = [];
 
-  // Der bisherige Kader wandert in den Bestand, damit die Spieler nicht
-  // einfach verschwinden.
   gameState.season += 1;
   gameState.matchday = 0;
   const pool = getOwnLeaguePool(gameState);
@@ -116,6 +128,7 @@ function acceptJobOffer(clubName){
 
   closeDismissalModal();
   renderAll(gameState);
+  autoSave();
 }
 
 function unlockAchievement(key){
@@ -194,6 +207,13 @@ function checkYouthStarAchievement(){
   if(star) unlockAchievement("youthStar");
 }
 
+// Aeltere Spielstaende kennen exitRound noch nicht, dann bleibt nur der Rundenzaehler.
+function describeCupExit(cup){
+  const runde = cup.exitRound || cup.round;
+  const label = CUP_ROUND_LABELS[Math.max(0, runde - 1)] || `Runde ${runde}`;
+  return label === "1. Runde" ? "Aus in der 1. Runde" : `Aus im ${label}`;
+}
+
 function finishSeason(){
   const playedDivision = gameState.division;
   const sorted = getSortedStandings(gameState.teams);
@@ -233,10 +253,11 @@ function finishSeason(){
     division: playedDivision, movement,
     club: gameState.clubName,
     cupResult: cup.champion === gameState.clubName ? "Sieger"
-      : cup.eliminated ? `Aus in ${CUP_ROUND_LABELS[Math.max(0, cup.round - 1)] || "Runde " + cup.round}`
-      : cup.champion ? "—" : "—",
+      : cup.eliminated ? describeCupExit(cup)
+      : "—",
     europeResult: !eu.qualified ? null
       : eu.champion ? "Sieger"
+      : eu.exitLabel ? eu.exitLabel
       : eu.phase === "group" ? "Gruppenphase"
       : `Aus im ${EUROPE_KO_LABELS[Math.max(0, eu.knockoutRound - 1)] || "K.o."}`,
     boardPatience: gameState.board ? Math.round(gameState.board.patience) : null,
@@ -288,7 +309,7 @@ function finishSeason(){
   if(playedDivision === 1 && finalPosition <= 4) unlockAchievement("topFour");
 
   renderSeasonSummary(gameState);
-  if(typeof showYouthIntakeModal === "function") showYouthIntakeModal();
+  if(typeof showYouthIntakeModal === "function") queueModal(showYouthIntakeModal);
   renderSeasonHistory(gameState);
 }
 
@@ -344,4 +365,5 @@ function startNextSeason(){
 
   renderAll(gameState);
   hideSeasonSummary();
+  autoSave();
 }

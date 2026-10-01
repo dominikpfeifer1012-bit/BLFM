@@ -55,6 +55,8 @@ function switchTab(id){
   }
 }
 
+const TOAST_MAX_VISIBLE = 3;
+
 function showToast(message, type){
   type = type || "info";
   const container = document.getElementById("toastContainer");
@@ -63,6 +65,9 @@ function showToast(message, type){
   toast.className = `toast ${type}`;
   toast.textContent = message;
   container.appendChild(toast);
+  // Nach einem Spieltag kommen oft mehrere Meldungen auf einmal. Mehr als drei
+  // gleichzeitig verdecken nur die Oberflaeche, die aeltesten weichen.
+  while(container.children.length > TOAST_MAX_VISIBLE) container.firstElementChild.remove();
   setTimeout(() => {
     toast.style.transition = "opacity .3s ease";
     toast.style.opacity = "0";
@@ -222,3 +227,41 @@ function topAttributeTags(player){
 // ============================================
 // Live-Simulation mit Spielbericht
 // ============================================
+
+// ---------- Fenster-Warteschlange ----------
+// Pressekonferenz, Jugend-Aufnahme und Entlassung entstehen mitten in der
+// Simulation, waehrend der Spielbericht noch laeuft. Ohne Warteschlange lagen
+// sie uebereinander. Jetzt oeffnet sich das naechste Fenster erst, wenn kein
+// anderes mehr offen ist.
+const modalQueue = [];
+let modalHold = 0;
+
+function isAnyModalOpen(){
+  return !!document.querySelector(".modalOverlay.show");
+}
+
+function queueModal(open){
+  modalQueue.push(open);
+  pumpModalQueue();
+}
+
+function pumpModalQueue(){
+  if(modalHold > 0 || isAnyModalOpen()) return;
+  const next = modalQueue.shift();
+  if(next) next();
+}
+
+// Waehrend eines Simulationsschritts zurueckhalten, bis der Spielbericht steht.
+function holdModals(){ modalHold++; }
+function releaseModals(){
+  modalHold = Math.max(0, modalHold - 1);
+  pumpModalQueue();
+}
+
+// Sobald irgendein Fenster schliesst, ist das naechste dran. Der kurze Aufschub
+// laesst Schliessen-Handler, die direkt ein Folgefenster oeffnen, zuerst laufen.
+document.querySelectorAll(".modalOverlay").forEach(el => {
+  new MutationObserver(() => {
+    if(!el.classList.contains("show")) setTimeout(pumpModalQueue, 0);
+  }).observe(el, { attributes: true, attributeFilter: ["class"] });
+});

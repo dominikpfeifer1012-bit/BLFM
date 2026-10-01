@@ -353,19 +353,26 @@ const BOARD_MAX_SWING = 25;
 const BOARD_WARN_THRESHOLD = 30;
 const BOARD_CUP_ROUND_CREDIT = 5;
 const BOARD_EUROPE_ROUND_CREDIT = 7;
+const BOARD_GOAL_MET_BONUS = 4;          // Ziel genau erreicht: kleines Plus statt Stillstand
 
+// Saisonziele haengen am Staerke-Rang innerhalb der eigenen Liga (maxRank:
+// hoechstens so viele Vereine sind staerker, plus eins). Feste Staerkewerte
+// passten nur zur Bundesliga: in Liga 2 und 3 sollten sonst 13 von 18
+// Vereinen mindestens Dritter werden. minStrength dient nur als Rueckfall,
+// falls keine Ligadaten vorliegen.
 const BOARD_GOALS_DIV1 = [
-  { minStrength: 88, label: "Deutscher Meister",                target: 1 },
-  { minStrength: 80, label: "Qualifikation für den Europapokal", target: 4 },
-  { minStrength: 72, label: "Einstelliger Tabellenplatz",        target: 9 },
-  { minStrength: 64, label: "Gesicherter Mittelfeldplatz",       target: 13 },
-  { minStrength: 0,  label: "Klassenerhalt",                     target: 15 }
+  { maxRank: 1,  minStrength: 88, label: "Deutscher Meister",                target: 1 },
+  { maxRank: 4,  minStrength: 80, label: "Qualifikation für den Europapokal", target: 4 },
+  { maxRank: 8,  minStrength: 72, label: "Einstelliger Tabellenplatz",        target: 9 },
+  { maxRank: 12, minStrength: 64, label: "Gesicherter Mittelfeldplatz",       target: 13 },
+  { maxRank: 99, minStrength: 0,  label: "Klassenerhalt",                     target: 15 }
 ];
 const BOARD_GOALS_DIV2 = [
-  { minStrength: 62, label: "Direkter Aufstieg",        target: 2 },
-  { minStrength: 55, label: "Aufstiegsrelegation",      target: 3 },
-  { minStrength: 48, label: "Vorderes Tabellendrittel", target: 6 },
-  { minStrength: 0,  label: "Klassenerhalt",            target: 15 }
+  { maxRank: 2,  minStrength: 62, label: "Direkter Aufstieg",           target: 2 },
+  { maxRank: 3,  minStrength: 55, label: "Aufstiegsrelegation",         target: 3 },
+  { maxRank: 8,  minStrength: 48, label: "Vorderes Tabellendrittel",    target: 6 },
+  { maxRank: 12, minStrength: 44, label: "Gesicherter Mittelfeldplatz", target: 12 },
+  { maxRank: 99, minStrength: 0,  label: "Klassenerhalt",               target: 15 }
 ];
 
 // ============================================
@@ -477,6 +484,14 @@ const TRANSFER_LIST_YOUNG_MAX_AGE = 22;
 const TRANSFER_FEE_PREMIUM = 0.35;
 const TRANSFER_FEE_EXPIRING_PREMIUM = 0.05;
 const FREE_AGENT_SIGNING_FEE = 0.10;     // Handgeld statt Abloese
+// Wechselbereitschaft: Ein Spieler kommt nur, wenn er den Verein nicht um
+// mehr als diesen Wert ueberragt. Sonst holt ein Abstiegskandidat fuer ein
+// paar Millionen Weltklasse, weil der Marktwert vom Kaeufer unabhaengig ist.
+const TRANSFER_MAX_ABOVE_CLUB = 10;
+
+// Automatische Aufstellung: kleiner Vorzug fuer die gelernte Position, damit
+// niemand fuer ein bis zwei Punkte auf einen fremden Platz rutscht.
+const AUTO_LINEUP_NATURAL_BONUS = 1.5;
 
 // Entwicklung des Pools zwischen den Saisons
 const POOL_DEV_YOUNG_GAIN = 2.2;
@@ -732,10 +747,11 @@ const THIRD_DIVISION_CLUBS = [
 
 // Ziele fuer die dritte Liga
 const BOARD_GOALS_DIV3 = [
-  { minStrength: 48, label: "Direkter Aufstieg",        target: 2 },
-  { minStrength: 44, label: "Aufstiegsrelegation",      target: 3 },
-  { minStrength: 40, label: "Vorderes Tabellendrittel", target: 6 },
-  { minStrength: 0,  label: "Klassenerhalt",            target: 16 }
+  { maxRank: 2,  minStrength: 48, label: "Direkter Aufstieg",           target: 2 },
+  { maxRank: 3,  minStrength: 44, label: "Aufstiegsrelegation",         target: 3 },
+  { maxRank: 8,  minStrength: 40, label: "Vorderes Tabellendrittel",    target: 6 },
+  { maxRank: 12, minStrength: 36, label: "Gesicherter Mittelfeldplatz", target: 12 },
+  { maxRank: 99, minStrength: 0,  label: "Klassenerhalt",               target: 16 }
 ];
 
 // Eine Stelle, an der alles Ligaabhaengige zusammenlaeuft. Eine weitere Liga

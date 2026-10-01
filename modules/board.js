@@ -2,9 +2,19 @@
 // BOARD.JS - Vorstand, Saisonziel und Geduld
 // ============================================
 
+// Rang 1 = staerkster Verein der Liga. Gleich starke Vereine teilen sich den Rang.
+function getStrengthRankInDivision(clubStrength, division){
+  if(typeof gameState === "undefined" || !gameState || typeof getLeaguePool !== "function") return null;
+  const pool = getLeaguePool(gameState, division) || [];
+  if(pool.length === 0) return null;
+  return 1 + pool.filter(c => c.strength > clubStrength).length;
+}
+
 function getSeasonGoal(clubStrength, division){
   const konfig = typeof getDivisionConfig === "function" ? getDivisionConfig(division) : null;
   const list = (konfig && konfig.goals) || BOARD_GOALS_DIV1;
+  const rang = getStrengthRankInDivision(clubStrength, division);
+  if(rang != null) return list.find(g => rang <= g.maxRank) || list[list.length - 1];
   return list.find(g => clubStrength >= g.minStrength) || list[list.length - 1];
 }
 
@@ -45,8 +55,9 @@ function evaluateBoard(gameState){
   // Erst den Ligaanteil deckeln, DANN den Pokalbonus draufrechnen. Andernfalls
   // waere der Bonus bei einer sehr schlechten Platzierung komplett unsichtbar,
   // weil der Ausschlag schon am unteren Anschlag klebt.
+  // Ziel genau erreicht zaehlt als Erfolg, nicht als Stillstand.
   const ligaAnteil = Math.max(-BOARD_MAX_SWING, Math.min(BOARD_MAX_SWING,
-    rankDelta * BOARD_PATIENCE_PER_RANK));
+    Math.max(rankDelta * BOARD_PATIENCE_PER_RANK, rankDelta >= 0 ? BOARD_GOAL_MET_BONUS : -Infinity)));
   let swing = Math.max(-BOARD_MAX_SWING, Math.min(BOARD_MAX_SWING, ligaAnteil + credit));
 
   // Der Bonus soll spuerbar bleiben, auch wenn der Ligaanteil am Anschlag ist.

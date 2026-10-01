@@ -12,8 +12,12 @@ function buildPoolClubList(gameState){
   const clubs = [];
   // Alle Ligen liefern Vereine fuer den Bestand, nicht nur die ersten beiden.
   ensureLeaguePools(gameState);
+  // Der eigene Verein hat seinen Kader in gameState.squad, nicht im Bestand.
+  // Sonst stuenden eigene Spieler auf dem Transfermarkt.
   gameState.leaguePools.forEach((pool, idx) => {
-    pool.forEach(c => clubs.push({ name: c.name, strength: c.strength, tier: "div" + (idx + 1) }));
+    pool.forEach(c => {
+      if(c.name !== gameState.clubName) clubs.push({ name: c.name, strength: c.strength, tier: "div" + (idx + 1) });
+    });
   });
 
   shuffleArray(EURO_CLUBS).slice(0, POOL_FOREIGN_CLUB_COUNT).forEach(c => {
@@ -161,6 +165,17 @@ function sortPoolResults(list, key, dir){
 
 // ---------- Transfers ----------
 
+// Massgeblich ist das Standing des Vereins, nicht die Kaderbewertung —
+// sonst liesse sich die Grenze durch Einkaeufe Schritt fuer Schritt anheben.
+function getTransferInterestLimit(gameState){
+  const staerke = Math.max(getOwnClubStrength(gameState), gameState.clubStature || 0);
+  return Math.round(staerke + TRANSFER_MAX_ABOVE_CLUB);
+}
+
+function isWillingToJoin(gameState, player){
+  return player.strength <= getTransferInterestLimit(gameState);
+}
+
 function signPlayerFromPool(gameState, playerId){
   const fenster = checkTransferWindow(gameState);
   if(!fenster.open) return { success: false, message: fenster.message };
@@ -169,6 +184,10 @@ function signPlayerFromPool(gameState, playerId){
   const player = getPoolPlayer(pool, playerId);
   if(!player) return { success: false, message: "Dieser Spieler ist nicht mehr verfügbar." };
   if(!player.transferListed) return { success: false, message: `${player.name} steht diese Saison nicht zur Verfügung.` };
+  if(!isWillingToJoin(gameState, player)){
+    return { success: false,
+      message: `${player.name} hat kein Interesse — ${gameState.clubName} ist ihm zu klein (Spieler bis Stärke ${getTransferInterestLimit(gameState)} wechseln).` };
+  }
 
   const fee = getTransferFee(player);
   const abbuchung = deductFromBudget(gameState.budget, fee);
@@ -193,6 +212,21 @@ function signPlayerFromPool(gameState, playerId){
       ? `✅ ${player.name} (${player.pos}, ${Math.round(player.strength)}) kommt von ${herkunft} für ${fmtMoney(fee)}.`
       : `✅ ${player.name} (${player.pos}, ${Math.round(player.strength)}) ablösefrei verpflichtet, Handgeld ${fmtMoney(fee)}.`
   };
+}
+
+// Bestandsspieler, die noch beim eigenen Verein gefuehrt werden (alte
+// Spielstaende, Vereinswechsel), wechseln zu einem passenden anderen Verein.
+function detachOwnClubFromPool(gameState){
+  if(!gameState.pool || !gameState.pool.players) return 0;
+  let n = 0;
+  gameState.pool.players.forEach(p => {
+    if(p.clubName !== gameState.clubName) return;
+    const club = findNewClubFor(gameState, p);
+    p.clubName = club ? club.name : null;
+    p.clubTier = club ? club.tier : "frei";
+    n++;
+  });
+  return n;
 }
 
 // Beim Verkauf kehrt der Spieler in den Pool zurueck — bei einem Verein,
@@ -239,6 +273,7 @@ function sellPlayerToPool(gameState, squadIndex){
 function advancePool(gameState){
   const pool = gameState.pool;
   if(!pool) return { abgaenge: 0, zugaenge: 0 };
+  detachOwnClubFromPool(gameState);
 
   const bleibt = [];
   let abgaenge = 0;
