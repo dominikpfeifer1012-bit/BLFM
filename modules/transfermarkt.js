@@ -104,8 +104,8 @@ function checkTransferWindow(gameState){
   return {
     open: false,
     message: nextStart
-      ? `Das Transferfenster ist geschlossen. Es öffnet wieder an Spieltag ${nextStart}.`
-      : "Das Transferfenster ist geschlossen und öffnet in dieser Saison nicht mehr."
+      ? `Transferfenster geschlossen bis Spieltag ${nextStart}`
+      : "Transferfenster geschlossen bis Saisonende"
   };
 }
 
@@ -115,14 +115,14 @@ function buyPlayerFromMarket(gameState, marketIndex){
 
   const player = market[marketIndex];
   if(!player){
-    return { success: false, message: "Spieler nicht mehr verfuegbar." };
+    return { success: false, message: "Spieler nicht mehr verfügbar." };
   }
 
   const deduction = deductFromBudget(gameState.budget, player.value);
   if(!deduction.success){
     return {
       success: false,
-      message: `Nicht genug Budget! Benötigt: ${fmtMoney(player.value)}, verfügbar: ${fmtMoney(gameState.budget)}`
+      message: `Budget reicht nicht (${fmtMoney(player.value)}).`
     };
   }
 
@@ -130,7 +130,7 @@ function buyPlayerFromMarket(gameState, marketIndex){
   gameState.squad.push(player);
   market.splice(marketIndex, 1);
 
-  const scoutTag = player.isScoutingFind ? " 🔍 Scouting-Fund!" : "";
+  const scoutTag = player.isScoutingFind ? " 🔍 Scouting-Fund" : "";
   return {
     success: true,
     message: `✅ Transfer: ${player.name} (${player.pos}, Bewertung ${player.strength}) für ${fmtMoney(player.value)} verpflichtet.${scoutTag}`
@@ -147,7 +147,7 @@ function sellPlayerFromSquad(gameState, squadIndex){
   }
 
   if(!canSellFromSquad(gameState.squad)){
-    return { success: false, message: `Kader zu klein zum Verkaufen! (Minimum ${MIN_SQUAD_SIZE} Spieler)` };
+    return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
 
   const sellValue = calculateSellValue(player.value);

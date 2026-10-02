@@ -300,17 +300,13 @@ function answerPressConference(situationKey, index){
 // Rotation: in englischen Wochen muede Stammspieler automatisch schonen.
 function toggleAutoRotate(){
   gameState.autoRotate = !gameState.autoRotate;
-  showToast(gameState.autoRotate
-    ? `Rotation an: Spieler mit ${ROTATION_START_LIMIT}+ Startelfeinsätzen in Folge werden geschont, wenn der Ersatz kaum schwächer ist.`
-    : "Rotation aus: es spielt immer die stärkste Elf.", "info");
+  showToast(gameState.autoRotate ? "Rotation an" : "Rotation aus", "info");
   renderAll(gameState);
 }
 
 function togglePressConferences(){
   gameState.pressConferences = !isPressEnabled(gameState);
-  showToast(isPressEnabled(gameState)
-    ? "Pressekonferenzen eingeschaltet."
-    : "Pressekonferenzen aus — es gibt keine Nachfragen mehr.", "info");
+  showToast(isPressEnabled(gameState) ? "Pressekonferenzen an" : "Pressekonferenzen aus", "info");
   renderHeader(gameState);
 }
 

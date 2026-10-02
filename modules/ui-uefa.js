@@ -43,12 +43,12 @@ function renderEuropeStatus(gameState){
 
   let kopf = "";
   if(key === uefa.own){
-    if(comp.winner === gameState.clubName) kopf = `<span class="badge win">${cfg.icon} Sieger!</span>`;
+    if(comp.winner === gameState.clubName) kopf = `<span class="badge win">${cfg.icon} Sieger</span>`;
     else if(comp.ownOut) kopf = `<span class="badge loss">Ausgeschieden</span> · ${comp.ownExit}`;
-    else kopf = `<span class="badge win">Dabei</span> · ${comp.phase === "league" ? `Ligaphase, ${comp.round}/${cfg.rounds} gespielt` : UEFA_KO_STAGES[comp.koStage] || ""}`;
+    else kopf = `<span class="badge win">Dabei</span> · ${comp.phase === "league" ? `Ligaphase ${comp.round}/${cfg.rounds}` : UEFA_KO_STAGES[comp.koStage] || ""}`;
     if(uefa.goal) kopf += ` · Ziel: ${uefa.goal.label}`;
   } else if(!uefa.own && key === "cl"){
-    kopf = `<span class="muted">Nicht qualifiziert. Startplätze: CL über die Tabelle, EL über den nächsten Platz oder den Pokalsieg, Conference League dahinter.</span>`;
+    kopf = `<span class="muted">Nicht qualifiziert.</span>`;
   }
   if(comp.winner && comp.winner !== gameState.clubName) kopf += `${kopf ? " · " : ""}Sieger: <b>${comp.winner}</b>`;
 
@@ -96,7 +96,7 @@ function renderEuropeStatus(gameState){
   }
 
   container.innerHTML = `<div class="chipBar">${chips}</div><p style="margin:0;">${kopf}</p>
-    <div class="uefaCols"><div>${body || '<p class="muted" style="margin-top:12px;">Die K.o.-Runden beginnen nach der Ligaphase.</p>'}</div><div>${tabelle}</div></div>`;
+    <div class="uefaCols"><div>${body}</div><div>${tabelle}</div></div>`;
 }
 
 function uefaCountryTag(key){
@@ -123,20 +123,20 @@ function showUefaDrawModal(key, stufe){
   if(stufe < 0){
     const eigen = comp.teams.find(t => t.name === me);
     const meine = comp.fixtures.filter(f => f.home === me || f.away === me).sort((a, b) => a.round - b.round);
-    inhalt = `<p class="muted" style="margin-top:-4px;">${me} aus Topf ${eigen ? eigen.pot : "?"} · ${cfg.rounds} Gegner, je ${cfg.rounds / 2} daheim und auswärts</p>
+    inhalt = `<p class="muted" style="margin-top:-4px;">${me} · Topf ${eigen ? eigen.pot : "?"}</p>
       <div class="confList">${meine.map(f => {
         const heim = f.home === me, gegner = heim ? f.away : f.home;
         const t = comp.teams.find(x => x.name === gegner);
         return `<div class="confRow"><span>${f.round + 1}. Spieltag</span><b>${heim ? "🏠" : "✈️"}</b><span>${gegner} <span class="muted">(Topf ${t.pot}, ${Math.round(t.strength)})</span></span></div>`;
       }).join("")}</div>`;
-    if(uefa.goal) inhalt += `<p style="margin-top:12px;">👔 Ziel des Vorstands: <b>${uefa.goal.label}</b></p>`;
+    if(uefa.goal) inhalt += `<p style="margin-top:12px;">Vorstandsziel: <b>${uefa.goal.label}</b></p>`;
   } else {
     const t = comp.ties.find(x => x.a === me || x.b === me);
     if(!t) return;
     const gegner = t.a === me ? t.b : t.a;
     const g = comp.teams.find(x => x.name === gegner);
     inhalt = `<h3 style="margin:6px 0;">${me} – ${gegner}</h3>
-      <p class="muted">${t.final ? "Finale auf neutralem Platz" : t.a === me ? "Hinspiel daheim, Rückspiel auswärts" : "Hinspiel auswärts, Rückspiel daheim"} · Gegner-Stärke ${g ? Math.round(g.strength) : "?"}</p>
+      <p class="muted">${t.final ? "Neutraler Platz" : t.a === me ? "Hinspiel daheim" : "Hinspiel auswärts"} · Stärke ${g ? Math.round(g.strength) : "?"}</p>
       <p class="eyebrow" style="margin-top:12px;">Alle Paarungen</p>
       <div class="confList">${comp.ties.map(x => `<div class="confRow${x === t ? " own" : ""}"><span>${x.a}</span><b>–</b><span>${x.b}</span></div>`).join("")}</div>`;
   }
@@ -164,7 +164,7 @@ function renderUefaRanking(gameState){
       <td>${uefaCountryTag(r.key)} ${r.name}${eps.includes(r.key) ? ' <span class="badge win" title="Zusätzlicher CL-Platz">+1 CL</span>' : ""}</td>
       <td class="n"><b>${r.total.toFixed(1)}</b></td><td class="n">${r.last.toFixed(1)}</td><td class="n">${r.current.toFixed(1)}</td></tr>`).join("")}
   </table></div>
-  <p class="muted" style="font-size:12px; margin-top:8px;">Die zwei besten der fünf großen Ligen im Vorjahr erhalten einen zusätzlichen CL-Platz. Dein Verein: <b>${getClubCoefficient(gameState, gameState.clubName).toFixed(1)}</b> Punkte (bestimmt den Lostopf).</p>`;
+  <p class="muted" style="font-size:12px; margin-top:8px;">${gameState.clubName}: <b>${getClubCoefficient(gameState, gameState.clubName).toFixed(1).replace(".", ",")}</b></p>`;
 }
 
 // ---------- Ehrentafel ----------
@@ -179,7 +179,7 @@ function renderHonours(gameState){
   const me = gameState.clubName;
   const eigeneTitel = getClubTitles(gameState, me);
   if(alle.length === 0){
-    el.innerHTML = `<p class="muted">Noch keine Titel vergeben — die ersten Sieger stehen nach dem Saisonauftakt fest.</p>`;
+    el.innerHTML = `<p class="muted">Noch keine Titel vergeben.</p>`;
     return;
   }
   const saisons = [...new Set(alle.map(h => h.season))].sort((a, b) => b - a);

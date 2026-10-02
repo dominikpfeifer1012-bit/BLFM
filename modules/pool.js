@@ -196,14 +196,14 @@ function signPlayerFromPool(gameState, playerId){
   if(!player.transferListed) return { success: false, message: `${player.name} steht diese Saison nicht zur Verfügung.` };
   if(!isWillingToJoin(gameState, player)){
     return { success: false,
-      message: `${player.name} hat kein Interesse — ${gameState.clubName} ist ihm zu klein (Spieler bis Stärke ${getTransferInterestLimit(gameState)} wechseln).` };
+      message: `${player.name} hat kein Interesse an einem Wechsel.` };
   }
 
   const fee = getTransferFee(player);
   const abbuchung = deductFromBudget(gameState.budget, fee);
   if(!abbuchung.success){
     return { success: false,
-      message: `Ablöse nicht bezahlbar: ${fmtMoney(fee)} benötigt, ${fmtMoney(gameState.budget)} verfügbar.` };
+      message: `Budget reicht nicht (${fmtMoney(fee)}).` };
   }
 
   gameState.budget = abbuchung.newBudget;
@@ -292,7 +292,7 @@ function sellPlayerToPool(gameState, squadIndex){
   const player = gameState.squad[squadIndex];
   if(!player) return { success: false, message: "Spieler nicht gefunden." };
   if(!canSellFromSquad(gameState.squad)){
-    return { success: false, message: `Kader zu klein zum Verkaufen (Minimum ${MIN_SQUAD_SIZE} Spieler).` };
+    return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
 
   const erloes = calculateSellValue(player.value);
@@ -543,7 +543,7 @@ function scoutPlayer(gameState, playerId){
   if(!p) return { success: false, message: "Spieler nicht gefunden." };
   if(isPlayerScouted(gameState, p)) return { success: false, message: "Bereits beobachtet." };
   const kosten = getScoutingCost(gameState);
-  if(kosten > gameState.budget) return { success: false, message: `Beobachtung kostet ${fmtMoney(kosten)} — nicht bezahlbar.` };
+  if(kosten > gameState.budget) return { success: false, message: `Budget reicht nicht (${fmtMoney(kosten)}).` };
   gameState.budget -= kosten;
   gameState.scouted = gameState.scouted || {};
   gameState.scouted[p.id] = true;

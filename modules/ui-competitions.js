@@ -6,7 +6,10 @@
 
 function renderTable(gameState){
   const labelEl = document.getElementById("tableDivisionLabel");
-  if(labelEl) labelEl.textContent = `(${getDivisionTag(gameState.division)} · ${getDivisionLabel(gameState.division)})`;
+  if(labelEl){
+    const d = getDivisionConfig(gameState.division);
+    labelEl.textContent = (d.country && d.country !== "de" ? getCountryBadge(d.country) + " " : "") + d.label;
+  }
 
   const sorted = getSortedStandings(gameState.teams);
   const zonen = getDivisionZones(gameState.division, sorted.length);
@@ -190,7 +193,7 @@ function renderCupStatus(gameState){
 
   let statusLine;
   if(cup.champion === gameState.clubName){
-    statusLine = `<span class="badge win">🏆 Pokalsieger!</span>`;
+    statusLine = `<span class="badge win">🏆 Pokalsieger</span>`;
   } else if(cup.champion){
     statusLine = `Sieger: <b>${cup.champion}</b>`;
   } else if(cup.eliminated){
@@ -198,7 +201,7 @@ function renderCupStatus(gameState){
   } else if(cup.active){
     const nextTrigger = getCupTriggerMatchdays(gameState)[cup.round];
     const roundLabel = CUP_ROUND_LABELS[cup.round] || `Runde ${cup.round + 1}`;
-    statusLine = `<span class="badge win">Noch dabei</span> · Nächste Runde: ${roundLabel}${nextTrigger ? ` (Spieltag ${nextTrigger})` : ""} · ${cup.teamsRemaining.length} Teams verbleiben`;
+    statusLine = `<span class="badge win">Dabei</span> · ${roundLabel}${nextTrigger ? ` vor Spieltag ${nextTrigger}` : ""} · ${cup.teamsRemaining.length} Teams`;
   } else {
     statusLine = "—";
   }
@@ -303,10 +306,9 @@ function renderBoardPanel(gameState){
     </div>
     <div class="bar" style="margin:8px 0 12px;"><i style="width:${pct}%; background:${farbe};"></i></div>
     <p class="eyebrow">Saisonziel</p>
-    <p style="margin:2px 0 8px;"><b>${board.goalLabel}</b> — mindestens Platz ${board.targetPosition}</p>
+    <p style="margin:2px 0 8px;"><b>${board.goalLabel}</b> · Platz ${board.targetPosition}</p>
     <p class="muted" style="margin:0;">
-      Aktuell Platz ${position} · <span style="color:${aufKurs ? "var(--win)" : "var(--loss)"};">${aufKurs ? "auf Kurs" : "hinter der Erwartung"}</span>
-      ${next ? ` · nächste Bewertung an Spieltag ${next}` : " · letzte Bewertung erfolgt"}
+      Platz ${position} · <span style="color:${aufKurs ? "var(--win)" : "var(--loss)"};">${aufKurs ? "im Soll" : "unter Soll"}</span>${next ? ` · Bewertung Spieltag ${next}` : ""}
     </p>
     <p class="muted" style="margin:6px 0 0;">🎓 Trainer-Ruf: <b>${Math.round(getReputation(gameState))}</b> (${getReputationLabel(getReputation(gameState))})</p>
     ${verlauf}`;
@@ -323,7 +325,6 @@ function showDismissalModal(result){
 
   const angebotsHtml = angebote.length > 0 ? `
     <p class="eyebrow" style="margin-top:18px;">Angebote anderer Vereine</p>
-    <p class="muted" style="margin:2px 0 10px;">Deine Erfolge und die Vereinsgeschichte nimmst du mit.</p>
     ${angebote.map(a => `
       <div class="lineupOption" onclick="acceptJobOffer('${a.name.replace(/'/g, "\\'")}')">
         <span>
@@ -336,12 +337,11 @@ function showDismissalModal(result){
 
   el.innerHTML = `
     <p class="eyebrow">${result.regional ? `Abstieg in die ${result.reserveLabel || "Regionalliga"}` : "Der Vorstand hat entschieden"}</p>
-    <h2 style="margin:4px 0 14px;">${result.regional ? "Der Verein trennt sich von dir" : "Du wurdest entlassen"}</h2>
+    <h2 style="margin:4px 0 14px;">${result.regional ? "Vertrag aufgelöst" : "Entlassen"}</h2>
     <p class="muted" style="margin:0 0 16px;">
       ${result.regional
-        ? `${gameState.clubName} ist als ${result.position}. aus der ${getDivisionLabel(gameState.division)} abgestiegen. Die ${result.reserveLabel || "Regionalliga"} wird im Spiel nicht ausgespielt — deine Karriere geht bei einem anderen Verein weiter.`
-        : `Nach Spieltag ${result.matchday} steht ${gameState.clubName} auf Platz ${result.position}.
-      Erwartet wurde: <b>${board.goalLabel}</b> (mindestens Platz ${board.targetPosition}).`}
+        ? `${gameState.clubName} · Platz ${result.position} in der ${getDivisionLabel(gameState.division)}`
+        : `Spieltag ${result.matchday} · Platz ${result.position} · Ziel: ${board.goalLabel} (Platz ${board.targetPosition})`}
     </p>
     <div class="statGrid" style="margin-bottom:4px;">
       <div class="stat"><div class="k">Saisons im Amt</div><div class="v gold">${saisons + 1}</div></div>
@@ -350,7 +350,7 @@ function showDismissalModal(result){
     </div>
     ${angebotsHtml}
     <div style="margin-top:18px;">
-      <button class="ghost" onclick="restartAfterDismissal()">Stattdessen ganz neu anfangen</button>
+      <button class="ghost" onclick="restartAfterDismissal()">Neue Karriere</button>
     </div>`;
 
   document.getElementById("dismissalOverlay").classList.add("show");
@@ -385,7 +385,7 @@ function showPressConference(situation){
     if(a.morale) teile.push(`<span style="color:${a.morale > 0 ? "var(--win)" : "var(--loss)"};">Kabine ${a.morale > 0 ? "+" : ""}${a.morale}</span>`);
     if(a.patience) teile.push(`<span style="color:${a.patience > 0 ? "var(--win)" : "var(--loss)"};">Vorstand ${a.patience > 0 ? "+" : ""}${a.patience}</span>`);
     if(a.target) teile.push(`<span style="color:var(--draw);">Saisonziel ${a.target < 0 ? "härter" : "leichter"}</span>`);
-    return teile.join(" · ") || '<span class="muted">ohne Wirkung</span>';
+    return teile.join(" · ") || '<span class="muted">–</span>';
   };
 
   el.innerHTML = `
@@ -400,7 +400,6 @@ function showPressConference(situation){
       </div>`).join("")}
     <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <button class="ghost" onclick="answerPressConference('${situation.key}', null)">Keine Stellungnahme</button>
-      <span class="muted" style="font-size:12px;">kostet etwas Stimmung und Geduld</span>
     </div>`;
 
   document.getElementById("pressOverlay").classList.add("show");
@@ -421,8 +420,7 @@ function renderFacilities(gameState){
   ensureFacilities(gameState);
 
   const investiert = getTotalInvested(gameState);
-  let html = `<p class="muted" style="margin:0 0 12px;">
-    Bisher investiert: <b>${fmtMoney(investiert)}</b> · verfügbar: <b>${fmtMoney(gameState.budget)}</b></p>`;
+  let html = `<p class="muted" style="margin:0 0 8px;">Investiert ${fmtMoney(investiert)}</p>`;
 
   Object.entries(FACILITIES).forEach(([key, f]) => {
     const stufe = getFacilityLevel(gameState, key);
@@ -443,9 +441,7 @@ function renderFacilities(gameState){
         </button>
       </div>
       <div style="display:flex; gap:3px; margin:7px 0 5px;">${balken}</div>
-      <p class="muted" style="margin:0; font-size:12px;">
-        ${f.desc}${stufe > 0 ? ` <span style="color:var(--win);">Aktuell: ${f.wirkung(stufe)}</span>` : ""}
-      </p>
+      <p class="muted" style="margin:0; font-size:12px;">${stufe > 0 ? f.wirkung(stufe) : `Stufe 1: ${f.wirkung(1)}`}</p>
     </div>`;
   });
 

@@ -6,11 +6,11 @@
 
 function handleSimulateMatchday(){
   if(gameState.board && gameState.board.dismissed){
-    showToast("Du bist entlassen. Starte eine neue Karriere, um weiterzuspielen.", "error");
+    showToast("Du wurdest entlassen.", "error");
     return;
   }
   if(gameState.seasonEnded){
-    showToast("Die Saison ist beendet. Starte die nächste Saison, um weiterzuspielen.", "info");
+    showToast("Saison beendet.", "info");
     return;
   }
 
@@ -29,7 +29,7 @@ function handleSimulateMatchday(){
       aufgeschoben = runNextEvent() === "deferred";
     } catch(e) {
       console.error("Simulation fehlgeschlagen:", e);
-      showToast("Die Simulation ist fehlgeschlagen. Details stehen in der Browser-Konsole.", "error");
+      showToast("Simulation fehlgeschlagen (Details in der Konsole).", "error");
     } finally {
       // Beim Halbzeit-Eingriff schliesst completeDeferredMatchday den Spieltag ab.
       if(!aufgeschoben) completeDeferredMatchday();
@@ -89,7 +89,7 @@ function runNextEvent(){
   // durch und finishSeason wird ein zweites Mal ausgefuehrt — dabei wird der
   // Auf-/Abstieg erneut abgewickelt und die Ligapools geraten durcheinander.
   if(evt.type === "seasonEnd"){
-    showToast("Die Saison ist beendet. Starte die nächste Saison, um weiterzuspielen.", "info");
+    showToast("Saison beendet.", "info");
     return;
   }
 
@@ -103,7 +103,7 @@ function runNextEvent(){
       timeline: buildMatchTimeline({ clubName: gameState.clubName, home: sc.a, away: sc.b,
         homeGoals: sc.homeGoals, awayGoals: sc.awayGoals, scorers: [], cards: [], injuries: [],
         knockout: sc.pens ? { extraTime: false, etHome: 0, etAway: 0, pens: sc.pens } : null }),
-      summaryLine: sc.winner === gameState.clubName ? "🏆 Titel gewonnen!" : ""
+      summaryLine: sc.winner === gameState.clubName ? "🏆 Titel" : ""
     });
     return;
   }
@@ -161,7 +161,7 @@ function runNextEvent(){
         }),
         otherResults: r.others, tablePosition: r.tablePosition,
         tableLabel: r.stage.type === "league" ? `${cfg.short}-Ligaphase` : null,
-        summaryLine: (tie && tie.winner ? (tie.winner === gameState.clubName ? "Weiter!" : "Ausgeschieden") : "") + gesamt
+        summaryLine: (tie && tie.winner ? (tie.winner === gameState.clubName ? "Weiter" : "Ausgeschieden") : "") + gesamt
       });
     } else renderAll(gameState);
     return;
@@ -192,7 +192,7 @@ function applyMatchLoad(wettbewerb){
     addLogEntry(gameState, `🩹 ${wettbewerb}: ${inj.player.name} (${inj.player.pos}) fällt ${inj.duration} Spieltage aus (zurück ab Spieltag ${inj.player.injuredUntilMatchday + 1}).`);
   });
   if(injuries.length > 0){
-    showToast(`🩹 ${injuries.length} Verletzung(en) im ${wettbewerb}.`, "error");
+    showToast(`🩹 ${wettbewerb}: ${injuries.length} ${injuries.length === 1 ? "Verletzung" : "Verletzungen"}`, "error");
   }
 
   updateFatigue(gameState.squad, new Set(startingInfo.xi.map(p => p.id)));
@@ -276,14 +276,14 @@ function runMatchdaySimulation(override){
   gameState.budget -= salaryCost + upkeep;
   addLogEntry(gameState, `💰 Einnahmen: +${fmtMoney(baseRevenue + ownBonus)} · 💸 Gehälter: -${fmtMoney(salaryCost)}${upkeep ? ` · 🏗 Unterhalt: -${fmtMoney(upkeep)}` : ""} · Kontostand ${fmtMoney(gameState.budget)}`);
   if(budgetBeforeSalary >= 0 && gameState.budget < 0){
-    addLogEntry(gameState, "⚠️ Das Konto ist im Minus. Transfers sind erst wieder möglich, wenn es ausgeglichen ist.", "loss", false);
-    showToast("⚠️ Konto im Minus — verkaufe Spieler oder senke die Gehaltslast.", "error");
+    addLogEntry(gameState, "⚠️ Konto im Minus · Transfersperre bis zum Ausgleich", "loss", false);
+    showToast("⚠️ Konto im Minus", "error");
   }
   handleDebt();
   remindExpiringContracts();
   const neuesAngebot = updateIncomingOffers(gameState);
   if(neuesAngebot){
-    const text = `📨 ${neuesAngebot.club} bietet ${fmtMoney(neuesAngebot.fee)} für ${neuesAngebot.playerName} — Antwort im Transfers-Tab.`;
+    const text = `📨 ${neuesAngebot.club} bietet ${fmtMoney(neuesAngebot.fee)} für ${neuesAngebot.playerName} `;
     addLogEntry(gameState, text);
     showToast(text, "info");
   }
@@ -298,11 +298,11 @@ function runMatchdaySimulation(override){
   if(result.cards && result.cards.length > 0){
     result.cards.forEach(c => {
       if(c.type === "red"){
-        addLogEntry(gameState, `🟥 ${c.player.name} sieht Rot und ist für ${RED_CARD_BAN_MATCHES} Spiele gesperrt (zurück ab Spieltag ${c.player.suspendedUntilMatchday + 1}).`);
+        addLogEntry(gameState, `🟥 ${c.player.name} · Rote Karte, ${RED_CARD_BAN_MATCHES} Spiele gesperrt`);
       } else if(c.type === "banAccumulated"){
-        addLogEntry(gameState, `🟨🟥 ${c.player.name} sieht die ${YELLOW_CARDS_FOR_BAN}. Gelbe Karte und ist für das nächste Spiel gesperrt.`);
+        addLogEntry(gameState, `🟨 ${c.player.name} · ${YELLOW_CARDS_FOR_BAN}. Gelbe Karte, 1 Spiel gesperrt`);
       } else {
-        addLogEntry(gameState, `🟨 ${c.player.name} sieht Gelb (${c.player.yellowCards}. Karte in dieser Saison).`);
+        addLogEntry(gameState, `🟨 ${c.player.name} · ${c.player.yellowCards}. Gelbe Karte`);
       }
     });
   }
@@ -377,7 +377,7 @@ function announceTransferWindowChange(){
   } else if(!isOpen && wasOpenBefore){
     const nextStart = getNextWindowStart(currentDay);
     const msg = nextStart
-      ? `📢 Transferfenster geschlossen. Öffnet wieder an Spieltag ${nextStart}.`
+      ? `📢 Transferfenster geschlossen bis Spieltag ${nextStart}.`
       : `📢 Transferfenster geschlossen (Saisonende).`;
     addLogEntry(gameState, msg);
   }
@@ -448,7 +448,7 @@ function getFastForwardTargets(gameState){
 
 function openFastForward(){
   if(gameState.board && gameState.board.dismissed){ showToast("Du bist entlassen.", "error"); return; }
-  if(gameState.seasonEnded){ showToast("Die Saison ist beendet.", "info"); return; }
+  if(gameState.seasonEnded){ showToast("Saison beendet.", "info"); return; }
   document.getElementById("fastForwardChoices").innerHTML = getFastForwardTargets(gameState).map(z => `
     <button class="ghost choiceBtn" onclick="simulateUntil(${z.ziel})">
       <span class="choiceTitle">${z.titel}</span><span class="choiceSub">${z.sub}</span></button>`).join("");
@@ -475,7 +475,7 @@ function simulateUntil(ziel){
     }
   } catch(e){
     console.error("Vorspulen fehlgeschlagen:", e);
-    showToast("Das Vorspulen ist fehlgeschlagen. Details stehen in der Browser-Konsole.", "error");
+    showToast("Vorspulen fehlgeschlagen (Details in der Konsole).", "error");
   } finally {
     batchRun = null;
   }

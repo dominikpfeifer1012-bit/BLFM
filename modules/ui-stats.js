@@ -195,7 +195,7 @@ function renderRecords(gameState){
       ? `<b class="num">${r.highestTeamRating.value}</b>` : null,
       r.highestTeamRating ? saison(r.highestTeamRating.season) : "");
 
-  el.innerHTML = html || `<p class="muted">Noch keine Bestmarken — spiel ein paar Spieltage.</p>`;
+  el.innerHTML = html || `<p class="muted">Noch keine Bestmarken.</p>`;
 }
 
 // ============================================
@@ -212,7 +212,7 @@ function buildTrendChart(werte, beschriftungen, farbe, invertiert){
   const gueltig = werte.map((w, i) => ({ w, i })).filter(x => x.w != null);
   if(gueltig.length < 2){
     return `<p class="muted" style="text-align:center; padding:14px 0; font-size:12px;">
-      Sichtbar, sobald zwei Saisons abgeschlossen sind.</p>`;
+      Ab zwei Saisons.</p>`;
   }
 
   const zahlen = gueltig.map(x => x.w);
@@ -251,8 +251,7 @@ function renderSeasonTrends(gameState){
 
   const historie = [...(gameState.seasonHistory || [])];
   if(historie.length === 0){
-    el.innerHTML = `<p class="muted">Noch keine abgeschlossene Saison. Die Entwicklung erscheint,
-      sobald die erste Saison vorbei ist.</p>`;
+    el.innerHTML = `<p class="muted">Noch keine abgeschlossene Saison.</p>`;
     return;
   }
 
@@ -307,31 +306,31 @@ function renderTrendSummary(historie){
   const platzDiff = erste.finalPosition - letzte.finalPosition;
   if(Math.abs(platzDiff) >= 2){
     saetze.push(platzDiff > 0
-      ? `Über ${historie.length} Saisons um ${platzDiff} Plätze verbessert.`
-      : `Über ${historie.length} Saisons um ${-platzDiff} Plätze zurückgefallen.`);
+      ? `Platz +${platzDiff} seit Saison 1`
+      : `Platz −${-platzDiff} seit Saison 1`);
   }
 
   if(erste.stature != null && letzte.stature != null){
     const d = letzte.stature - erste.stature;
     if(Math.abs(d) >= 2){
-      saetze.push(`Das Vereinsstanding ist von ${erste.stature.toFixed(1)} auf ${letzte.stature.toFixed(1)} ${d > 0 ? "gestiegen" : "gefallen"}.`);
+      saetze.push(`Standing ${erste.stature.toFixed(1)} → ${letzte.stature.toFixed(1)}`);
     }
   }
 
   const titel = historie.filter(s => isTopDivision(s.division || 1) && s.finalPosition === 1).length;
-  if(titel > 0) saetze.push(`${titel} Meistertitel.`);
+  if(titel > 0) saetze.push(`${titel}× Meister`);
 
   const pokale = historie.filter(s => s.cupResult === "Sieger").length;
-  if(pokale > 0) saetze.push(`${pokale} Pokalsieg${pokale > 1 ? "e" : ""}.`);
+  if(pokale > 0) saetze.push(`${pokale}× Pokal`);
 
   const gesamtBilanz = historie.reduce((sum, s) => sum + (s.transferIn || 0) - (s.transferOut || 0), 0);
   if(Math.abs(gesamtBilanz) > 100000){
-    saetze.push(`Transferbilanz insgesamt: ${gesamtBilanz >= 0 ? "+" : "−"}${fmtMoney(Math.abs(gesamtBilanz))}.`);
+    saetze.push(`Transferbilanz ${gesamtBilanz >= 0 ? "+" : "−"}${fmtMoney(Math.abs(gesamtBilanz))}`);
   }
 
   const vereine = [...new Set(historie.map(s => s.club).filter(Boolean))];
-  if(vereine.length > 1) saetze.push(`Stationen: ${vereine.join(", ")}.`);
+  if(vereine.length > 1) saetze.push(`Stationen: ${vereine.join(", ")}`);
 
   if(saetze.length === 0) return "";
-  return `<p class="muted" style="margin:14px 0 0; font-size:13px;">${saetze.join(" ")}</p>`;
+  return `<p class="muted" style="margin:14px 0 0; font-size:13px;">${saetze.join(" · ")}</p>`;
 }

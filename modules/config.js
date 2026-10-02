@@ -101,9 +101,9 @@ const DEFAULT_FORMATION = "4-2-3-1";
 
 // --- Grundausrichtung ---
 const TACTICS = {
-  offensive: { label:"Offensiv",      own:+0.25, opp:+0.22, desc:"Mehr eigene Chancen, dafür mehr Gegentore." },
-  balanced:  { label:"Ausgeglichen",  own:0,     opp:0,     desc:"Keine Verschiebung in eine Richtung." },
-  defensive: { label:"Defensiv",      own:-0.22, opp:-0.25, desc:"Weniger Gegentore, dafür weniger eigene Chancen." }
+  offensive: { label:"Offensiv",      own:+0.25, opp:+0.22 },
+  balanced:  { label:"Ausgeglichen",  own:0,     opp:0 },
+  defensive: { label:"Defensiv",      own:-0.22, opp:-0.25 }
 };
 const DEFAULT_TACTIC = "balanced";
 
@@ -820,31 +820,31 @@ const JOB_OFFER_MIN_STRENGTH_DROP = 4;
 const TRAINING_FOCUS = {
   balanced: {
     label: "Ausgeglichen",
-    desc: "Kein Schwerpunkt. Alles entwickelt sich gleichmäßig.",
+    desc: "",
     attr: { def:1.0, pas:1.0, sho:1.0, pac:1.0 },
     injury: 1.0, fatigue: 1.0, morale: 0, match: { att: 0, def: 0 }
   },
   offense: {
     label: "Offensive",
-    desc: "Abschluss und Aufbau wachsen schneller, die Abwehrarbeit leidet. Im Spiel: Angriff +2,5, Abwehr −1,5.",
+    desc: "Entwicklung Abschluss/Aufbau ↑, Abwehr ↓",
     attr: { def:0.65, pas:1.35, sho:1.45, pac:1.0 },
     injury: 1.0, fatigue: 1.0, morale: 0.1, match: { att: 2.5, def: -1.5 }
   },
   defense: {
     label: "Defensive",
-    desc: "Abwehrarbeit wächst schneller, dafür fehlt es vorne an Schliff. Im Spiel: Abwehr +2,5, Angriff −1,5.",
+    desc: "Entwicklung Abwehr ↑, Abschluss ↓",
     attr: { def:1.50, pas:1.0, sho:0.60, pac:0.95 },
     injury: 0.9, fatigue: 1.0, morale: -0.1, match: { att: -1.5, def: 2.5 }
   },
   athletics: {
     label: "Athletik",
-    desc: "Tempo wächst deutlich, aber die Verletzungsgefahr steigt spürbar. Im Spiel: Angriff und Abwehr je +1.",
+    desc: "Entwicklung Tempo ↑↑",
     attr: { def:0.88, pas:0.75, sho:0.88, pac:1.60 },
     injury: 1.45, fatigue: 0.85, morale: -0.2, match: { att: 1, def: 1 }
   },
   regeneration: {
     label: "Regeneration",
-    desc: "Schont die Beine und hebt die Stimmung, kostet aber Entwicklung. Im Spiel: Angriff und Abwehr je −1.",
+    desc: "Entwicklung ↓, Stimmung ↑",
     attr: { def:0.55, pas:0.55, sho:0.55, pac:0.55 },
     injury: 0.55, fatigue: 0.45, morale: 0.9, match: { att: -1, def: -1 }
   }
@@ -921,35 +921,30 @@ const FACILITIES = {
   stadium: {
     label: "Stadion",
     icon: "🏟",
-    desc: "Mehr Plätze und bessere Vermarktung erhöhen die Einnahmen.",
     wirkung: stufe => `Kommerzeinnahmen +${stufe * 6}%`,
     perLevel: 0.06
   },
   coaching: {
     label: "Trainerstab",
     icon: "📋",
-    desc: "Bessere Trainer entwickeln den Kader schneller.",
     wirkung: stufe => `Entwicklung +${stufe * 5}%`,
     perLevel: 0.05
   },
   youth: {
     label: "Jugendarbeit",
     icon: "🌱",
-    desc: "Die Jugendabteilung findet stärkere Talente mit mehr Potenzial.",
     wirkung: stufe => `Talente +${stufe * 2} Bewertung, +${stufe * 3} Potenzial`,
     perLevel: 1
   },
   medical: {
     label: "Medizin",
     icon: "🩺",
-    desc: "Weniger Verletzungen und kürzere Ausfallzeiten.",
     wirkung: stufe => `Verletzungsrisiko −${stufe * 8}%`,
     perLevel: 0.08
   },
   scouting: {
     label: "Scouting",
     icon: "🔍",
-    desc: "Das Netzwerk findet häufiger unentdeckte Talente und mehr Angebote.",
     wirkung: stufe => `Scouting-Funde +${stufe * 25}%, mehr Spieler am Markt`,
     perLevel: 0.25
   }

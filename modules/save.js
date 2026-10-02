@@ -138,7 +138,7 @@ function saveGameState(gameState, slot){
     console.error("saveGameState:", e);
     return {
       success: false,
-      message: "Speichern nicht möglich (der Browser blockiert den lokalen Speicher beim direkten Öffnen der Datei). Tipp: über einen lokalen Server öffnen oder den Export nutzen."
+      message: "Speichern nicht möglich: Der Browser blockiert den lokalen Speicher. Export nutzen."
     };
   }
 }

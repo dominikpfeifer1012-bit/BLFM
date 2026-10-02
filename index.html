@@ -244,6 +244,7 @@ tr.dim:hover td{ opacity:1; }
 .confList{ display:grid; gap:3px; }
 .uefaCols{ display:grid; grid-template-columns:1fr; gap:14px; }
 @media (min-width:900px){ .uefaCols{ grid-template-columns:1fr 1fr; } }
+.duelLine{ margin:12px 0 0; padding-top:10px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-dim); }
 .confRow.own{ background:rgba(255,183,3,.14); }
 .honourGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:5px; }
 .honourItem{ display:flex; flex-direction:column; gap:1px; padding:6px 9px; border-radius:var(--r-sm); background:var(--bg-deep); font-size:12.5px; }
@@ -316,9 +317,46 @@ tr.dim:hover td{ opacity:1; }
 /* minmax(0,1fr) statt 1fr: sonst drueckt eine breite Tabelle die ganze Seite auseinander */
 @media (max-width:820px){ .g2,.g3,.g23{ grid-template-columns:minmax(0,1fr); } }
 @media (max-width:560px){
-  body{ font-size:14px; } .wrap{ padding:0 12px; }
-  .pitchSlot{ flex:0 1 96px; }
-  th,td{ padding:6px 7px; font-size:13px; }
+  /* Handy: kleinere Schrift und engere Abstaende, damit mehr auf den
+     Bildschirm passt. */
+  body{ font-size:13px; line-height:1.45; } .wrap{ padding:0 12px; }
+  h1{ font-size:24px; } h2{ font-size:19px; } h3{ font-size:15px; } h4{ font-size:13px; }
+  .eyebrow{ font-size:10px; letter-spacing:.1em; }
+  .muted{ font-size:12px; }
+  button{ font-size:12px; padding:8px 12px; }
+  select,input{ font-size:13px; padding:6px 8px; }
+  .card{ padding:12px; }
+  .cardHead{ margin-bottom:8px; }
+  .grid{ gap:10px; }
+  .statGrid{ grid-template-columns:repeat(auto-fit,minmax(92px,1fr)); gap:6px; }
+  .stat{ padding:7px 9px; }
+  .stat .v{ font-size:17px; }
+  .stat .sub{ font-size:10px; }
+  .pitchSlot{ flex:0 1 96px; padding:5px 4px; font-size:10px; }
+  th,td{ padding:5px 6px; font-size:12px; }
+  th{ font-size:10px; }
+  .badge,.tag,.matchupTag{ font-size:10px; }
+  .chipBtn{ font-size:11px; padding:3px 8px; }
+  .choiceTitle{ font-size:12.5px; } .choiceSub{ font-size:11px; }
+  .choiceBtn{ padding:8px 10px; }
+  .lineupOption{ font-size:12px; padding:7px 9px; }
+  .lineupValue{ font-size:15px; }
+  .confRow{ font-size:11.5px; padding:3px 6px; }
+  .honourItem{ font-size:11.5px; padding:5px 7px; }
+  .honourGrid{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); }
+  .liveEvent{ font-size:12px; padding:5px 7px; }
+  #liveScore{ font-size:28px; }
+  .liveTeam{ font-size:13px; }
+  .profName h3{ font-size:18px; }
+  .offerRow,.contractRow,.filterBar{ font-size:12px; }
+  .newsRow{ font-size:12px; }
+  .duelLine{ font-size:12px; }
+  .modalBox{ padding:16px; }
+  .stat .v{ font-size:14px; white-space:nowrap; }
+  .posIcon{ display:none; }
+  td.status{ white-space:nowrap; }
+  .toast{ font-size:12px; padding:8px 11px; }
+  .modalOverlay{ padding:10px; }
   /* Unten statt oben, damit Meldungen die Spielknoepfe nicht verdecken */
   .toastContainer{ left:12px; right:12px; top:auto; bottom:12px; max-width:none; }
   .crest{ width:36px; height:36px; }
@@ -377,16 +415,15 @@ tr.dim:hover td{ opacity:1; }
     <select id="clubSelect"></select></div>
   <div class="field"><label for="difficultySelect">Schwierigkeit</label>
     <select id="difficultySelect">
-      <option value="leicht">Leicht — mehr Budget, geduldiger Vorstand, Spieler wechseln leichter</option>
+      <option value="leicht">Leicht</option>
       <option value="normal" selected>Normal</option>
-      <option value="schwer">Schwer — weniger Budget, ungeduldiger Vorstand, Stars zieren sich</option>
+      <option value="schwer">Schwer</option>
     </select></div>
   <button onclick="startCareer()">Karriere starten</button>
   <details class="customData">
     <summary>Eigene Kaderdatei (echte Spieler und Trainer)</summary>
     <p class="muted" id="customDataStatus" style="margin:8px 0;"></p>
-    <p class="muted" style="font-size:12px; margin:0 0 10px;">Die Datei bleibt nur in diesem Browser. Sie gilt für neue Karrieren.
-      Vereine ohne Spieler in der Datei behalten erfundene Kader.</p>
+    <p class="muted" style="font-size:12px; margin:0 0 10px;">Gilt für neue Karrieren.</p>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <label class="ghost fileBtn">Datei laden
         <input type="file" accept="application/json,.json" style="display:none;" onchange="handleCustomDataFile(this)"></label>
@@ -428,7 +465,7 @@ tr.dim:hover td{ opacity:1; }
 
     <section class="tabPanel" id="tab-uebersicht">
       <div class="card" style="margin-bottom:16px; display:none;">
-        <div class="cardHead"><h3>Saisonvorbereitung</h3><span class="eyebrow">einmal pro Saison</span></div>
+        <div class="cardHead"><h3>Saisonvorbereitung</h3></div>
         <div id="preseasonPanel"></div>
       </div>
       <div class="grid g23">
@@ -452,7 +489,7 @@ tr.dim:hover td{ opacity:1; }
             <div id="boardPanel"></div>
           </div>
           <div class="card">
-            <div class="cardHead"><h3>Investitionen</h3><span class="eyebrow">langfristig</span></div>
+            <div class="cardHead"><h3>Investitionen</h3></div>
             <div id="facilitiesPanel"></div>
           </div>
           <div class="card">
@@ -460,7 +497,7 @@ tr.dim:hover td{ opacity:1; }
             <div id="overviewCompetitions"></div>
           </div>
           <div class="card">
-            <div class="cardHead"><h3>Liga-News</h3><span class="eyebrow">andere Vereine</span></div>
+            <div class="cardHead"><h3>Liga-News</h3></div>
             <div id="newsPanel" style="font-size:13px;"></div>
           </div>
           <div class="card">
@@ -476,7 +513,7 @@ tr.dim:hover td{ opacity:1; }
         <div class="card">
           <div class="cardHead">
             <h3>Kader <span class="num muted" id="squadCount"></span></h3>
-            <span class="eyebrow">Zeile anklicken für das Profil</span>
+            
           </div>
           <div class="filterBar">
             <label>Position
@@ -496,25 +533,25 @@ tr.dim:hover td{ opacity:1; }
             <span id="salaryLine" hidden></span>
           </div>
           <div class="card">
-            <div class="cardHead"><h3>Auslaufende Verträge</h3><span class="eyebrow">Ende der Saison</span></div>
+            <div class="cardHead"><h3>Auslaufende Verträge</h3></div>
             <div id="contractPanel"></div>
           </div>
           <div class="card">
-            <div class="cardHead"><h3>Verliehene Spieler</h3><span class="eyebrow">Rückkehr zum Saisonende</span></div>
+            <div class="cardHead"><h3>Verliehene Spieler</h3></div>
             <div id="loanPanel"></div>
           </div>
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Jugendkader</h3><span class="eyebrow">eigener Bereich</span></div>
+        <div class="cardHead"><h3>Jugendkader</h3></div>
         <div id="youthSquadPanel"></div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Jugendmannschaft</h3><span class="eyebrow">Jugendkader plus Reserve</span></div>
+        <div class="cardHead"><h3>Jugendmannschaft</h3></div>
         <div id="youthPanel"></div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Aufstellung</h3><span class="eyebrow">Position anklicken zum Wechseln</span></div>
+        <div class="cardHead"><h3>Aufstellung</h3></div>
         <div id="lineupControls"></div>
         <div id="pitchView" class="pitch"></div>
       </div>
@@ -522,12 +559,12 @@ tr.dim:hover td{ opacity:1; }
 
     <section class="tabPanel" id="tab-transfers">
       <div class="card" style="margin-bottom:16px;">
-        <div class="cardHead"><h3>Angebote für deine Spieler</h3><span class="eyebrow">andere Vereine</span></div>
+        <div class="cardHead"><h3>Angebote für deine Spieler</h3></div>
         <div id="offerPanel"></div>
       </div>
       <div class="card" id="transferMarket">
         <div class="cardHead"><h3>Transfermarkt</h3>
-          <span class="eyebrow">Zeile anklicken für das Profil</span></div>
+          </div>
         <div id="marketList"></div>
       </div>
     </section>
@@ -547,11 +584,11 @@ tr.dim:hover td{ opacity:1; }
         </div>
       </div>
       <div class="grid g23" style="margin-top:16px;">
-        <div class="card"><div class="cardHead"><h3>Europapokal</h3><span class="eyebrow">Champions League · Europa League · Conference League</span></div><div id="europeStatus"></div></div>
+        <div class="card"><div class="cardHead"><h3>Europapokal</h3></div><div id="europeStatus"></div></div>
         <div class="card"><div class="cardHead"><h3>UEFA-Fünfjahreswertung</h3></div><div id="uefaRanking"></div></div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Spielplan</h3><span class="eyebrow">alle Termine der Saison</span></div>
+        <div class="cardHead"><h3>Spielplan</h3></div>
         <div class="tableWrap" style="max-height:520px; overflow-y:auto;"><table id="fixtureList"></table></div>
       </div>
     </section>
@@ -588,15 +625,15 @@ tr.dim:hover td{ opacity:1; }
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Entwicklung</h3><span class="eyebrow">über alle Saisons</span></div>
+        <div class="cardHead"><h3>Entwicklung</h3></div>
         <div id="trendPanel"></div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Ehrentafel</h3><span class="eyebrow">alle Titel aller Wettbewerbe</span></div>
+        <div class="cardHead"><h3>Ehrentafel</h3></div>
         <div id="honoursList"></div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Bestmarken</h3><span class="eyebrow">gesamte Karriere</span></div>
+        <div class="cardHead"><h3>Bestmarken</h3></div>
         <div id="recordsPanel"></div>
       </div>
       <div class="card" style="margin-top:16px;">
@@ -640,7 +677,6 @@ tr.dim:hover td{ opacity:1; }
   <div class="modalBox">
     <span class="modalClose" onclick="closeFastForward()">✕</span>
     <h2 style="margin-top:0;">Vorspulen</h2>
-    <p class="muted" style="margin-top:-4px;">Ohne Live-Ticker und Pressekonferenzen. Hält an, wenn der Vorstand dich entlässt oder die Saison endet.</p>
     <div id="fastForwardChoices" class="choiceGrid"></div>
   </div>
 </div>
@@ -709,7 +745,6 @@ tr.dim:hover td{ opacity:1; }
     <h3 style="margin:4px 0 14px;">Speicherplätze</h3>
     <div id="saveSlotList"></div>
     <p class="eyebrow" style="margin-top:18px;">Datei</p>
-    <p class="muted" style="margin:2px 0 10px;">Funktioniert auch, wenn der Browser den lokalen Speicher blockiert.</p>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <button class="ghost" onclick="handleExportSave()">Als Datei exportieren</button>
       <label class="ghost" style="display:inline-block; padding:9px 16px; border:1px solid var(--line);

@@ -185,7 +185,7 @@ function chooseSecondHalfTactic(key){
   } catch(e){
     fehler = e;
     console.error("Simulation fehlgeschlagen:", e);
-    showToast("Die Simulation ist fehlgeschlagen. Details stehen in der Browser-Konsole.", "error");
+    showToast("Simulation fehlgeschlagen (Details in der Konsole).", "error");
   }
   completeDeferredMatchday();
   if(fehler){ halftimeState = null; closeLiveMatch(); }

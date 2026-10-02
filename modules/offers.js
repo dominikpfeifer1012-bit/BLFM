@@ -77,7 +77,7 @@ function acceptIncomingOffer(gameState, offerId){
   const idx = gameState.squad.findIndex(p => p.id === o.playerId);
   if(idx === -1){ removeOffer(gameState, offerId); return { success: false, message: "Der Spieler ist nicht mehr im Kader." }; }
   if(!canSellFromSquad(gameState.squad)){
-    return { success: false, message: `Kader zu klein für einen Verkauf (Minimum ${MIN_SQUAD_SIZE} Spieler).` };
+    return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
   const spieler = gameState.squad[idx];
   gameState.squad.splice(idx, 1);
@@ -135,9 +135,7 @@ function renderOfferPanel(gameState){
   if(!el) return;
   const offers = ensureOffers(gameState);
   if(offers.length === 0){
-    el.innerHTML = `<p class="muted" style="margin:0;">${isTransferWindowOpen(gameState.matchday + 1)
-      ? "Gerade liegt kein Angebot vor. Interessierte Vereine melden sich während des Transferfensters."
-      : "Angebote kommen nur, solange ein Transferfenster offen ist."}</p>`;
+    el.innerHTML = `<p class="muted" style="margin:0;">Keine Angebote.</p>`;
     return;
   }
   el.innerHTML = offers.map(o => {
@@ -145,8 +143,8 @@ function renderOfferPanel(gameState){
     const verhaeltnis = p ? Math.round(o.fee / Math.max(1, p.value) * 100) : 100;
     return `<div class="offerRow">
       <div class="offerText"><b>${o.club}</b> bietet <b class="num">${fmtMoney(o.fee)}</b> für
-        <b>${o.pos} ${o.playerName}</b>${p ? ` <span class="muted">(${Math.round(p.strength)}, ${p.age} J., ${verhaeltnis} % des Marktwerts)</span>` : ""}
-        <span class="muted"> · gilt bis Spieltag ${o.expires}</span></div>
+        <b>${o.pos} ${o.playerName}</b>${p ? ` <span class="muted">(${Math.round(p.strength)}, ${p.age} J., ${verhaeltnis} % MW)</span>` : ""}
+        <span class="muted"> · bis ST ${o.expires}</span></div>
       <div class="offerButtons">
         <button onclick="handleOfferAccept('${o.id}')">Annehmen</button>
         <button class="ghost" onclick="handleOfferCounter('${o.id}')"${o.countered ? " disabled" : ""}>Mehr fordern</button>
@@ -229,6 +227,6 @@ function renderLoanPanel(gameState){
   if(!el) return;
   const loans = ensureLoans(gameState);
   el.innerHTML = loans.length === 0
-    ? '<p class="muted" style="margin:0;">Kein Spieler verliehen. Spieler bis 23 Jahre lassen sich im Profil während des Transferfensters verleihen.</p>'
+    ? '<p class="muted" style="margin:0;">Keine Leihspieler.</p>'
     : loans.map(l => `<div class="contractRow"><span><b>${l.player.pos}</b> ${l.player.name} <span class="muted">· ${Math.round(l.player.strength)} · ${l.player.age} J.</span></span><span class="muted">bei ${l.club} bis Saisonende</span></div>`).join("");
 }

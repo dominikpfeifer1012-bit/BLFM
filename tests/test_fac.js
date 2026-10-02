@@ -140,7 +140,9 @@ check("Die Karte zeigt alle Bereiche", () => {
 
 check("Ausgebaute Bereiche zeigen ihre Wirkung", () => {
   const t=$("facilitiesPanel").textContent;
-  return /Aktuell:/.test(t) ? true : "keine Wirkung angezeigt";
+  // Ausgebaut: die Wirkung steht ohne den Vorschau-Zusatz "Stufe 1:".
+  const zeilen=[...$("facilitiesPanel").querySelectorAll("p.muted")].map(p=>p.textContent.trim());
+  return zeilen.some(z=>/\+\d+%|−\d+%/.test(z) && !/^Stufe 1:/.test(z)) ? true : "keine Wirkung angezeigt";
 });
 
 check("Voll ausgebaut wird als solches markiert", () => {

@@ -103,7 +103,7 @@ function renderOpponentPreview(gameState){
   if(!el) return;
 
   if(gameState.seasonEnded){
-    el.innerHTML = "Saison beendet – starte die nächste Saison, um weiterzuspielen.";
+    el.innerHTML = "Saison beendet.";
     return;
   }
 
@@ -140,7 +140,7 @@ function renderNextMatch(gameState){
   if(!el) return;
 
   if(gameState.seasonEnded){
-    el.innerHTML = `<p class="muted">Die Saison ist beendet. Starte die nächste Saison, um weiterzuspielen.</p>`;
+    el.innerHTML = `<p class="muted">Saison beendet.</p>`;
     if(dayEl) dayEl.textContent = "";
     return;
   }
@@ -273,36 +273,20 @@ function renderTacticMatchup(info){
   if(!eigene || !gegner) return "";
 
   const wirkung = getTacticMatchup(info.ownTactic, info.opponentTactic);
-  const bewerten = w => w > 0.02 ? { text: "mehr", farbe: "var(--win)" }
-                     : w < -0.02 ? { text: "weniger", farbe: "var(--loss)" }
-                     : { text: "unverändert", farbe: "var(--ink-dim)" };
+  const bewerten = w => w > 0.02 ? { text: "mehr Chancen", farbe: "var(--win)" }
+                     : w < -0.02 ? { text: "weniger Chancen", farbe: "var(--loss)" }
+                     : { text: "Chancen gleich", farbe: "var(--ink-dim)" };
   const an = bewerten(wirkung.own);
   // Gegentore: Farbe nach Wirkung (mehr = schlecht = rot), Text nach Richtung.
   // Vorher wurde beides umgedreht, und es hiess "Gegentorgefahr weniger",
   // obwohl sie stieg.
-  const ab = wirkung.opp > 0.02 ? { text: "höher", farbe: "var(--loss)" }
-           : wirkung.opp < -0.02 ? { text: "geringer", farbe: "var(--win)" }
-           : { text: "unverändert", farbe: "var(--ink-dim)" };
+  const ab = wirkung.opp > 0.02 ? { text: "mehr Gegentore", farbe: "var(--loss)" }
+           : wirkung.opp < -0.02 ? { text: "weniger Gegentore", farbe: "var(--win)" }
+           : { text: "Gegentore gleich", farbe: "var(--ink-dim)" };
 
-  // Empfehlung: welche eigene Ausrichtung bringt gegen diesen Gegner das
-  // beste Verhaeltnis aus eigenen und gegnerischen Chancen?
-  const beste = Object.keys(TACTICS)
-    .map(k => ({ k, wert: getTacticMatchup(k, info.opponentTactic) }))
-    .sort((a, b) => (b.wert.own - b.wert.opp) - (a.wert.own - a.wert.opp))[0];
-
-  const hinweis = beste.k === info.ownTactic
-    ? '<span style="color:var(--win);">Gute Wahl gegen diese Ausrichtung.</span>'
-    : `<span style="color:var(--draw);">${TACTICS[beste.k].label} würde gegen ${gegner.label} besser greifen.</span>`;
-
-  return `<div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-    <p class="eyebrow">Taktisches Duell</p>
-    <p style="margin:4px 0 6px; font-size:13px;">
-      <b>${eigene.label}</b> gegen <b>${gegner.label}</b> —
-      eigene Chancen <span style="color:${an.farbe};">${an.text}</span>,
-      Gegentorgefahr <span style="color:${ab.farbe};">${ab.text}</span>
-    </p>
-    <p class="muted" style="margin:0; font-size:12px;">${hinweis}</p>
-  </div>`;
+  return `<p class="duelLine">Taktik: <b>${eigene.label}</b> gegen <b>${gegner.label}</b> ·
+    <span style="color:${an.farbe};">${an.text}</span> ·
+    <span style="color:${ab.farbe};">${ab.text}</span></p>`;
 }
 
 // Ohne eingegebenen Namen nur "Trainer". Aeltere Spielstaende haben "Trainer"

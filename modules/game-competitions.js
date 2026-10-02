@@ -16,26 +16,26 @@ function processCupResult(cupResult){
     addLogEntry(gameState, `🏆 ${getCupName(gameState)} ${roundLabel}: ${scoreText}`, wonMatch ? "win" : "loss", true);
     if(m.upset){
       addLogEntry(gameState, wonMatch
-        ? "✨ Pokalsensation! Ein klassentieferer Verein wirft einen Favoriten raus."
-        : "😬 Blamage im Pokal — Ausscheiden gegen einen klassentieferen Verein.");
+        ? "✨ Pokalüberraschung gegen einen höherklassigen Gegner"
+        : "😬 Pokal-Aus gegen einen unterklassigen Gegner");
     }
 
     if(wonMatch){
       gameState.budget = addToBudget(gameState.budget, CUP_ROUND_BONUS);
       addLogEntry(gameState, `💰 Pokal-Prämie: +${fmtMoney(CUP_ROUND_BONUS)}`);
       addBoardCredit(gameState, BOARD_CUP_ROUND_CREDIT);
-      showToast(`🏆 ${getCupName(gameState)}: ${roundLabel} gewonnen!`, "success");
+      showToast(`🏆 ${getCupName(gameState)}: ${roundLabel} gewonnen`, "success");
     } else {
-      showToast(`${getCupName(gameState)}: Ausgeschieden in der ${roundLabel}.`, "info");
+      showToast(`${getCupName(gameState)}: Aus in der ${roundLabel}`, "info");
     }
   }
 
   if(cupResult.champion){
     if(cupResult.champion === gameState.clubName){
       gameState.budget = addToBudget(gameState.budget, CUP_CHAMPION_BONUS);
-      addLogEntry(gameState, `🏆👑 ${getCupName(gameState)} gewonnen! Prämie: +${fmtMoney(CUP_CHAMPION_BONUS)}`, "win", true);
+      addLogEntry(gameState, `🏆👑 ${getCupName(gameState)} gewonnen · Prämie ${fmtMoney(CUP_CHAMPION_BONUS)}`, "win", true);
       unlockAchievement("cupWinner");
-      showToast("🏆 DFB-POKALSIEGER! Herzlichen Glückwunsch!", "success");
+      showToast(`🏆 ${getCupName(gameState)} gewonnen`, "success");
     } else {
       addLogEntry(gameState, `🏆 ${getCupName(gameState)}-Sieger dieser Saison: ${cupResult.champion}`, null, true);
     }

@@ -81,12 +81,12 @@ function renderSquad(gameState){
   let html = `<tr>
     <th class="sortable" onclick="handleSquadSort('pos')">Pos${sortArrow('pos')}</th>
     <th class="sortable" onclick="handleSquadSort('name')">Name${sortArrow('name')}</th>
-    <th class="sortable" onclick="handleSquadSort('strength')">Bewertung${sortArrow('strength')}</th>
+    <th class="sortable" onclick="handleSquadSort('strength')">Bew.${sortArrow('strength')}</th>
     <th class="sortable" onclick="handleSquadSort('age')">Alter${sortArrow('age')}</th>
     <th class="sortable hideMobile" onclick="handleSquadSort('goals')">Tore${sortArrow('goals')}</th>
     <th class="sortable hideMobile" onclick="handleSquadSort('value')">Marktwert${sortArrow('value')}</th>
     <th class="sortable hideMobile" onclick="handleSquadSort('salary')">Gehalt${sortArrow('salary')}</th>
-    <th class="sortable" onclick="handleSquadSort('contract')">Vertrag${sortArrow('contract')}</th>
+    <th class="sortable hideMobile" onclick="handleSquadSort('contract')">Vertrag${sortArrow('contract')}</th>
     <th>Status</th>
   </tr>`;
 
@@ -148,7 +148,7 @@ function renderSquad(gameState){
       + (p.id === kapitaenId ? ' <span class="badge" style="background:var(--gold); color:#10202C;" title="Kapitän">C</span>' : "");
     const flag = getFlag(p) ? `<span title="${getNationality(p).name}">${getFlag(p)}</span> ` : "";
     const ageStyle = p.age >= RETIREMENT_MIN_AGE ? ' style="color:#fca311;" title="Karriereende möglich"' : "";
-    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b>${icon} ${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(getPlayerSalary(p))}</td><td class="n"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft am Saisonende aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
+    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b><span class="posIcon">${icon} </span>${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(getPlayerSalary(p))}</td><td class="n hideMobile"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
   });
 
   document.getElementById("squadTable").innerHTML = html;
@@ -169,11 +169,11 @@ function renderSquad(gameState){
   document.getElementById("teamRatingLine").textContent = breakdown.rating;
   const breakdownEl = document.getElementById("ratingBreakdownLine");
   if(breakdownEl){
-    let text = `Startelf-Schnitt: ${Math.round(breakdown.xiAvg)} · Bank-Schnitt: ${Math.round(breakdown.benchAvg)} (75/25 gewichtet)`;
+    let text = `Startelf ${Math.round(breakdown.xiAvg)} · Bank ${Math.round(breakdown.benchAvg)}`;
     const moved = breakdown.emergencyDetails.filter(d => d.isManual).length;
     const forced = breakdown.emergencyDetails.length - moved;
-    if(moved > 0) text += ` · ${moved} Umstellung(en)`;
-    if(forced > 0) text += ` · ${forced} Notlösung(en)`;
+    if(moved > 0) text += ` · ${moved} ${moved === 1 ? "Umstellung" : "Umstellungen"}`;
+    if(forced > 0) text += ` · ${forced} ${forced === 1 ? "Notlösung" : "Notlösungen"}`;
     breakdownEl.textContent = text;
   }
 
@@ -256,7 +256,6 @@ function renderLineupControls(gameState, info){
     `<option value="${name}"${name === getActiveFormationName() ? " selected" : ""}>${name}</option>`).join("");
   const tacticOptions = Object.entries(TACTICS).map(([key, t]) =>
     `<option value="${key}"${key === (gameState.tactic || DEFAULT_TACTIC) ? " selected" : ""}>${t.label}</option>`).join("");
-  const tactic = TACTICS[gameState.tactic] || TACTICS[DEFAULT_TACTIC];
   const trainingOptions = Object.entries(TRAINING_FOCUS).map(([key, t]) =>
     `<option value="${key}"${key === (gameState.training || DEFAULT_TRAINING) ? " selected" : ""}>${t.label}</option>`).join("");
   const training = TRAINING_FOCUS[gameState.training] || TRAINING_FOCUS[DEFAULT_TRAINING];
@@ -273,15 +272,21 @@ function renderLineupControls(gameState, info){
         <select onchange="handleTrainingChange(this.value)">${trainingOptions}</select>
       </label>
       <button class="ghost" onclick="resetLineup()"${manualCount === 0 ? " disabled" : ""}>Alles automatisch</button>
-      <button class="ghost${gameState.autoRotate ? " on" : ""}" onclick="toggleAutoRotate()" title="Müde Stammspieler schonen, wenn ein Ersatz höchstens ${ROTATION_MAX_GAP} Punkte schwächer ist">🔄 Rotation: ${gameState.autoRotate ? "an" : "aus"}</button>
+      <button class="ghost${gameState.autoRotate ? " on" : ""}" onclick="toggleAutoRotate()" title="Ab ${ROTATION_START_LIMIT} Spielen in Folge, Ersatz max. ${ROTATION_MAX_GAP} schwächer">🔄 Rotation: ${gameState.autoRotate ? "an" : "aus"}</button>
     </div>
-    <p class="muted" style="margin:0 0 10px;">${status}${warn}${gameState.autoRotate ? ` · 🔄 schont Spieler ab ${ROTATION_START_LIMIT} Startelfeinsätzen in Folge` : ""}</p>
-    <p class="muted" style="margin:0 0 10px; font-size:12px;">
-      <b>${tactic.label}:</b> ${tactic.desc}<br>
-      <b>${training.label}:</b> ${training.desc}
-      ${training.injury !== 1 ? ` <span style="color:${training.injury > 1 ? "var(--loss)" : "var(--win)"};">Verletzungsrisiko ${training.injury > 1 ? "+" : ""}${Math.round((training.injury - 1) * 100)}%</span>` : ""}
-      ${training.fatigue !== 1 ? ` <span style="color:var(--win)">Ermüdung ${Math.round((training.fatigue - 1) * 100)}%</span>` : ""}
-    </p>`;
+    <p class="muted" style="margin:0 0 10px;">${status}${warn}</p>
+    ${trainingEffects(training)}`;
+}
+
+// Trainingswirkung als knappe Zahlenzeile.
+function trainingEffects(t){
+  const teile = [];
+  const z = v => (v > 0 ? "+" : "−") + String(Math.abs(v)).replace(".", ",");
+  if(t.match && (t.match.att || t.match.def)) teile.push(`Angriff ${z(t.match.att)}`, `Abwehr ${z(t.match.def)}`);
+  if(t.injury !== 1) teile.push(`<span style="color:${t.injury > 1 ? "var(--loss)" : "var(--win)"};">Verletzungen ${t.injury > 1 ? "+" : "−"}${Math.round(Math.abs(t.injury - 1) * 100)} %</span>`);
+  if(t.fatigue !== 1) teile.push(`Ermüdung −${Math.round((1 - t.fatigue) * 100)} %`);
+  if(t.desc) teile.unshift(t.desc);
+  return teile.length ? `<p class="muted" style="margin:0 0 10px; font-size:12px;">Training ${t.label}: ${teile.join(" · ")}</p>` : "";
 }
 
 function openLineupPicker(slotKey){
@@ -464,7 +469,6 @@ function showPlayerDetail(playerId){
           <span class="num" style="width:52px; text-align:right; font-size:12px;">${Math.round(wert)}<span style="color:var(--ink-faint);">/${Math.round(cap)}</span></span>
         </div>`;
       }).join("")}
-      <p class="muted" style="margin:6px 0 0; font-size:11px;">Gold hervorgehoben: für ${player.pos} besonders wichtig.</p>
     </div>
 
     <p class="eyebrow">Entwicklung</p>
@@ -475,30 +479,26 @@ function showPlayerDetail(playerId){
     <p class="muted" style="margin:0 0 16px;">
       Start <span class="num">${Math.round(player.baseStrength)}</span> ·
       jetzt <span class="num">${Math.round(player.strength)}</span> ·
-      Potenzial bis <span class="num">${Math.round(player.maxStrength)}</span>
-      (noch <span class="num">${Math.max(0, Math.round(player.maxStrength - player.strength))}</span> möglich)
+      Potenzial <span class="num">${Math.round(player.maxStrength)}</span>
     </p>
 
     <div class="statGrid">
       ${stat("Marktwert", fmtMoney(player.value))}
       ${stat("Gehalt", fmtMoney(getPlayerSalary(player)), player.salaryFactor > 1.01 ? `pro Saison · ${Math.round((player.salaryFactor - 1) * 100)} % ausgehandelt` : "pro Saison")}
       ${stat("Tore", player.goalsSeason || 0, "diese Saison")}
-      ${stat("Notenschnitt", fmtGrade(getAverageGrade(player)), player.gradeCount ? `${player.gradeCount} Spiele${player.motmCount ? ` · ${player.motmCount}× Spieler des Spiels` : ""}` : "noch keine Note")}
+      ${stat("Notenschnitt", fmtGrade(getAverageGrade(player)), player.gradeCount ? `${player.gradeCount} Spiele${player.motmCount ? ` · ${player.motmCount}× bester Spieler` : ""}` : "")}
       ${stat("Gelbe Karten", player.yellowCards || 0)}
       ${stat("In Folge", player.consecutiveStarts || 0, "in der Startelf")}
       ${stat("Vertrag", `${getContractYears(player)} J.`, isContractExpiring(player) ? "läuft aus" : "Restlaufzeit")}
       ${stat("Stimmung", `${getMoraleLabel(player).icon} ${Math.round(getMorale(player))}`,
         (() => { const e = getMoraleStrengthEffect(player);
-          return Math.abs(e) >= 0.1 ? `${e > 0 ? "+" : ""}${e.toFixed(1)} auf die Leistung` : "ohne Wirkung"; })())}
+          return Math.abs(e) >= 0.1 ? `${e > 0 ? "+" : "−"}${Math.abs(e).toFixed(1).replace(".", ",")} Stärke` : ""; })())}
     </div>
 
     ${ausJugend ? `
       <div style="margin-top:12px;">
         <button onclick="handlePromoteYouth('${player.id}')">⬆ In den Profikader</button>
-        <p class="muted" style="margin:8px 0 0; font-size:12px;">
-          ${isReadyForPromotion(gameState, player)
-            ? "Stark genug für die erste Mannschaft."
-            : "Noch nicht so weit: zu weit unter dem Niveau der Mannschaft oder schwächer als jeder Profi auf dieser Position."}</p>
+        ${isReadyForPromotion(gameState, player) ? "" : `<p class="muted" style="margin:8px 0 0; font-size:12px;">Noch nicht auf Profiniveau.</p>`}
       </div>` : `
     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
       ${player.id !== (getCaptain(gameState) || {}).id ? `<button class="ghost" onclick="handleSetCaptain('${player.id}')">©️ Zum Kapitän</button>` : `<span class="badge" style="background:var(--gold); color:#10202C; align-self:center;">Kapitän</span>`}
@@ -591,14 +591,13 @@ function renderYouthPanel(gameState){
   const kandidaten = getYouthPromotionCandidates(gameState);
 
   if(lineup.length < YOUTH_TEAM_MIN_PLAYERS){
-    el.innerHTML = `<p class="muted">Zu wenige Spieler außerhalb der Startelf — die Jugend spielt derzeit nicht.
-      Ab ${YOUTH_TEAM_MIN_PLAYERS} verfügbaren Spielern läuft sie automatisch mit.</p>`;
+    el.innerHTML = `<p class="muted">Spielbetrieb ruht · mindestens ${YOUTH_TEAM_MIN_PLAYERS} Spieler nötig.</p>`;
     return;
   }
 
   const bilanz = youth.played > 0
     ? `${youth.won}-${youth.drawn}-${youth.lost} · ${youth.gf}:${youth.ga} Tore`
-    : "noch kein Spiel";
+    : "–";
 
   const letztes = youth.lastResult
     ? `<p class="muted" style="margin:0 0 12px;">Letztes Spiel: <b>${youth.lastResult.ownGoals}:${youth.lastResult.oppGoals}</b>
@@ -614,7 +613,7 @@ function renderYouthPanel(gameState){
 
   if(kandidaten.length > 0){
     html += `<p style="margin:0 0 10px; color:var(--gold); font-size:13px;">
-      ⭐ Bereit für die erste Mannschaft: ${kandidaten.slice(0, 3).map(p => `<b>${p.name}</b> (${p.pos} ${Math.round(p.strength)})`).join(", ")}</p>`;
+      Profireif: ${kandidaten.slice(0, 3).map(p => `<b>${p.name}</b> (${p.pos} ${Math.round(p.strength)})`).join(", ")}</p>`;
   }
 
   html += `<div class="tableWrap"><table>
@@ -631,10 +630,7 @@ function renderYouthPanel(gameState){
       <td class="n">${p.age}</td>
       <td class="n">${tore || ""}</td></tr>`;
   });
-  html += `</table></div>
-    <p class="muted" style="margin:10px 0 0; font-size:12px;">
-      Einsätze in der Jugend entwickeln deutlich besser als die Bank. Ältere Reservisten
-      (abgedunkelt) füllen nur auf.</p>`;
+  html += `</table></div>`;
 
   el.innerHTML = html;
 }
@@ -654,18 +650,16 @@ function renderYouthSquad(gameState){
   const day = gameState.matchday + 1;
 
   const kopf = `<div class="statGrid" style="margin-bottom:12px;">
-    ${statBox("Jugendkader", `${kader.length}/${YOUTH_SQUAD_MAX_SIZE}`, "zählt nicht zum Profikader")}
+    ${statBox("Jugendkader", `${kader.length}/${YOUTH_SQUAD_MAX_SIZE}`)}
     ${statBox("Gehalt", fmtMoney(getYouthSquadSalary(gameState)), "pro Saison")}
   </div>
   <label class="muted" style="display:flex; gap:8px; align-items:center; margin:0 0 12px; font-size:13px;">
-    <input type="checkbox" onchange="gameState.youthAutoPromote = this.checked; showToast(this.checked ? 'Bei Personalnot rücken Talente automatisch nach.' : 'Talente bleiben in der Jugend; bei Personalnot kommen Vereinslose.', 'info');"${gameState.youthAutoPromote ? " checked" : ""}>
-    Bei Personalnot Talente automatisch in den Profikader ziehen
+    <input type="checkbox" onchange="gameState.youthAutoPromote = this.checked;"${gameState.youthAutoPromote ? " checked" : ""}>
+    Bei Personalnot automatisch hochziehen
   </label>`;
 
   if(kader.length === 0){
-    el.innerHTML = kopf + `<p class="muted">Noch keine Talente unter Vertrag. Am Saisonende
-      stellt dir die Jugendabteilung ${YOUTH_INTAKE_CANDIDATES} Spieler vor, von denen du bis zu
-      ${YOUTH_INTAKE_MAX_PICK} aufnehmen kannst.</p>`;
+    el.innerHTML = kopf + `<p class="muted">Keine Talente. Neuer Jahrgang zum Saisonende.</p>`;
     return;
   }
 
@@ -684,13 +678,12 @@ function renderYouthSquad(gameState){
       <td class="n" style="color:${rest > 8 ? "var(--win)" : "var(--ink-faint)"};">+${rest}</td>
       <td class="n"${letztesJahr ? ' style="color:#FCA311;" title="Letztes Jahr in der Jugend"' : ""}>${p.age}</td>
       <td><button class="ghost" onclick="event.stopPropagation(); handlePromoteYouth('${p.id}')"
-        ${reif ? "" : ' title="Noch schwächer als jeder Profi auf dieser Position"'}>
+>
         ${reif ? "⬆ Hochziehen" : "Hochziehen"}</button></td>
     </tr>`;
   });
   html += `</table></div>
-    <p class="muted" style="margin:10px 0 0; font-size:12px;">
-      Mit ${YOUTH_SQUAD_MAX_AGE + 1} Jahren muss ein Spieler in den Profikader — sonst verlässt er den Verein.</p>`;
+    <p class="muted" style="margin:10px 0 0; font-size:12px;">Höchstalter ${YOUTH_SQUAD_MAX_AGE} Jahre.</p>`;
   el.innerHTML = html;
 }
 
@@ -705,8 +698,7 @@ function renderYouthIntakeModal(){
     <p class="eyebrow">Jugendabteilung</p>
     <h3 style="margin:6px 0 4px;">Der neue Jahrgang</h3>
     <p class="muted" style="margin:0 0 14px;">
-      Bis zu <b>${YOUTH_INTAKE_MAX_PICK}</b> von ${kandidaten.length} Talenten kannst du aufnehmen
-      — bisher <b>${gewaehlt}</b>. ${frei <= 0 ? "Die Jugend ist allerdings voll." : `Noch ${frei} Plätze frei.`}
+      Aufgenommen <b>${gewaehlt}/${YOUTH_INTAKE_MAX_PICK}</b> · ${frei <= 0 ? "Jugendkader voll" : `${frei} Plätze frei`}
     </p>
     ${kandidaten.map((p, i) => {
       const rest = Math.max(0, Math.round(p.maxStrength - p.strength));
@@ -749,16 +741,16 @@ function renderContractPanel(gameState){
   const liste = (gameState.squad || []).filter(p => isContractExpiring(p))
     .sort((a, b) => (xi.has(b.id) - xi.has(a.id)) || b.strength - a.strength);
   if(liste.length === 0){
-    el.innerHTML = '<p class="muted" style="margin:0;">Kein Vertrag läuft zum Saisonende aus.</p>';
+    el.innerHTML = '<p class="muted" style="margin:0;">Keine auslaufenden Verträge.</p>';
     return;
   }
-  el.innerHTML = `<p class="muted" style="margin:0 0 8px;">${liste.length} Spieler gehen zum Saisonende ablösefrei, wenn du nicht verlängerst.</p>` +
+  el.innerHTML = `` +
     liste.map(p => {
       const zuAlt = p.age >= RETIREMENT_FORCED_AGE - 1;
       return `<div class="contractRow">
         <span class="contractName"><b>${p.pos}</b> ${p.name}${xi.has(p.id) ? ' <span class="badge win">Startelf</span>' : ""}
           <span class="muted"> · ${Math.round(p.strength)} · ${p.age} J.</span></span>
-        ${zuAlt ? '<span class="muted" style="font-size:12px;">beendet Karriere</span>'
+        ${zuAlt ? '<span class="muted" style="font-size:12px;">Karriereende</span>'
           : `<button class="ghost" onclick="showPlayerDetail('${p.id}')">Verhandeln</button>`}
       </div>`;
     }).join("");
@@ -770,7 +762,7 @@ function renderRenewalBlock(player){
   if(terms.refused){
     return `<div class="renewBox"><p class="eyebrow">Vertrag</p><p class="muted" style="margin:4px 0 0;">${terms.reason}</p></div>`;
   }
-  return `<div class="renewBox"><p class="eyebrow">Vertrag verlängern · Forderung: Gehalt +${Math.round(terms.aufschlag * 100)} %</p>
+  return `<div class="renewBox"><p class="eyebrow">Vertragsverlängerung · Gehalt +${Math.round(terms.aufschlag * 100)} %</p>
     <div class="renewOptions">${terms.optionen.map(o => {
       const plus = Math.round((o.faktor - 1) * 100);
       return `<button class="ghost" onclick="handleRenewContract('${player.id}', ${o.jahre})"${o.handgeld > gameState.budget ? " disabled" : ""}>
