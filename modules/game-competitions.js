@@ -13,31 +13,31 @@ function processCupResult(cupResult){
     const scoreText = m.wasDraw
       ? `${m.home} ${m.homeGoals}:${m.awayGoals} ${m.away} (${knockoutSuffix(m)} · weiter: ${m.winner})`
       : `${m.home} ${m.homeGoals}:${m.awayGoals} ${m.away}`;
-    addLogEntry(gameState, `🏆 DFB-Pokal ${roundLabel}: ${scoreText}`, wonMatch ? "win" : "loss", true);
+    addLogEntry(gameState, `🏆 ${getCupName(gameState)} ${roundLabel}: ${scoreText}`, wonMatch ? "win" : "loss", true);
     if(m.upset){
       addLogEntry(gameState, wonMatch
-        ? "✨ Pokalsensation! Ein Zweitligist wirft einen Erstligisten raus."
-        : "😬 Blamage im Pokal — Ausscheiden gegen einen Zweitligisten.");
+        ? "✨ Pokalsensation! Ein klassentieferer Verein wirft einen Favoriten raus."
+        : "😬 Blamage im Pokal — Ausscheiden gegen einen klassentieferen Verein.");
     }
 
     if(wonMatch){
       gameState.budget = addToBudget(gameState.budget, CUP_ROUND_BONUS);
       addLogEntry(gameState, `💰 Pokal-Prämie: +${fmtMoney(CUP_ROUND_BONUS)}`);
       addBoardCredit(gameState, BOARD_CUP_ROUND_CREDIT);
-      showToast(`🏆 DFB-Pokal: ${roundLabel} gewonnen!`, "success");
+      showToast(`🏆 ${getCupName(gameState)}: ${roundLabel} gewonnen!`, "success");
     } else {
-      showToast(`DFB-Pokal: Ausgeschieden in der ${roundLabel}.`, "info");
+      showToast(`${getCupName(gameState)}: Ausgeschieden in der ${roundLabel}.`, "info");
     }
   }
 
   if(cupResult.champion){
     if(cupResult.champion === gameState.clubName){
       gameState.budget = addToBudget(gameState.budget, CUP_CHAMPION_BONUS);
-      addLogEntry(gameState, `🏆👑 DFB-Pokal gewonnen! Prämie: +${fmtMoney(CUP_CHAMPION_BONUS)}`, "win", true);
+      addLogEntry(gameState, `🏆👑 ${getCupName(gameState)} gewonnen! Prämie: +${fmtMoney(CUP_CHAMPION_BONUS)}`, "win", true);
       unlockAchievement("cupWinner");
       showToast("🏆 DFB-POKALSIEGER! Herzlichen Glückwunsch!", "success");
     } else {
-      addLogEntry(gameState, `🏆 DFB-Pokal-Sieger dieser Saison: ${cupResult.champion}`, null, true);
+      addLogEntry(gameState, `🏆 ${getCupName(gameState)}-Sieger dieser Saison: ${cupResult.champion}`, null, true);
     }
   }
 

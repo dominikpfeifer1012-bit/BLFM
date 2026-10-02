@@ -27,19 +27,21 @@ python3 -m http.server 8000
 ```
 index.html                      Oberflaeche und Einstiegspunkt
 manifest.json                   Angaben fuer den Startbildschirm
-modules/                        32 Module, klassische Skripte ohne Bundler
-  config.js                     Alle Konstanten und Ligadefinitionen
+modules/                        39 Module, klassische Skripte ohne Bundler
+  config.js                     Alle Konstanten, Laender und Ligadefinitionen
+  clubs-intl.js                 Vereine in England, Spanien, Italien, Frankreich
   players.js  squad.js          Spieler, Attribute, Kader, Aufstellung
   development.js  morale.js     Entwicklung und Zufriedenheit
   pool.js  transfermarkt.js     Weltbestand und Transfers
-  match.js  league.js  cup.js   Simulation, Ligen, Pokal
+  match.js  match-events.js     Torformel, Spielverlauf, Noten, Elfmeter
+  league.js  cup.js             Ligen, Auf- und Abstieg je Land, Pokale
   europe.js  board.js           Europapokal, Vorstand
   youth.js  facilities.js       Jugendkader, Investitionen
   press.js  records.js          Pressekonferenzen, Bestmarken
   ui-*.js                       Oberflaeche, nach Bereichen getrennt
   game-*.js                     Spielablauf, Zustand, Eingaben
   fonts.css                     Schriften lokal eingebettet
-tests/                          Zehn Testsuiten fuer Node
+tests/                          Elf Testsuiten fuer Node
 ```
 
 Die Module werden als klassische Skripte geladen, nicht als ES-Module. Das ist
@@ -59,8 +61,12 @@ ein Durchlauf dauert daher einige Minuten.
 
 ## Was drin ist
 
-Drei Ligen mit Auf- und Abstieg, DFB-Pokal, Europapokal mit Gruppenphase,
-Weltbestand mit ueber 1200 Spielern, vier Spielerattribute, Vertraege,
+Elf Ligen in fuenf Laendern (Deutschland mit drei Ligen, England, Spanien,
+Italien und Frankreich mit je zwei) mit den Auf- und Abstiegsregeln des
+jeweiligen Landes inklusive Relegation, Play-offs und Barrage. Dazu die
+nationalen Pokale (DFB-Pokal, FA Cup, Copa del Rey, Coppa Italia, Coupe de
+France), ein Europapokal mit den Top 4 aller fuenf Ligen, eine Ligen-Ansicht
+mit allen Tabellen und Vereinskadern, Weltbestand mit rund 3800 Spielern, vier Spielerattribute, Vertraege,
 Gehaelter, Vorstand mit Saisonziel und Entlassung, Jugendkader mit eigener
 Mannschaft, Moral, Trainingsschwerpunkte, taktische Konter, Pressekonferenzen,
 Investitionen in Stadion und Infrastruktur, Live-Simulation, Statistiken ueber

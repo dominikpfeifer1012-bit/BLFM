@@ -13,8 +13,9 @@ function getDifficulty(gameState){
 
 // ---------- Trainer der anderen Vereine ----------
 
-function generateCoachName(){
-  const nat = Math.random() < 0.6 ? (NATIONALITY_BY_CODE.DE || pickNationality()) : pickNationality();
+function generateCoachName(heimat){
+  const code = heimat || "DE";
+  const nat = Math.random() < 0.6 ? (NATIONALITY_BY_CODE[code] || pickNationality()) : pickNationality();
   return { name: generatePlayerName(nat), nat: nat.code };
 }
 
@@ -24,11 +25,11 @@ function ensureCoaches(gameState){
   gameState.coaches = gameState.coaches || {};
   ensureLeaguePools(gameState);
   const importiert = typeof getCustomCoach === "function" ? getCustomCoach : () => null;
-  gameState.leaguePools.forEach(pool => pool.forEach(c => {
+  gameState.leaguePools.forEach((pool, idx) => pool.forEach(c => {
     if(c.name === gameState.clubName || gameState.coaches[c.name]) return;
     const echt = importiert(c.name);
     gameState.coaches[c.name] = echt ? { name: echt, nat: null, since: gameState.season }
-      : Object.assign(generateCoachName(), { since: gameState.season });
+      : Object.assign(generateCoachName(getCountryConfig(getDivisionCountry(idx + 1)).nat), { since: gameState.season });
   }));
   return gameState.coaches;
 }
@@ -56,16 +57,19 @@ function checkCoachChanges(gameState){
     sortiert.slice(-3).forEach(t => {
       if(t.name === gameState.clubName || Math.random() > COACH_FIRE_CHANCE) return;
       const alt = gameState.coaches[t.name];
-      const neu = Object.assign(generateCoachName(), { since: gameState.season });
+      const nr = getClubDivision(gameState, t.name);
+      const land = nr ? getDivisionCountry(nr) : "de";
+      const neu = Object.assign(generateCoachName(getCountryConfig(land).nat), { since: gameState.season });
       gameState.coaches[t.name] = neu;
-      addNews(gameState, `${t.name} trennt sich nach Platz ${sortiert.indexOf(t) + 1} von ${alt ? alt.name : "seinem Trainer"}. Nachfolger: ${neu.name}.`, "🔄");
+      // Nachrichten nur aus dem eigenen Land, sonst wird die Liste zur Flut.
+      if(land === getOwnCountry(gameState)) addNews(gameState, `${t.name} trennt sich nach Platz ${sortiert.indexOf(t) + 1} von ${alt ? alt.name : "seinem Trainer"}. Nachfolger: ${neu.name}.`, "🔄");
     });
   });
 }
 
 // Andere Vereine handeln untereinander, wenn ein Transferfenster aufgeht.
 function simulateAiTransfers(gameState){
-  if(!gameState.pool || !TRANSFER_WINDOWS.some(([start]) => start === gameState.matchday + 1)) return;
+  if(!gameState.pool || !getTransferWindows(gameState).some(([start]) => start === gameState.matchday + 1)) return;
   const vereine = buildPoolClubList(gameState);
   const staerke = Object.fromEntries(vereine.map(c => [c.name, c]));
   const kandidaten = shuffleArray(gameState.pool.players.filter(p =>

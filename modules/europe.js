@@ -32,16 +32,25 @@ function createFreshEurope(qualified, context){
 function buildEuropeField(context){
   const field = [{ name: context.ownClubName, strength: context.ownStrength, isOwn: true }];
 
-  (context.others || []).slice(0, 3).forEach(c => {
+  const groesse = EUROPE_GROUP_COUNT * EUROPE_TEAMS_PER_GROUP;
+  (context.others || []).slice(0, groesse - 1).forEach(c => {
     field.push({ name: c.name, strength: c.strength, isOwn: false });
   });
 
-  const needed = EUROPE_GROUP_COUNT * EUROPE_TEAMS_PER_GROUP - field.length;
-  shuffleArray(EURO_CLUBS).slice(0, needed).forEach(c => {
+  const needed = groesse - field.length;
+  const schonDa = new Set(field.map(c => c.name));
+  shuffleArray(EURO_CLUBS).filter(c => !schonDa.has(c.name)).slice(0, needed).forEach(c => {
     field.push({ name: c.name, strength: c.strength, isOwn: false });
   });
 
   return field;
+}
+
+// Herkunftsland eines Europapokal-Teilnehmers (Vereine ohne Liga: eigenes Kuerzel).
+function europeCountryOf(name){
+  const gs = typeof gameState !== "undefined" ? gameState : null;
+  const nr = gs && typeof getClubDivision === "function" ? getClubDivision(gs, name) : null;
+  return nr ? getDivisionCountry(nr) : "x-" + name;
 }
 
 // Lostoepfe nach Staerke: jede Gruppe bekommt genau einen Verein je Topf.
@@ -50,6 +59,17 @@ function drawEuropeGroups(field){
   const pots = [];
   for(let i = 0; i < EUROPE_TEAMS_PER_GROUP; i++){
     pots.push(shuffleArray(sorted.slice(i * EUROPE_GROUP_COUNT, (i + 1) * EUROPE_GROUP_COUNT)));
+  }
+
+  // Vereine desselben Landes treffen in der Gruppe nicht aufeinander.
+  for(let versuch = 0; versuch < 60; versuch++){
+    let ok = true;
+    for(let g = 0; g < EUROPE_GROUP_COUNT && ok; g++){
+      const laender = pots.map(pot => pot[g]).filter(Boolean).map(c => europeCountryOf(c.name));
+      ok = new Set(laender).size === laender.length;
+    }
+    if(ok) break;
+    for(let i = 1; i < pots.length; i++) pots[i] = shuffleArray(pots[i]);
   }
 
   const groups = [];
@@ -324,10 +344,10 @@ function getEuropeEvent(gameState){
   if(!eu || !eu.active) return null;
   const upcomingDay = gameState.matchday + 1;
 
-  if(eu.phase === "group" && EUROPE_GROUP_MATCHDAYS[eu.groupMatchday] === upcomingDay){
+  if(eu.phase === "group" && getEuropeGroupMatchdays(gameState)[eu.groupMatchday] === upcomingDay){
     return { stage: "group", label: `Gruppenphase ${eu.groupMatchday + 1}/${EUROPE_GROUP_MATCHDAYS.length}` };
   }
-  if(eu.phase === "knockout" && EUROPE_KO_MATCHDAYS[eu.knockoutRound] === upcomingDay){
+  if(eu.phase === "knockout" && getEuropeKoMatchdays(gameState)[eu.knockoutRound] === upcomingDay){
     return { stage: "knockout", label: EUROPE_KO_LABELS[eu.knockoutRound] || "K.o.-Runde" };
   }
   return null;

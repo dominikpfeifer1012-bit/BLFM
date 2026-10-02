@@ -18,6 +18,97 @@ function slotKey(slot){
   return SAVE_PREFIX + slot;
 }
 
+// ---------- Kompression ----------
+// Mit fuenf Laendern ist ein Spielstand rund 2 MB JSON. Der lokale Speicher
+// des Browsers fasst etwa 5 MB — Autosave plus zwei Plaetze passten nicht.
+// LZW mit gemeinsamem Alphabet; die Bits werden in 15er-Gruppen als Zeichen
+// 32..32799 abgelegt (keine Surrogate, also sicher im localStorage).
+const SAVE_COMPRESSED_MARK = "LZW1:";
+
+function bitLength(x){ return x <= 1 ? 1 : 32 - Math.clz32(x); }
+
+function compressSaveString(text){
+  const out = [];
+  let buf = 0, bufBits = 0;
+  const write = (wert, bits) => {
+    while(bits > 0){
+      const teil = Math.min(bits, 15 - bufBits);
+      buf |= (wert & ((1 << teil) - 1)) << bufBits;
+      wert >>>= teil; bits -= teil; bufBits += teil;
+      if(bufBits === 15){ out.push(String.fromCharCode(buf + 32)); buf = 0; bufBits = 0; }
+    }
+  };
+  // Woerterbuch als Zahl -> Zahl: (Praefix-Code, Zeichen) -> Code. Deutlich
+  // schneller als wachsende Zeichenketten als Schluessel.
+  const alphabet = [];
+  const alphaIdx = new Map();
+  for(let i = 0; i < text.length; i++){
+    const cc = text.charCodeAt(i);
+    if(!alphaIdx.has(cc)){ alphaIdx.set(cc, alphabet.length); alphabet.push(text[i]); }
+  }
+  const dict = new Map();
+  let groesse = alphabet.length;
+  const codes = [];
+  let w = text.length ? alphaIdx.get(text.charCodeAt(0)) : -1;
+  for(let i = 1; i < text.length; i++){
+    const cc = text.charCodeAt(i);
+    const key = w * 65536 + cc;
+    const vorhanden = dict.get(key);
+    if(vorhanden !== undefined){ w = vorhanden; continue; }
+    codes.push(w, groesse);
+    dict.set(key, groesse++);
+    w = alphaIdx.get(cc);
+  }
+  if(w >= 0) codes.push(w, groesse);
+  const anzahl = codes.length / 2;
+  write(anzahl & 0xFFFF, 16); write(anzahl >>> 16, 16);
+  write(alphabet.length, 16);
+  alphabet.forEach(c => write(c.charCodeAt(0), 16));
+  for(let i = 0; i < codes.length; i += 2) write(codes[i], bitLength(codes[i + 1]));
+  if(bufBits > 0) out.push(String.fromCharCode(buf + 32));
+  return SAVE_COMPRESSED_MARK + out.join("");
+}
+
+function decompressSaveString(text){
+  const daten = text.slice(SAVE_COMPRESSED_MARK.length);
+  let pos = 0, bit = 0;
+  const read = bits => {
+    let wert = 0, schon = 0;
+    while(bits > 0){
+      const teil = Math.min(bits, 15 - bit);
+      const einheit = daten.charCodeAt(pos) - 32;
+      wert |= ((einheit >>> bit) & ((1 << teil) - 1)) << schon;
+      schon += teil; bits -= teil; bit += teil;
+      if(bit === 15){ bit = 0; pos++; }
+    }
+    return wert >>> 0;
+  };
+  const anzahl = read(16) + read(16) * 65536;
+  const n = read(16);
+  const eintraege = [];
+  for(let i = 0; i < n; i++) eintraege.push(String.fromCharCode(read(16)));
+  if(anzahl === 0) return "";
+  let vorher = eintraege[read(bitLength(n))];
+  const teile = [vorher];
+  for(let k = 1; k < anzahl; k++){
+    const code = read(bitLength(eintraege.length + 1));
+    const eintrag = code < eintraege.length ? eintraege[code] : vorher + vorher[0];
+    teile.push(eintrag);
+    eintraege.push(vorher + eintrag[0]);
+    vorher = eintrag;
+  }
+  return teile.join("");
+}
+
+function encodeSave(payload){
+  return compressSaveString(JSON.stringify(payload));
+}
+
+function decodeSave(roh){
+  if(roh == null) return null;
+  return JSON.parse(roh.startsWith(SAVE_COMPRESSED_MARK) ? decompressSaveString(roh) : roh);
+}
+
 function buildSavePayload(gameState){
   return {
     version: SAVE_VERSION,
@@ -31,7 +122,7 @@ function buildSavePayload(gameState){
 
 function saveGameState(gameState, slot){
   const nummer = slot != null ? slot : 1;
-  const daten = JSON.stringify(buildSavePayload(gameState));
+  const daten = encodeSave(buildSavePayload(gameState));
   try {
     try {
       localStorage.setItem(slotKey(nummer), daten);
@@ -55,7 +146,7 @@ function saveGameState(gameState, slot){
 function autoSaveGameState(gameState){
   if(!gameState || !gameState.clubName) return false;
   try {
-    localStorage.setItem(slotKey(AUTOSAVE_SLOT), JSON.stringify(buildSavePayload(gameState)));
+    localStorage.setItem(slotKey(AUTOSAVE_SLOT), encodeSave(buildSavePayload(gameState)));
     return true;
   } catch(e) {
     return false;   // Speicher blockiert: still bleiben, der Export funktioniert trotzdem
@@ -73,7 +164,7 @@ function readSlot(slot){
   try {
     const roh = localStorage.getItem(slotKey(slot));
     if(!roh) return null;
-    return JSON.parse(roh);
+    return decodeSave(roh);
   } catch(e) {
     console.warn("readSlot:", e);
     return null;
@@ -121,13 +212,16 @@ function migrateLegacySave(){
     const state = daten.state || daten;
     if(!state || !state.clubName) return false;
 
-    localStorage.setItem(slotKey(1), JSON.stringify({
+    const neu = encodeSave({
       version: 1, savedAt: null, manager: state.manager,
       matchday: state.matchday,
       label: `${state.clubName} · Saison ${state.season}/${(state.season + 1) % 100}`,
       state: state
-    }));
+    });
+    // Erst den alten Eintrag freigeben, sonst reicht der Speicher nicht.
     localStorage.removeItem(SAVE_LEGACY_KEY);
+    try { localStorage.setItem(slotKey(1), neu); }
+    catch(e){ localStorage.setItem(SAVE_LEGACY_KEY, roh); throw e; }
     return true;
   } catch(e) {
     return false;

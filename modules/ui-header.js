@@ -20,7 +20,7 @@ function renderHeader(gameState){
     const rating = teamRating(gameState.squad, gameState.matchday + 1);
     const negBudget = gameState.budget < 0 ? " neg" : "";
     chips.innerHTML = `
-      <span class="divisionBadge ${gameState.division === 1 ? "div1" : "div2"}">${getDivisionConfig(gameState.division).short}</span>
+      <span class="divisionBadge ${isTopDivision(gameState.division) ? "div1" : "div2"}">${getDivisionTag(gameState.division)}</span>
       <span class="chip">Team <b>${rating}</b></span>
       <span class="chip${negBudget}"><span class="chipLabel">Budget </span><b>${fmtMoney(gameState.budget)}</b></span>
       <span class="chip chipSalary">Gehalt <b>${fmtMoney(getMatchdaySalaryCost(gameState.squad))}</b>/ST</span>`;
@@ -109,7 +109,7 @@ function renderOpponentPreview(gameState){
 
   const evt = getNextEvent(gameState);
   if(evt.type === "cup" || evt.type === "europe"){
-    const wettbewerb = evt.type === "cup" ? "🏆 DFB-Pokal" : "🌍 Europapokal";
+    const wettbewerb = evt.type === "cup" ? `🏆 ${getCupName(gameState)}` : "🌍 Europapokal";
     el.innerHTML = `Als Nächstes: <b>${wettbewerb} — ${evt.label}</b> · danach geht es weiter mit Spieltag ${evt.beforeMatchday}`;
     return;
   }
@@ -151,7 +151,7 @@ function renderNextMatch(gameState){
       ? `${gameState.cup.teamsRemaining.length} Mannschaften sind noch dabei.`
       : "Der Gegner wird bei Anpfiff ausgelost.";
     el.innerHTML = `
-      <p class="eyebrow">${isCup ? "DFB-Pokal" : "Europapokal"}</p>
+      <p class="eyebrow">${isCup ? getCupName(gameState) : "Europapokal"}</p>
       <h2 style="margin:2px 0 6px;">${evt.label}</h2>
       <p class="muted" style="margin:0 0 10px;">${teamsLeft}</p>
       <div class="statGrid">
@@ -231,8 +231,8 @@ function renderOverviewCompetitions(gameState){
   const cup = gameState.cup;
   if(cup){
     if(cup.champion === gameState.clubName) lines.push(`<span class="badge win">Pokalsieger</span>`);
-    else if(cup.eliminated) lines.push(`DFB-Pokal <span class="badge loss">ausgeschieden</span>`);
-    else if(cup.active) lines.push(`DFB-Pokal · noch dabei · ${CUP_ROUND_LABELS[cup.round] || "nächste Runde"}`);
+    else if(cup.eliminated) lines.push(`${getCupName(gameState)} <span class="badge loss">ausgeschieden</span>`);
+    else if(cup.active) lines.push(`${getCupName(gameState)} · noch dabei · ${CUP_ROUND_LABELS[cup.round] || "nächste Runde"}`);
   }
 
   const eu = gameState.europe;

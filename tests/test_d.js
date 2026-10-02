@@ -115,11 +115,15 @@ check("Tore werden auch dort zugeordnet", () => {
   return treffer.length > 10 ? true : `nur ${treffer.length} Torschützen`;
 });
 
-check("Die Anzeige zeigt alle fremden Tabellen", () => {
+check("Die Ligen-Ansicht erreicht jede fremde Liga", () => {
   win.switchTab("wettbewerbe");
-  const t = $("shadowTable").textContent;
-  return andereLigen().every(nr => t.includes(win.getDivisionConfig(nr).label))
-    ? true : "nicht alle Ligen angezeigt";
+  const fehlt = andereLigen().filter(nr => {
+    const d = win.getDivisionConfig(nr);
+    win.selectLeagueBrowser(d.country, nr);
+    const t = $("shadowTable").textContent;
+    return !win.getLeaguePool(gs, nr).every(c => t.includes(c.name));
+  });
+  return fehlt.length === 0 ? true : "fehlt: " + fehlt.join(", ");
 });
 
 check("Auf- und Abstieg läuft über alle Ligen", () => {

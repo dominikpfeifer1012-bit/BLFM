@@ -134,12 +134,12 @@ check("Der neue Kader ist vollständig ausgestattet", () =>
     ? true : "Kader unvollständig");
 
 check("Der neue Verein spielt in der richtigen Liga", () => {
-  const inEins=gs.leagueOnePool.some(c=>c.name===gs.clubName);
-  return (inEins?1:2)===gs.division ? true : `Liga ${gs.division} passt nicht`;
+  return win.getClubDivision(gs,gs.clubName)===gs.division ? true : `Liga ${gs.division} passt nicht`;
 });
 
 check("Spielplan und Wettbewerbe sind neu aufgesetzt", () => {
-  if(gs.fixtures.length!==306) return `${gs.fixtures.length} Spiele`;
+  const n=gs.teams.length;
+  if(gs.fixtures.length!==n*(n-1)) return `${gs.fixtures.length} Spiele bei ${n} Vereinen`;
   if(gs.fixtures.some(f=>f.played)) return "Spielplan nicht frisch";
   if(gs.cup.round!==0) return "Pokal nicht zurückgesetzt";
   return true;

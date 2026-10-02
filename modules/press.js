@@ -172,10 +172,10 @@ const PRESS_SITUATIONS = [
     bedingung: gs => {
       const c = gs.cup;
       if(!c || !c.eliminated || !c.exitRound) return false;
-      const termin = CUP_ROUND_TRIGGER_MATCHDAYS[c.exitRound - 1];
+      const termin = getCupTriggerMatchdays(gs)[c.exitRound - 1];
       return termin != null && gs.matchday >= termin - 1 && gs.matchday <= termin + 1;
     },
-    frage: gs => `Aus im DFB-Pokal (${CUP_ROUND_LABELS[gs.cup.exitRound - 1] || "Pokal"}). Wie bitter ist das?`,
+    frage: gs => `Aus im ${getCupName(gs)} (${CUP_ROUND_LABELS[gs.cup.exitRound - 1] || "Pokal"}). Wie bitter ist das?`,
     antworten: [
       { text: "Jetzt zählt nur noch die Liga.", morale: 2, patience: 1,
         folge: "Der Blick geht nach vorn." },
@@ -191,7 +191,7 @@ const PRESS_SITUATIONS = [
     bedingung: gs => {
       const c = gs.cup;
       if(!c || !c.active || c.eliminated || c.round < 2) return false;
-      const naechster = CUP_ROUND_TRIGGER_MATCHDAYS[c.round];
+      const naechster = getCupTriggerMatchdays(gs)[c.round];
       return naechster != null && naechster - (gs.matchday + 1) <= 1 && naechster - (gs.matchday + 1) >= 0;
     },
     frage: gs => `Als Nächstes steht das ${CUP_ROUND_LABELS[gs.cup.round] || "nächste Pokalspiel"} an. Träumen Sie schon von Berlin?`,

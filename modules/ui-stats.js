@@ -19,8 +19,8 @@ function renderSeasonHistory(gameState){
     <th class="n">Pkt</th><th>Pokal</th><th>Europa</th><th>Torjäger</th></tr>`;
 
   [...gameState.seasonHistory].reverse().forEach(sn => {
-    const liga = sn.division === 2 ? "2. BL" : "1. BL";
-    const meister = sn.division === 1 && sn.finalPosition === 1;
+    const liga = getDivisionTag(sn.division || 1);
+    const meister = isTopDivision(sn.division || 1) && sn.finalPosition === 1;
     const torjaeger = sn.topScorer
       ? `${sn.topScorer.name} <span class="num">${sn.topScorer.goals}</span>`
       : "—";
@@ -179,7 +179,7 @@ function renderRecords(gameState){
     zeile("Längste Serie ohne Niederlage", r.longestUnbeaten > 0
       ? `<b class="num">${r.longestUnbeaten}</b> Spiele` : null) +
     zeile("Beste Saison", r.bestSeason
-      ? `Platz <b class="num">${r.bestSeason.finalPosition}</b> in der ${r.bestSeason.division === 2 ? "2." : "1."} Liga`
+      ? `Platz <b class="num">${r.bestSeason.finalPosition}</b> in der ${getDivisionLabel(r.bestSeason.division || 1)}`
       : null, r.bestSeason ? `${r.bestSeason.club} · ${saison(r.bestSeason.season)}` : "") +
     zeile("Bester Torjäger einer Saison", r.topScorerSeason
       ? `<b class="num">${r.topScorerSeason.goals}</b> Tore — ${r.topScorerSeason.name}`
@@ -318,7 +318,7 @@ function renderTrendSummary(historie){
     }
   }
 
-  const titel = historie.filter(s => s.division === 1 && s.finalPosition === 1).length;
+  const titel = historie.filter(s => isTopDivision(s.division || 1) && s.finalPosition === 1).length;
   if(titel > 0) saetze.push(`${titel} Meistertitel.`);
 
   const pokale = historie.filter(s => s.cupResult === "Sieger").length;

@@ -18,8 +18,8 @@ const NATIONALITIES = [
     last:["Widmer","Frei","Aebischer","Zuber","Rieder","Bühler","Steffen","Kobel","Schär","Amrein"] },
 
   { code:"FR", name:"Frankreich", flag:"🇫🇷", weight:8,
-    first:["Théo","Lucas","Hugo","Enzo","Nathan","Maxime","Clément","Antoine","Bastien","Rémi","Yanis","Amine","Mathis","Corentin","Julien","Quentin","Adrien","Loïc","Kylian","Baptiste","Noé","Ilyes"],
-    last:["Bernard","Dubois","Moreau","Laurent","Girard","Lefèvre","Mercier","Renard","Fontaine","Chevalier","Perrin","Gauthier","Marchand","Blanchard","Roussel","Leclerc","Bonnet","Guillot","Masson","Deschamps","Colin","Barbier"] },
+    first:["Théo","Lucas","Hugo","Enzo","Nathan","Maxime","Clément","Antoine","Bastien","Rémi","Yanis","Amine","Mathis","Corentin","Julien","Quentin","Adrien","Loïc","Kylian","Baptiste","Noé","Ilyes","Romain","Valentin","Florian","Thomas","Alexis","Mathéo","Sacha","Malo"],
+    last:["Bernard","Dubois","Moreau","Laurent","Girard","Lefèvre","Mercier","Renard","Fontaine","Chevalier","Perrin","Gauthier","Marchand","Blanchard","Roussel","Leclerc","Bonnet","Guillot","Masson","Deschamps","Colin","Barbier","Martin","Durand","Petit","Lambert","Garnier","Faure","Rousseau","Fournier","Caron","Lemaire"] },
 
   { code:"NL", name:"Niederlande", flag:"🇳🇱", weight:5,
     first:["Sem","Daan","Bram","Ruben","Thijs","Jesper","Stijn","Joris","Lars","Sven","Teun","Milan","Finn","Luuk","Jurriën","Kick","Mees","Noud","Rens","Tijmen"],
@@ -30,16 +30,16 @@ const NATIONALITIES = [
     last:["Peeters","Janssens","Maes","Willems","Claes","Goossens","Wouters","De Smet"] },
 
   { code:"ES", name:"Spanien", flag:"🇪🇸", weight:5,
-    first:["Álvaro","Sergio","Iker","Pablo","Marco","Adrián","Rubén","Javier","Diego","Nacho","Aitor","Unai","Carlos","Mateo","Hugo","Izan","Gonzalo","Borja","Asier","Dani"],
-    last:["García","Martínez","Sánchez","Romero","Navarro","Ortega","Castillo","Iglesias","Vidal","Serrano","Aguirre","Molina","Herrera","Delgado","Campos","Reyes","Cabrera","Lozano","Peña","Vargas"] },
+    first:["Álvaro","Sergio","Iker","Pablo","Marco","Adrián","Rubén","Javier","Diego","Nacho","Aitor","Unai","Carlos","Mateo","Hugo","Izan","Gonzalo","Borja","Asier","Dani","Raúl","Víctor","Jorge","Alejandro","Manuel","Óscar","Íñigo","Mikel","Fermín","Lucas"],
+    last:["García","Martínez","Sánchez","Romero","Navarro","Ortega","Castillo","Iglesias","Vidal","Serrano","Aguirre","Molina","Herrera","Delgado","Campos","Reyes","Cabrera","Lozano","Peña","Vargas","Fernández","López","Gómez","Díaz","Moreno","Muñoz","Álvarez","Jiménez","Ruiz","Torres","Ramos","Gil"] },
 
   { code:"PT", name:"Portugal", flag:"🇵🇹", weight:4,
     first:["Rui","Tiago","Gonçalo","Bruno","Diogo","Rafael","Vitor","André","Nuno","Miguel","João","Pedro","Fábio","Ricardo","Hugo","Duarte","Salvador","Martim"],
     last:["Ferreira","Pereira","Almeida","Carvalho","Sousa","Teixeira","Moreira","Fonseca","Barbosa","Machado","Cardoso","Marques","Lopes","Neves","Pinto","Correia","Domingues","Faria"] },
 
   { code:"IT", name:"Italien", flag:"🇮🇹", weight:3,
-    first:["Matteo","Lorenzo","Andrea","Federico","Riccardo","Giulio","Davide","Alessio","Stefano","Nicolò","Luca","Marco","Simone","Gianluca","Emanuele","Pietro","Tommaso","Enrico"],
-    last:["Ricci","Marchetti","Gallo","Costa","Rinaldi","Barbieri","Fabbri","Caruso","Ferrari","Bellini","Greco","Sartori","Villa","Longo","Basile","Testa","Palmieri","Rizzo"] },
+    first:["Matteo","Lorenzo","Andrea","Federico","Riccardo","Giulio","Davide","Alessio","Stefano","Nicolò","Luca","Marco","Simone","Gianluca","Emanuele","Pietro","Tommaso","Enrico","Francesco","Alessandro","Giorgio","Daniele","Gabriele","Samuele","Filippo","Edoardo","Michele","Leonardo","Mattia","Fabio"],
+    last:["Ricci","Marchetti","Gallo","Costa","Rinaldi","Barbieri","Fabbri","Caruso","Ferrari","Bellini","Greco","Sartori","Villa","Longo","Basile","Testa","Palmieri","Rizzo","Romano","Colombo","Bruno","Esposito","Lombardi","Moretti","Conti","De","Luca","Mancini","Giordano","Rossetti","Ferri","Pellegrini","Silvestri"] },
 
   { code:"BR", name:"Brasilien", flag:"🇧🇷", weight:6,
     first:["Rodrigo","Lucas","Matheus","Gabriel","Felipe","Caio","Vinícius","Everton","Douglas","Wesley","Igor","Bruno","Thiago","Renato","Leandro","Murilo","Danilo","Éder","Paulo","Otávio"],
@@ -78,8 +78,8 @@ const NATIONALITIES = [
     last:["Haugen","Johansen","Solberg","Dahl","Bakken","Lund"] },
 
   { code:"GB", name:"England", flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", weight:3,
-    first:["Harry","Callum","Josh","Reece","Ollie","Kieran","Mason","Jude"],
-    last:["Whitfield","Bennett","Hargreaves","Chambers","Blackwood","Radcliffe","Ashworth","Kingsley"] },
+    first:["Harry","Callum","Josh","Reece","Ollie","Kieran","Mason","Jude","Jack","James","Tom","Ben","Sam","Charlie","George","Alfie","Joe","Luke","Ryan","Connor","Lewis","Jordan","Aaron","Jamie","Declan","Tyler","Kyle","Marcus","Conor","Ethan","Owen","Danny"],
+    last:["Whitfield","Bennett","Hargreaves","Chambers","Blackwood","Radcliffe","Ashworth","Kingsley","Smith","Jones","Taylor","Brown","Walker","Wright","Robinson","Thompson","Hughes","Edwards","Green","Hall","Wood","Harris","Clarke","Turner","Hill","Cooper","Ward","Morris","Parker","Barnes","Fletcher","Holmes","Mitchell","Lambert","Cartwright","Pearson"] },
 
   { code:"TR", name:"Türkei", flag:"🇹🇷", weight:3,
     first:["Emre","Kerem","Yusuf","Berkay","Ozan","Baris","Arda","Kaan"],
@@ -127,18 +127,47 @@ const YOUTH_HOME_NATIONALITY_CHANCE = 0.6;
 
 const TOTAL_NATIONALITY_WEIGHT = NATIONALITIES.reduce((sum, n) => sum + n.weight, 0);
 
+// Beim Erzeugen eines Vereinskaders: ein Teil der Spieler stammt aus dem
+// Land des Vereins (englische Namen in England usw.).
+let nameHomeHint = null;
+const NAME_HOME_SHARE = 0.45;
+
+function withHomeNationality(code, fn){
+  const vorher = nameHomeHint;
+  nameHomeHint = code || null;
+  try { return fn(); } finally { nameHomeHint = vorher; }
+}
+
 function pickNationality(){
-  let roll = Math.random() * TOTAL_NATIONALITY_WEIGHT;
+  if(nameHomeHint && NATIONALITY_BY_CODE[nameHomeHint] && Math.random() < NAME_HOME_SHARE){
+    return NATIONALITY_BY_CODE[nameHomeHint];
+  }
+  // Die Grundgewichte bilden die Bundesliga ab. Fuer Vereine im Ausland
+  // zaehlen Deutsche nur noch wie eine mittelgrosse Nation.
+  const ausland = nameHomeHint && nameHomeHint !== "DE";
+  const gewicht = nat => ausland && nat.code === "DE" ? FOREIGN_LEAGUE_DE_WEIGHT : nat.weight;
+  const summe = ausland ? TOTAL_NATIONALITY_WEIGHT - NATIONALITY_BY_CODE.DE.weight + FOREIGN_LEAGUE_DE_WEIGHT : TOTAL_NATIONALITY_WEIGHT;
+  let roll = Math.random() * summe;
   for(const nat of NATIONALITIES){
-    roll -= nat.weight;
+    roll -= gewicht(nat);
     if(roll <= 0) return nat;
   }
   return NATIONALITIES[0];
 }
+const FOREIGN_LEAGUE_DE_WEIGHT = 4;
+
+// Nachwuchs kommt ueberwiegend aus dem Land des eigenen Vereins.
+function getOwnHomeNationalityCode(){
+  const gs = typeof gameState !== "undefined" ? gameState : null;
+  if(gs && gs.division && typeof getDivisionCountry === "function" && typeof getCountryConfig === "function"){
+    return getCountryConfig(getDivisionCountry(gs.division)).nat;
+  }
+  return HOME_NATIONALITY_CODE;
+}
 
 function pickYouthNationality(){
   if(Math.random() < YOUTH_HOME_NATIONALITY_CHANCE){
-    return NATIONALITY_BY_CODE[HOME_NATIONALITY_CODE] || NATIONALITIES[0];
+    return NATIONALITY_BY_CODE[getOwnHomeNationalityCode()] || NATIONALITIES[0];
   }
   return pickNationality();
 }

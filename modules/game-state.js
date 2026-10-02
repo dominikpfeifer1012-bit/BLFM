@@ -29,22 +29,17 @@ function buildEuropeContext(){
     return club ? club.strength : 78;
   };
 
-  const others = (gameState.lastTopFour || [])
+  // Die Top-Vereine der fuenf grossen Ligen; aeltere Spielstaende kennen
+  // nur die besten vier der eigenen Liga.
+  const quali = gameState.europeQualifiers || gameState.lastTopFour || [];
+  const others = quali
     .filter(n => n !== gameState.clubName)
     .map(n => ({ name: n, strength: strengthOf(n) }));
-
-  // Falls weniger als drei bekannt sind, mit den staerksten Erstligisten auffuellen.
-  [...pool].sort((a, b) => b.strength - a.strength).forEach(c => {
-    if(others.length >= 3) return;
-    if(c.name === gameState.clubName) return;
-    if(others.some(o => o.name === c.name)) return;
-    others.push({ name: c.name, strength: c.strength });
-  });
 
   return {
     ownClubName: gameState.clubName,
     ownStrength: teamRating(gameState.squad, 1),
-    others: others.slice(0, 3)
+    others
   };
 }
 
@@ -76,7 +71,7 @@ function startCareer(){
     leagueTwoPool: leaguePools[1],
     fixtures: generateFixtures(teams.map(t => t.name)),
     teams: teams,
-    squad: generateSquad(clubBase.strength),
+    squad: withHomeNationality(getCountryConfig(startDivision.country || "de").nat, () => generateSquad(clubBase.strength)),
     budget: calculateStartingBudget(clubBase.strength),
     lineup: {},
     clubStature: clubBase.strength,
@@ -104,7 +99,7 @@ function startCareer(){
     cup: null,
     europe: createFreshEurope(false),
     lastTopFour: [],
-    lastSeasonWasDivision1: startDivision.nr === 1,
+    lastSeasonWasDivision1: isTopDivision(startDivision.nr),
     difficulty: (document.getElementById("difficultySelect") || {}).value || "normal",
     reputation: REPUTATION_START
   };
@@ -146,10 +141,10 @@ function startCareer(){
 (function populateClubSelect(){
   const sel = document.getElementById("clubSelect");
   if(!sel) return;
-  // Nach Liga gruppiert, damit die Spielklasse beim Start sichtbar ist.
-  DIVISIONS.forEach(div => {
+  // Nach Land und Liga gruppiert, damit die Spielklasse beim Start sichtbar ist.
+  COUNTRIES.forEach(land => getCountryDivisions(land.key).forEach(div => {
     const gruppe = document.createElement("optgroup");
-    gruppe.label = div.label;
+    gruppe.label = `${land.name} · ${div.label}`;
     div.clubs.slice().sort((a, b) => b.strength - a.strength).forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.name;
@@ -158,7 +153,7 @@ function startCareer(){
       gruppe.appendChild(opt);
     });
     sel.appendChild(gruppe);
-  });
+  }));
 })();
 
 (function populateSquadFilterOptions(){

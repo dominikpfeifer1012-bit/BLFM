@@ -6,68 +6,168 @@
 
 function renderTable(gameState){
   const labelEl = document.getElementById("tableDivisionLabel");
-  if(labelEl){
-    labelEl.textContent = gameState.division === 2 ? "(2. Bundesliga)" : "(1. Bundesliga)";
-  }
+  if(labelEl) labelEl.textContent = `(${getDivisionTag(gameState.division)} · ${getDivisionLabel(gameState.division)})`;
 
   const sorted = getSortedStandings(gameState.teams);
+  const zonen = getDivisionZones(gameState.division, sorted.length);
   let html = `<tr><th class="n">#</th><th>Verein</th><th class="n">Sp</th><th class="n">S</th><th class="n">U</th><th class="n">N</th><th class="n">Tore</th><th class="n">Pkt</th></tr>`;
   sorted.forEach((t, i) => {
     const cls = t.name === gameState.clubName ? "highlight" : "";
-    html += `<tr class="${cls}"><td class="n">${i+1}</td><td>${t.name}</td><td class="n">${t.played}</td><td class="n">${t.won}</td><td class="n">${t.drawn}</td><td class="n">${t.lost}</td><td class="n">${t.gf}:${t.ga}</td><td class="n"><b>${t.points}</b></td></tr>`;
+    const z = zonen[i] ? ` style="box-shadow:inset 3px 0 0 ${zonen[i]};"` : "";
+    html += `<tr class="${cls}"${z}><td class="n">${i+1}</td><td><span class="clubLink" onclick="showClubDetail(this.dataset.club)" data-club="${t.name}">${t.name}</span></td><td class="n">${t.played}</td><td class="n">${t.won}</td><td class="n">${t.drawn}</td><td class="n">${t.lost}</td><td class="n">${t.gf}:${t.ga}</td><td class="n"><b>${t.points}</b></td></tr>`;
   });
   document.getElementById("tableStandings").innerHTML = html;
+  const cupTitle = document.getElementById("cupTitle");
+  if(cupTitle) cupTitle.textContent = getCupName(gameState);
 }
 
-// Tabellen aller Ligen ausser der eigenen, untereinander.
+// Farbmarken je Tabellenplatz: Europapokal, Aufstieg, Play-off, Abstieg.
+function getDivisionZones(nr, groesse){
+  const d = getDivisionConfig(nr);
+  const zonen = new Array(groesse).fill(null);
+  const ligen = getCountryDivisions(d.country || "de");
+  const idx = ligen.findIndex(x => x.nr === nr);
+  const darueber = idx > 0 ? ligen[idx - 1] : null;
+  const tiefer = idx < ligen.length - 1;
+  if(d.europe) for(let i = 0; i < EUROPE_SLOTS_PER_TOP_LEAGUE && i < groesse; i++) zonen[i] = "var(--info)";
+  if(darueber && darueber.seam){
+    const s = darueber.seam;
+    for(let i = 0; i < s.directUp; i++) zonen[i] = "var(--win)";
+    if(s.playoff && s.playoff.type === "relegation") zonen[s.directUp] = "var(--draw)";
+    if(s.playoff && s.playoff.positions) s.playoff.positions.forEach(p => { if(p - 1 < groesse) zonen[p - 1] = "var(--draw)"; });
+  }
+  if(tiefer && d.seam){
+    for(let i = 0; i < d.seam.directDown; i++) zonen[groesse - 1 - i] = "var(--loss)";
+    if(d.seam.playoff && d.seam.playoff.type !== "playoff") zonen[groesse - 1 - d.seam.directDown] = "var(--draw)";
+  } else if(!tiefer){
+    const land = getCountryConfig(d.country || "de");
+    const n = land.reserve ? land.reserve.swaps : 0;
+    for(let i = 0; i < n; i++) zonen[groesse - 1 - i] = "var(--loss)";
+  }
+  return zonen;
+}
+
+// ============================================
+// Ligen-Ansicht: alle Laender und Ligen
+// ============================================
+
+let leagueBrowser = { country: null, nr: null };
+
+function getLeagueBrowserSelection(gameState){
+  const eigenesLand = getOwnCountry(gameState);
+  let land = leagueBrowser.country || eigenesLand;
+  let nr = leagueBrowser.nr;
+  const ligen = getCountryDivisions(land);
+  if(!nr || !ligen.some(d => d.nr === nr)){
+    // Standard: im eigenen Land die erste fremde Liga, sonst die oberste.
+    const fremd = ligen.find(d => d.nr !== gameState.division);
+    nr = (land === eigenesLand && fremd ? fremd : ligen[0]).nr;
+  }
+  return { country: land, nr };
+}
+
+function selectLeagueBrowser(country, nr){
+  leagueBrowser = { country, nr: nr || null };
+  renderShadowTable(gameState);
+}
+
+// Tabelle, Daten fuer eine beliebige Liga (auch die eigene).
+function getDivisionLiveData(gameState, nr){
+  if(nr === gameState.division) return { teams: gameState.teams, fixtures: gameState.fixtures, matchday: gameState.matchday };
+  const sh = gameState.shadowLeagues && gameState.shadowLeagues[nr];
+  if(sh && sh.teams) return sh;
+  return null;
+}
+
 function renderShadowTable(gameState){
   const el = document.getElementById("shadowTable");
   const lbl = document.getElementById("shadowTableLabel");
   if(!el) return;
+  const wahl = getLeagueBrowserSelection(gameState);
 
-  const nummern = typeof getShadowDivisionNumbers === "function"
-    ? getShadowDivisionNumbers(gameState) : [];
-  if(lbl) lbl.textContent = nummern.map(nr => getDivisionConfig(nr).short).join(" · ");
+  const laender = COUNTRIES.map(c => `<button class="chipBtn${c.key === wahl.country ? " on" : ""}" onclick="selectLeagueBrowser('${c.key}')" title="${c.name}">${getCountryBadge(c.key)} ${c.name}</button>`).join("");
+  const ligen = getCountryDivisions(wahl.country).map(d => `<button class="chipBtn${d.nr === wahl.nr ? " on" : ""}" onclick="selectLeagueBrowser('${wahl.country}', ${d.nr})">${d.label}${d.nr === gameState.division ? " ★" : ""}</button>`).join("");
+  if(lbl) lbl.textContent = getDivisionLabel(wahl.nr);
 
-  if(nummern.length === 0){
-    el.innerHTML = `<p class="muted">Keine weiteren Ligen.</p>`;
-    return;
-  }
-
-  el.innerHTML = nummern.map(nr => buildDivisionTable(gameState, nr)).join("");
+  el.innerHTML = `<div class="chipBar">${laender}</div><div class="chipBar">${ligen}</div>${buildDivisionTable(gameState, wahl.nr)}`;
 }
 
 function buildDivisionTable(gameState, nr){
-  const shadow = gameState.shadowLeagues[nr];
   const konfig = getDivisionConfig(nr);
-  if(!shadow || !shadow.teams || shadow.teams.length === 0){
+  const daten = getDivisionLiveData(gameState, nr);
+  if(!daten || !daten.teams || daten.teams.length === 0){
     return `<p class="muted">${konfig.label}: noch keine Daten.</p>`;
   }
 
-  const sorted = getSortedStandings(shadow.teams);
-  const letzte = getDivisionCount();
-
-  let html = `<p class="eyebrow" style="margin:14px 0 6px;">${konfig.label}</p>
-    <div class="tableWrap"><table>
+  const sorted = getSortedStandings(daten.teams);
+  const zonen = getDivisionZones(nr, sorted.length);
+  let html = `<div class="tableWrap"><table>
     <tr><th class="n">#</th><th>Verein</th><th class="n">Sp</th><th class="n">Tore</th><th class="n">Pkt</th></tr>`;
-
   sorted.forEach((t, i) => {
-    // Oben Aufstieg (ausser in Liga 1), unten Abstieg (ausser in der letzten).
-    let markierung = "";
-    if(nr > 1){
-      if(i < 2) markierung = "var(--win)";
-      else if(i === 2) markierung = "var(--draw)";
-    }
-    if(nr < letzte && !markierung){
-      if(i >= sorted.length - 2) markierung = "var(--loss)";
-      else if(i === sorted.length - 3) markierung = "var(--draw)";
-    }
-    const stil = markierung ? ` style="box-shadow:inset 3px 0 0 ${markierung};"` : "";
-    html += `<tr${stil}><td class="n">${i + 1}</td><td>${t.name}</td>
+    const stil = zonen[i] ? ` style="box-shadow:inset 3px 0 0 ${zonen[i]};"` : "";
+    const eigen = t.name === gameState.clubName ? ` class="highlight"` : "";
+    html += `<tr${eigen}${stil}><td class="n">${i + 1}</td><td><span class="clubLink" onclick="showClubDetail(this.dataset.club)" data-club="${t.name}">${t.name}</span></td>
       <td class="n">${t.played}</td><td class="n">${t.gf}:${t.ga}</td>
       <td class="n"><b>${t.points}</b></td></tr>`;
   });
-  return html + `</table></div>`;
+  html += `</table></div>`;
+
+  // Letzter Spieltag dieser Liga.
+  const md = daten.matchday || 0;
+  if(md > 0 && daten.fixtures){
+    const runde = getRoundFixtures(daten.fixtures, daten.teams.length, md - 1).filter(f => f.played);
+    if(runde.length){
+      html += `<p class="eyebrow" style="margin:12px 0 6px;">Spieltag ${md}</p><div class="confList">${runde.map(f =>
+        `<div class="confRow"><span>${f.home}</span><b class="num">${f.homeGoals}:${f.awayGoals}</b><span>${f.away}</span></div>`).join("")}</div>`;
+    }
+  }
+
+  // Torjaeger dieser Liga.
+  const scorer = getTopScorersForClubs(gameState, new Set(daten.teams.map(t => t.name)), 5);
+  if(scorer.length){
+    html += `<p class="eyebrow" style="margin:12px 0 6px;">Torjäger</p><div class="confList">${scorer.map(s =>
+      `<div class="confRow"><span>${s.name}</span><b class="num">${s.goals}</b><span>${s.club}</span></div>`).join("")}</div>`;
+  }
+
+  const land = getCountryConfig(konfig.country || "de");
+  const pokal = gameState.cupWinners && gameState.cupWinners[land.key];
+  if(konfig.tier === 1 && pokal) html += `<p class="muted" style="margin-top:10px; font-size:12px;">🏆 ${land.cup} (Vorsaison): ${pokal}</p>`;
+  return html;
+}
+
+// Vereinsansicht: Stand, Staerke und Kader aus dem Weltbestand.
+function showClubDetail(name){
+  if(!name) return;
+  if(name === gameState.clubName){ if(typeof switchTab === "function") switchTab("kader"); return; }
+  const club = findClubEverywhere(gameState, name);
+  const nr = getClubDivision(gameState, name);
+  const kader = getClubRoster(gameState.pool, name).sort((a, b) =>
+    POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || b.strength - a.strength);
+  const daten = nr ? getDivisionLiveData(gameState, nr) : null;
+  const tab = daten ? getSortedStandings(daten.teams) : [];
+  const platz = tab.findIndex(t => t.name === name) + 1;
+  const trainer = typeof getCoachName === "function" ? getCoachName(gameState, name) : null;
+
+  document.getElementById("clubModalContent").innerHTML = `
+    <p class="eyebrow">${nr ? `${getDivisionTag(nr)} · ${getDivisionLabel(nr)}` : "Ausland"}</p>
+    <h2 style="margin:2px 0 6px;">${name}</h2>
+    ${trainer ? `<p class="muted" style="margin:0 0 10px;">Trainer: ${trainer}</p>` : ""}
+    <div class="statGrid" style="margin-bottom:12px;">
+      <div class="stat"><div class="k">Stärke</div><div class="v">${club ? Math.round(club.strength) : "–"}</div></div>
+      <div class="stat"><div class="k">Platz</div><div class="v">${platz || "–"}</div>${tab.length ? `<div class="sub">von ${tab.length}</div>` : ""}</div>
+      <div class="stat"><div class="k">Spieler im Bestand</div><div class="v">${kader.length}</div></div>
+    </div>
+    <div class="tableWrap" style="max-height:46vh; overflow-y:auto;"><table>
+      <tr><th>Pos</th><th>Spieler</th><th class="n">Alter</th><th class="n">Stärke</th><th class="n hideMobile">Wert</th></tr>
+      ${kader.map(p => `<tr class="rowLink" onclick="closeClubDetail(); showPoolPlayerDetail('${p.id}')">
+        <td>${p.pos}</td><td>${getFlag(p) || ""} ${p.name}${p.transferListed ? ' <span class="badge win" title="Auf dem Transfermarkt">TM</span>' : ""}</td>
+        <td class="n">${p.age}</td><td class="n">${Math.round(p.strength)}</td><td class="n hideMobile">${fmtMoney(p.value)}</td></tr>`).join("")}
+    </table></div>`;
+  document.getElementById("clubOverlay").classList.add("show");
+}
+
+function closeClubDetail(){
+  document.getElementById("clubOverlay").classList.remove("show");
 }
 
 // ============================================
@@ -89,7 +189,7 @@ function renderCupStatus(gameState){
   } else if(cup.eliminated){
     statusLine = `<span class="badge loss">Ausgeschieden</span>`;
   } else if(cup.active){
-    const nextTrigger = CUP_ROUND_TRIGGER_MATCHDAYS[cup.round];
+    const nextTrigger = getCupTriggerMatchdays(gameState)[cup.round];
     const roundLabel = CUP_ROUND_LABELS[cup.round] || `Runde ${cup.round + 1}`;
     statusLine = `<span class="badge win">Noch dabei</span> · Nächste Runde: ${roundLabel}${nextTrigger ? ` (Spieltag ${nextTrigger})` : ""} · ${cup.teamsRemaining.length} Teams verbleiben`;
   } else {
@@ -115,7 +215,7 @@ function renderEuropeStatus(gameState){
   if(!eu){ container.innerHTML = ""; return; }
 
   if(!eu.qualified){
-    container.innerHTML = `<p class="muted">Nicht qualifiziert — dafür ist Platz 1 bis 4 der 1. Bundesliga nötig.</p>`;
+    container.innerHTML = `<p class="muted">Nicht qualifiziert — dafür ist Platz 1 bis ${EUROPE_SLOTS_PER_TOP_LEAGUE} in einer der fünf großen Ligen nötig.</p>`;
     return;
   }
 
@@ -151,9 +251,9 @@ function renderFixtureList(gameState){
   if(!el) return;
 
   const cupOn = {}, euroOn = {};
-  CUP_ROUND_TRIGGER_MATCHDAYS.forEach((md, i) => { cupOn[md] = CUP_ROUND_LABELS[i] || `Runde ${i + 1}`; });
-  EUROPE_GROUP_MATCHDAYS.forEach((md, i) => { euroOn[md] = `Gruppenphase ${i + 1}`; });
-  EUROPE_KO_MATCHDAYS.forEach((md, i) => { euroOn[md] = EUROPE_KO_LABELS[i] || `K.o. ${i + 1}`; });
+  getCupTriggerMatchdays(gameState).forEach((md, i) => { cupOn[md] = CUP_ROUND_LABELS[i] || `Runde ${i + 1}`; });
+  getEuropeGroupMatchdays(gameState).forEach((md, i) => { euroOn[md] = `Gruppenphase ${i + 1}`; });
+  getEuropeKoMatchdays(gameState).forEach((md, i) => { euroOn[md] = EUROPE_KO_LABELS[i] || `K.o. ${i + 1}`; });
 
   const byDay = {};
   gameState.fixtures.forEach((f, idx) => {
@@ -165,7 +265,7 @@ function renderFixtureList(gameState){
   let html = `<tr><th class="n">ST</th><th>Wettbewerb</th><th>Gegner</th><th class="n">Ergebnis</th><th></th></tr>`;
 
   for(let d = 1; d <= getSeasonMatchdays(gameState); d++){
-    if(cupOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🏆 DFB-Pokal</td><td colspan="3">${cupOn[d]}</td></tr>`;
+    if(cupOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🏆 ${getCupName(gameState)}</td><td colspan="3">${cupOn[d]}</td></tr>`;
     if(qualified && euroOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🌍 Europapokal</td><td colspan="3">${euroOn[d]}</td></tr>`;
 
     const f = byDay[d];
@@ -250,18 +350,18 @@ function showDismissalModal(result){
       <div class="lineupOption" onclick="acceptJobOffer('${a.name.replace(/'/g, "\\'")}')">
         <span>
           <b>${a.name}</b>
-          <span class="divisionBadge ${a.division === 1 ? "div1" : "div2"}">${getDivisionConfig(a.division).short}</span>
+          <span class="divisionBadge ${isTopDivision(a.division) ? "div1" : "div2"}">${getDivisionTag(a.division)}</span>
           <br><span class="breakdownLine muted">Ziel: ${a.goal.label} · Budget ${fmtMoney(a.budget)}</span>
         </span>
         <span class="lineupValue">${Math.round(a.strength)}</span>
       </div>`).join("")}` : "";
 
   el.innerHTML = `
-    <p class="eyebrow">${result.regional ? "Abstieg in die Regionalliga" : "Der Vorstand hat entschieden"}</p>
+    <p class="eyebrow">${result.regional ? `Abstieg in die ${result.reserveLabel || "Regionalliga"}` : "Der Vorstand hat entschieden"}</p>
     <h2 style="margin:4px 0 14px;">${result.regional ? "Der Verein trennt sich von dir" : "Du wurdest entlassen"}</h2>
     <p class="muted" style="margin:0 0 16px;">
       ${result.regional
-        ? `${gameState.clubName} ist als ${result.position}. aus der 3. Liga abgestiegen. Die Regionalliga wird im Spiel nicht ausgespielt — deine Karriere geht bei einem anderen Verein weiter.`
+        ? `${gameState.clubName} ist als ${result.position}. aus der ${getDivisionLabel(gameState.division)} abgestiegen. Die ${result.reserveLabel || "Regionalliga"} wird im Spiel nicht ausgespielt — deine Karriere geht bei einem anderen Verein weiter.`
         : `Nach Spieltag ${result.matchday} steht ${gameState.clubName} auf Platz ${result.position}.
       Erwartet wurde: <b>${board.goalLabel}</b> (mindestens Platz ${board.targetPosition}).`}
     </p>
