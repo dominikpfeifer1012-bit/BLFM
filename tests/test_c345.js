@@ -59,7 +59,8 @@ check("Torsumme passt zu den Ligatoren", () => {
   const inTabelle=gs.teams.reduce((a,t)=>a+t.gf,0);
   // Die eigenen Tore werden nur bei eigenen Spielen zugeordnet, deshalb
   // eine grobe Plausibilitaetsgrenze statt exakter Gleichheit.
-  return ausListe>0 && ausListe<=inTabelle ? true : `${ausListe} vs ${inTabelle}`;
+  // Spieler, die im Winter aus einer anderen Liga kommen, bringen ihre Tore mit.
+  return ausListe>0 && ausListe<=inTabelle*1.05 ? true : `${ausListe} vs ${inTabelle}`;
 });
 
 check("Die Anzeige zeigt die Liste", () => {

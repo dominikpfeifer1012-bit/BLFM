@@ -73,7 +73,8 @@ function showToast(message, type){
   container.appendChild(toast);
   // Nach einem Spieltag kommen oft mehrere Meldungen auf einmal. Mehr als drei
   // gleichzeitig verdecken nur die Oberflaeche, die aeltesten weichen.
-  while(container.children.length > TOAST_MAX_VISIBLE) container.firstElementChild.remove();
+  const maxSichtbar = window.innerWidth <= 560 ? 2 : TOAST_MAX_VISIBLE;
+  while(container.children.length > maxSichtbar) container.firstElementChild.remove();
   setTimeout(() => {
     toast.style.transition = "opacity .3s ease";
     toast.style.opacity = "0";
@@ -291,3 +292,7 @@ document.querySelectorAll(".modalOverlay").forEach(el => {
     if(!el.classList.contains("show")) setTimeout(pumpModalQueue, 0);
   }).observe(el, { attributes: true, attributeFilter: ["class"] });
 });
+
+// Zahlformate fuer Texte: Dezimalkomma, Einzahl/Mehrzahl.
+function fmtDecimal(x){ return String(Math.round(x * 10) / 10).replace(".", ","); }
+function fmtTore(n){ return `${n} ${n === 1 ? "Tor" : "Tore"}`; }

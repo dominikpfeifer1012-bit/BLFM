@@ -212,7 +212,7 @@ function handleCustomDataFile(input){
     const v = validateCustomData(daten);
     if(!v.ok){ showToast(v.message, "error"); return; }
     const gespeichert = saveCustomData(daten);
-    showToast(v.message + (gespeichert ? "" : " (nur für diese Sitzung — der Browser blockiert den Speicher)"), "success");
+    showToast(v.message + (gespeichert ? "" : " (nur für diese Sitzung)"), "success");
     renderCustomDataStatus();
   };
   leser.readAsText(datei);

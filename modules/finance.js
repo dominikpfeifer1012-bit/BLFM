@@ -25,12 +25,9 @@ function getSponsorOffers(gameState){
   const basis = SPONSOR_BASE * getFinanceScale(gameState);
   const rund = x => Math.round(x / 50000) * 50000;
   return [
-    { key: "fix", label: "Festbetrag", icon: "🏦", upfront: rund(basis), perWin: 0, goalBonus: 0,
-      desc: "Sicheres Geld sofort, keine Prämien." },
-    { key: "leistung", label: "Leistung", icon: "📈", upfront: rund(basis * 0.25), perWin: rund(basis * 0.075), goalBonus: 0,
-      desc: "Wenig vorab, dafür eine Prämie für jeden Ligasieg." },
-    { key: "ziel", label: "Saisonziel", icon: "🎯", upfront: rund(basis * 0.4), perWin: 0, goalBonus: rund(basis * 1.25),
-      desc: "Großer Bonus am Saisonende, wenn das Ziel des Vorstands erreicht ist." }
+    { key: "fix", label: "Festbetrag", icon: "🏦", upfront: rund(basis), perWin: 0, goalBonus: 0 },
+    { key: "leistung", label: "Leistung", icon: "📈", upfront: rund(basis * 0.25), perWin: rund(basis * 0.075), goalBonus: 0 },
+    { key: "ziel", label: "Saisonziel", icon: "🎯", upfront: rund(basis * 0.4), perWin: 0, goalBonus: rund(basis * 1.25) }
   ];
 }
 
@@ -70,7 +67,7 @@ function canBookCamp(gameState){
 }
 
 function bookCamp(gameState, key){
-  if(!canBookCamp(gameState)) return { success: false, message: "Ein Trainingslager geht nur vor dem ersten Spieltag und einmal pro Saison." };
+  if(!canBookCamp(gameState)) return { success: false, message: "Trainingslager nicht mehr möglich." };
   const lager = getCampOffers(gameState).find(c => c.key === key);
   if(!lager) return { success: false, message: "Unbekanntes Trainingslager." };
   if(lager.cost > gameState.budget) return { success: false, message: `Nicht bezahlbar: ${fmtMoney(lager.cost)} nötig.` };
@@ -78,7 +75,7 @@ function bookCamp(gameState, key){
   ensureSeasonFinance(gameState).camp = { key: lager.key, label: lager.label, boost: lager.boost, untilMatchday: lager.matchdays };
   (gameState.squad || []).forEach(p => setMorale(p, getMorale(p) + lager.morale));
   return { success: true, message: `🏕 ${lager.label}: ${fmtMoney(lager.cost)} — Stimmung +${lager.morale}` +
-    (lager.boost ? `, Formschub +${lager.boost} für ${lager.matchdays} Spieltage` : "") + "." };
+    (lager.boost ? `, Stärke +${fmtDecimal(lager.boost)} für ${lager.matchdays} Spieltage` : "") + "." };
 }
 
 // Formschub aus dem Trainingslager fuer die ersten Spieltage.
@@ -115,16 +112,14 @@ function renderPreseasonPanel(gameState){
       <div class="choiceGrid">${getSponsorOffers(gameState).map(o => `
         <button class="ghost choiceBtn" onclick="handleChooseSponsor('${o.key}')">
           <span class="choiceTitle">${o.icon} ${o.label}</span>
-          <span class="choiceSub">${fmtMoney(o.upfront)} sofort${o.perWin ? ` · ${fmtMoney(o.perWin)} pro Sieg` : ""}${o.goalBonus ? ` · ${fmtMoney(o.goalBonus)} bei Ziel` : ""}</span>
-          <span class="choiceSub">${o.desc}</span></button>`).join("")}</div>
-      <p class="muted" style="font-size:12px; margin:6px 0 0;">Ohne Wahl gilt beim ersten Spieltag der Festbetrag.</p>`;
+          <span class="choiceSub">${fmtMoney(o.upfront)} sofort${o.perWin ? ` · ${fmtMoney(o.perWin)} pro Sieg` : ""}${o.goalBonus ? ` · ${fmtMoney(o.goalBonus)} bei Saisonziel` : ""}</span></button>`).join("")}</div>`;
   }
   if(zeigeLager){
-    html += `<p class="eyebrow" style="margin-top:14px;">Trainingslager vor dem ersten Spieltag</p>
+    html += `<p class="eyebrow" style="margin-top:14px;">Trainingslager</p>
       <div class="choiceGrid">${getCampOffers(gameState).map(c => `
         <button class="ghost choiceBtn" onclick="handleBookCamp('${c.key}')"${c.cost > gameState.budget ? " disabled" : ""}>
           <span class="choiceTitle">${c.icon} ${c.label} · ${fmtMoney(c.cost)}</span>
-          <span class="choiceSub">Stimmung +${c.morale}${c.boost ? ` · Formschub +${c.boost} für ${c.matchdays} Spieltage` : ""}</span></button>`).join("")}</div>`;
+          <span class="choiceSub">Stimmung +${c.morale}${c.boost ? ` · Stärke +${fmtDecimal(c.boost)} für ${c.matchdays} Spieltage` : ""}</span></button>`).join("")}</div>`;
   }
   el.innerHTML = html;
 }

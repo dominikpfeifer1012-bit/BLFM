@@ -111,7 +111,7 @@ function startCareer(){
 
   if(isTransferWindowOpen(1)){
     const end = getCurrentWindowEnd(1);
-    addLogEntry(gameState, `📢 Das Transferfenster ist zu Saisonbeginn geöffnet! Transfers sind bis Spieltag ${end} möglich.`);
+    addLogEntry(gameState, `📢 Transferfenster geöffnet bis Spieltag ${end}.`);
   }
 
   renderAll(gameState);

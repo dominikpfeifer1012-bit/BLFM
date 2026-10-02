@@ -43,9 +43,7 @@ function isLiveEnabled(){
 
 function toggleLiveMatches(){
   gameState.liveMatches = !isLiveEnabled();
-  showToast(isLiveEnabled()
-    ? "Live-Simulation eingeschaltet."
-    : "Live-Simulation aus — Ergebnisse erscheinen sofort.", "info");
+  showToast(isLiveEnabled() ? "Live-Spiele an" : "Live-Spiele aus", "info");
   renderHeader(gameState);
 }
 
@@ -120,7 +118,7 @@ function appendLiveEvent(evt, match, ownIsHome){
     text = `<b>Verlängerung</b> · ${evt.homeScore}:${evt.awayScore} nach 90 Minuten`;
   } else if(evt.type === "pens"){
     const sieg = evt.ownPens > evt.oppPens;
-    text = `<b>Elfmeterschießen ${evt.ownPens}:${evt.oppPens}</b> — ${sieg ? "wir sind weiter!" : "ausgeschieden"}<br>
+    text = `<b>Elfmeterschießen ${evt.ownPens}:${evt.oppPens}</b> · ${sieg ? "weiter" : "ausgeschieden"}<br>
       <span class="num">${fmtPenSeq(evt.ownSeq)}</span> ${match.clubName}<br>
       <span class="num">${fmtPenSeq(evt.oppSeq)}</span> ${ownIsHome ? match.away : match.home}`;
   } else if(evt.type === "end"){
@@ -130,20 +128,20 @@ function appendLiveEvent(evt, match, ownIsHome){
   } else if(evt.type === "save"){
     text = `${wer} zieht ab — ${evt.keeper ? `<b>${evt.keeper}</b> pariert` : "der Torwart pariert"}`;
   } else if(evt.type === "post"){
-    text = `${wer} (${teamOf(evt.side)}) trifft nur den Pfosten!`;
+    text = `${wer} (${teamOf(evt.side)}) trifft den Pfosten`;
   } else if(evt.type === "goal"){
     const team = (evt.side === "own") === ownIsHome ? match.home : match.away;
     text = evt.scorer ? `<b>${evt.scorer}</b> trifft für ${team}` : `Tor für ${team}`;
   } else if(evt.type === "yellow"){
-    text = `<b>${evt.player}</b> sieht Gelb${evt.count ? ` (${evt.count}. der Saison)` : ""}`;
+    text = `<b>${evt.player}</b> sieht Gelb${evt.count ? ` (${evt.count}.)` : ""}`;
   } else if(evt.type === "yellowRed"){
-    text = `<b>${evt.player}</b> sieht Gelb-Rot — gesperrt für das nächste Spiel`;
+    text = `<b>${evt.player}</b> sieht Gelb-Rot`;
   } else if(evt.type === "red" && evt.opponent){
-    text = `${evt.player ? `<b>${evt.player}</b>` : "Ein Spieler"} (${teamOf("opp")}) sieht Rot — der Gegner in Unterzahl!`;
+    text = `${evt.player ? `<b>${evt.player}</b>` : "Ein Spieler"} (${teamOf("opp")}) sieht Rot`;
   } else if(evt.type === "red"){
-    text = `<b>${evt.player}</b> sieht Rot — ${RED_CARD_BAN_MATCHES} Spiele gesperrt, wir in Unterzahl`;
+    text = `<b>${evt.player}</b> sieht Rot`;
   } else {
-    text = `<b>${evt.player}</b> verletzt sich — ${evt.duration} Spieltage Pause`;
+    text = `<b>${evt.player}</b> muss verletzt raus (${evt.duration} Spiele)`;
   }
 
   const row = document.createElement("div");
@@ -186,7 +184,7 @@ function finishLiveMatch(match, skipped){
 
   if(!skipped && (m.timeline || []).length === 0){
     document.getElementById("liveFeed").innerHTML =
-      `<p class="muted" style="text-align:center; margin:12px 0;">Ein ereignisarmes Spiel ohne Tore.</p>`;
+      `<p class="muted" style="text-align:center; margin:12px 0;">Keine Tore.</p>`;
   }
 
   const result = getResultForClub(m.clubName, m.home, m.away, m.homeGoals, m.awayGoals);

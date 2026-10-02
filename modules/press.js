@@ -194,7 +194,7 @@ const PRESS_SITUATIONS = [
       const naechster = getCupTriggerMatchdays(gs)[c.round];
       return naechster != null && naechster - (gs.matchday + 1) <= 1 && naechster - (gs.matchday + 1) >= 0;
     },
-    frage: gs => `Als Nächstes steht das ${CUP_ROUND_LABELS[gs.cup.round] || "nächste Pokalspiel"} an. Träumen Sie schon von Berlin?`,
+    frage: gs => `Als Nächstes steht das ${CUP_ROUND_LABELS[gs.cup.round] || "nächste Pokalspiel"} an. Träumen Sie schon vom Finale?`,
     antworten: [
       { text: "Natürlich, wir wollen den Pokal.", morale: 5, patience: -2,
         folge: "Die Mannschaft brennt — der Vorstand fürchtet um die Liga." },

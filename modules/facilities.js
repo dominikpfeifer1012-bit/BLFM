@@ -43,7 +43,7 @@ function upgradeFacility(gameState, key){
   const abbuchung = deductFromBudget(gameState.budget, kosten);
   if(!abbuchung.success){
     return { success: false,
-      message: `Nicht genug Budget: ${fmtMoney(kosten)} nötig, ${fmtMoney(gameState.budget)} verfügbar.` };
+      message: `Budget reicht nicht (${fmtMoney(kosten)}).` };
   }
 
   gameState.budget = abbuchung.newBudget;

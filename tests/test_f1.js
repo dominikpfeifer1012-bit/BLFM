@@ -134,11 +134,11 @@ check("Die Auswahl erscheint in der Oberfläche", () => {
   return /handleTrainingChange/.test(h) && /Training/.test(h) ? true : "Auswahl fehlt";
 });
 
-check("Die Beschreibung wird angezeigt", () => {
+check("Die Wirkung wird angezeigt", () => {
   win.handleTrainingChange("athletics");
   const t=$("lineupControls").textContent;
   win.handleTrainingChange("balanced");
-  return /Athletik/.test(t) && /Verletzungsrisiko/.test(t) ? true : "Beschreibung fehlt";
+  return /Athletik/.test(t) && /Verletzungen \+/.test(t) ? true : "Wirkung fehlt";
 });
 
 check("Eine Saison läuft mit wechselndem Fokus durch", () => {

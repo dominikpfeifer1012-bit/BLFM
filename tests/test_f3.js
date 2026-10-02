@@ -137,27 +137,19 @@ function bisZumLigaspiel(){
   return $("nextMatchCard").textContent;
 }
 
-check("Die Anzeige erklärt das Duell", () => {
+check("Die Anzeige zeigt das taktische Duell", () => {
   const t=bisZumLigaspiel();
-  return /Taktisches Duell/.test(t) && /Chancen/.test(t) ? true : t.replace(/\s+/g," ").slice(0,80);
+  return /Taktik:/.test(t) && /Chancen/.test(t) && /Gegentore/.test(t) ? true : t.replace(/\s+/g," ").slice(0,80);
 });
 
-check("Es gibt eine Empfehlung", () => {
-  const t=$("nextMatchCard").textContent;
-  return /Gute Wahl|würde gegen/.test(t) ? true : "keine Empfehlung";
-});
-
-check("Die Empfehlung passt zur Kontermatrix", () => {
+check("Die Duell-Anzeige folgt der Kontermatrix", () => {
   bisZumLigaspiel();
   const info=win.getNextOpponentInfo(gs);
   if(!info) return "kein Ligaspiel";
-  const beste=Object.keys(K.TACTICS)
-    .map(k=>({k, w:win.getTacticMatchup(k, info.opponentTactic)}))
-    .sort((a,b)=>(b.w.own-b.w.opp)-(a.w.own-a.w.opp))[0].k;
-  gs.tactic=beste;
-  win.renderNextMatch(gs);
-  return /Gute Wahl/.test($("nextMatchCard").textContent)
-    ? true : "beste Wahl wird nicht als solche erkannt";
+  const w=win.getTacticMatchup(info.ownTactic, info.opponentTactic);
+  const t=$("nextMatchCard").textContent;
+  const erwartet = w.own > 0.02 ? /mehr Chancen/ : w.own < -0.02 ? /weniger Chancen/ : /Chancen gleich/;
+  return erwartet.test(t) ? true : "Anzeige passt nicht";
 });
 
 check("Eine Saison läuft mit wechselnder Ausrichtung durch", () => {

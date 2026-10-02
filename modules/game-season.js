@@ -133,7 +133,7 @@ function acceptJobOffer(clubName){
   addLogEntry(gameState,
     `\u{1F91D} Neuer Verein: ${clubName} (${getDivisionLabel(division)}). Saisonziel: ${gameState.board.goalLabel}.`,
     "win", true);
-  showToast(`Willkommen bei ${clubName}!`, "success");
+  showToast(`Neuer Verein: ${clubName}`, "success");
 
   gameState.successOffers = [];
   ensureCoaches(gameState);
@@ -150,7 +150,7 @@ function unlockAchievement(key){
   if(gameState.achievements.includes(key)) return;
   gameState.achievements.push(key);
   const def = ACHIEVEMENTS.find(a => a.key === key);
-  if(def) showToast(`${def.label} freigeschaltet!`, "success");
+  if(def) showToast(`Erfolg: ${def.label}`, "success");
   renderAchievements(gameState);
 }
 
@@ -198,10 +198,10 @@ function processSquadTurnover(){
   // wird am Saisonende ausgewaehlt und landet im eigenen Jugendkader.
   const jugendWechsel = advanceYouthSquad(gameState);
   jugendWechsel.hochgezogen.forEach(p => {
-    addLogEntry(gameState, `\u2B06\uFE0F ${p.name} ist der Jugend entwachsen und rückt in den Profikader.`);
+    addLogEntry(gameState, `\u2B06\uFE0F ${p.name} rückt aus der Jugend in den Profikader.`);
   });
   jugendWechsel.abgaenge.forEach(p => {
-    addLogEntry(gameState, `\u{1F613} ${p.name} war zu alt für die Jugend und fand keinen Platz im Kader — er verlässt den Verein.`, "loss");
+    addLogEntry(gameState, `\u{1F44B} ${p.name} verlässt den Verein (Altersgrenze Jugend, kein Platz im Kader).`, "loss");
   });
 
   // Nach allen Abgaengen pruefen, ob der Kader noch spielfaehig ist.
@@ -263,7 +263,7 @@ function finishSeason(){
   const sponsorBonus = gameState.board ? getSponsorGoalBonus(gameState, finalPosition, gameState.board.targetPosition) : 0;
   if(sponsorBonus > 0){
     gameState.budget = addToBudget(gameState.budget, sponsorBonus);
-    addLogEntry(gameState, `🎯 Sponsor zahlt den Bonus für das erreichte Saisonziel: ${fmtMoney(sponsorBonus)}.`, "win", true);
+    addLogEntry(gameState, `🎯 Sponsorbonus Saisonziel: +${fmtMoney(sponsorBonus)}`, "win", true);
   }
 
   // Standing fortschreiben, bevor Auf-/Abstieg die Liga wechselt.
@@ -344,7 +344,7 @@ function finishSeason(){
   updateSeasonRecords(gameState, saisonEintrag);
   gameState.seasonHistory.push(saisonEintrag);
 
-  addLogEntry(gameState, `🏁 Saison ${gameState.season}/${gameState.season+1} beendet! Platz ${finalPosition} von ${totalTeams} (${getDivisionLabel(playedDivision)}).`, null, true);
+  addLogEntry(gameState, `🏁 Saison ${gameState.season}/${gameState.season+1} beendet · Platz ${finalPosition} von ${totalTeams} (${getDivisionLabel(playedDivision)}).`, null, true);
   addLogEntry(gameState, `💰 Platzierungs-Preisgeld: +${fmtMoney(bonus)}`);
 
   if(Math.abs(gameState.clubStature - statureBefore) >= 0.1){
@@ -357,14 +357,14 @@ function finishSeason(){
   const neueLiga = getDivisionLabel(promoRelResult.ownDivisionNow);
   const reserveName = promoRelResult.reserveLabel || "Regionalliga";
   if(promoRelResult.ownRelegatedToRegional){
-    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die ${reserveName} ab — der Verein trennt sich von dir.`, "loss", true);
-    showToast(`⬇️ Abstieg in die ${reserveName}! ${gameState.clubName} trennt sich von dir.`, "error");
+    addLogEntry(gameState, `⬇️ Abstieg in die ${reserveName} · der Verein löst den Vertrag auf.`, "loss", true);
+    showToast(`⬇️ Abstieg in die ${reserveName} · Vertrag aufgelöst`, "error");
   } else if(promoRelResult.ownWasRelegated){
-    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die ${neueLiga} ab!`, "loss", true);
-    showToast(`⬇️ Abstieg! ${gameState.clubName} spielt nächste Saison ${neueLiga}.`, "error");
+    addLogEntry(gameState, `⬇️ Abstieg in die ${neueLiga}`, "loss", true);
+    showToast(`⬇️ Abstieg in die ${neueLiga}`, "error");
   } else if(promoRelResult.ownWasPromoted){
-    addLogEntry(gameState, `⬆️ ${gameState.clubName} steigt in die ${neueLiga} auf!`, "win", true);
-    showToast(`⬆️ Aufstieg! ${gameState.clubName} spielt nächste Saison ${neueLiga}!`, "success");
+    addLogEntry(gameState, `⬆️ Aufstieg in die ${neueLiga}`, "win", true);
+    showToast(`⬆️ Aufstieg in die ${neueLiga}`, "success");
     unlockAchievement("promotion");
   }
   if(promoRelResult.regionalDown && promoRelResult.regionalDown.length){
@@ -397,7 +397,7 @@ function finishSeason(){
   gameState.successOffers = generateSuccessOffers(gameState, finalPosition, ziel);
   if(gameState.successOffers.length > 0){
     addLogEntry(gameState, `📞 Anfragen anderer Vereine: ${gameState.successOffers.map(o => o.name).join(", ")}.`, "win", true);
-    showToast(`📞 ${gameState.successOffers.length} Verein${gameState.successOffers.length === 1 ? "" : "e"} wollen dich als Trainer — siehe Saisonbilanz.`, "success");
+    showToast(`📞 ${gameState.successOffers.length} ${gameState.successOffers.length === 1 ? "Anfrage" : "Anfragen"} anderer Vereine`, "success");
   }
 
   if(promoRelResult.ownRelegatedToRegional){
@@ -429,7 +429,7 @@ function logStrengthDrift(changes){
 
 function startNextSeason(){
   if(gameState.board && gameState.board.dismissed){
-    showToast("Mit diesem Verein geht es nicht weiter. Nimm ein Angebot an oder starte neu.", "error");
+    showToast("Vertrag aufgelöst.", "error");
     if(typeof showDismissalModal === "function") showDismissalModal({ matchday: gameState.matchday, position: getOwnTeamRow(gameState).position, regional: !!gameState.board.dismissedRegional, reserveLabel: gameState.board.reserveLabel });
     return;
   }
@@ -461,7 +461,7 @@ function startNextSeason(){
     `🌍 Transfermarkt: ${getPoolStats(gameState.pool).gelistet} Spieler stehen diese Saison zur Verfügung` +
     ` (${poolWechsel.abgaenge} Karriereenden, ${poolWechsel.zugaenge} Neuzugänge im Bestand).`);
 
-  addLogEntry(gameState, `🆕 Saison ${gameState.season}/${gameState.season+1} gestartet (${getDivisionLabel(gameState.division)})! Neuer ${getCupName(gameState)}-Wettbewerb beginnt.`, null, true);
+  addLogEntry(gameState, `🆕 Saison ${gameState.season}/${gameState.season+1} · ${getDivisionLabel(gameState.division)}`, null, true);
 
   if(isTransferWindowOpen(1)){
     const end = getCurrentWindowEnd(1);
@@ -487,7 +487,7 @@ function startUefaSeasonForClub(gameState){
   const uefa = gameState.uefa;
   if(uefa && uefa.own){
     const cfg = UEFA_COMPS[uefa.own];
-    addLogEntry(gameState, `${cfg.icon} Qualifiziert für die ${cfg.name}!`, "win", true);
+    addLogEntry(gameState, `${cfg.icon} Qualifiziert für die ${cfg.name}`, "win", true);
     if(typeof queueUefaDrawModal === "function") queueUefaDrawModal(gameState, uefa.own, -1);
   }
 }

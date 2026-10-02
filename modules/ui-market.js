@@ -73,8 +73,8 @@ function renderMarket(gameState){
   const seite = sortiert.slice(poolPage * POOL_PAGE_SIZE, (poolPage + 1) * POOL_PAGE_SIZE);
 
   const hinweis = tw.open
-    ? `<p class="muted" style="margin:0 0 12px;">Transferfenster offen bis Spieltag ${getCurrentWindowEnd(gameState.matchday + 1)} · <b>${stats.gelistet}</b> von ${stats.gesamt} Spielern sind diese Saison zu haben, davon ${stats.frei} ablösefrei. Zu ${gameState.clubName} wechseln Spieler bis Stärke <b>${getTransferInterestLimit(gameState)}</b>.</p>`
-    : `<p style="margin:0 0 12px; color:#FCA311;">🔒 ${tw.message} Du kannst suchen, aber nicht verpflichten.</p>`;
+    ? `<p class="muted" style="margin:0 0 12px;">Transferfenster bis Spieltag ${getCurrentWindowEnd(gameState.matchday + 1)} · ${stats.gelistet} Spieler verfügbar, ${stats.frei} ablösefrei · erreichbar bis Stärke ${getTransferInterestLimit(gameState)}</p>`
+    : `<p style="margin:0 0 12px; color:#FCA311;">🔒 ${tw.message}</p>`;
 
   const natOptionen = ['<option value="ALL">Alle Länder</option>'].concat(
     NATIONALITIES.map(n => `<option value="${n.code}"${poolFilters.nat === n.code ? " selected" : ""}>${n.flag} ${n.name}</option>`)
@@ -99,7 +99,7 @@ function renderMarket(gameState){
   </div>`;
 
   if(sortiert.length === 0){
-    html += `<p class="muted" style="text-align:center; padding:18px 0;">Kein Spieler passt zu diesen Kriterien.</p>`;
+    html += `<p class="muted" style="text-align:center; padding:18px 0;">Keine Treffer.</p>`;
   } else {
     html += `<p class="muted" style="margin:0 0 8px;">${sortiert.length} Treffer${seiten > 1 ? ` · Seite ${poolPage + 1} von ${seiten}` : ""}</p>
     <div class="tableWrap"><table>
@@ -131,14 +131,14 @@ function renderMarket(gameState){
         <td>${getFlag(p)} ${p.name}${p.isScoutingFind ? ' <span title="Scouting-Fund">🔍</span>' : ""}</td>
         <td style="font-size:12px;">${vereinsText}</td>
         <td class="n">${Math.round(p.strength)}</td>
-        <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}" title="${pot.exact ? "beobachtet" : "Schätzung der Scouting-Abteilung"}">${pot.text}</td>
+        <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}" title="${pot.exact ? "beobachtet" : "Schätzung"}">${pot.text}</td>
         <td class="n">${p.age}</td>
         <td>${topAttributeTags(p)}</td>
         <td class="n"${bezahlbar ? "" : ' style="color:var(--loss);"'}>${fmtMoney(fee)}</td>
         <td class="n">${fmtMoney(calculatePlayerSalary(p.strength, p.age))}</td>
         <td>${interesse
           ? `<button onclick="event.stopPropagation(); handleSignPlayer('${p.id}')"${tw.open && bezahlbar ? "" : " disabled"}>Holen</button>`
-          : `<button class="ghost" disabled title="Spieler wechseln bis Stärke ${getTransferInterestLimit(gameState)}">Kein Interesse</button>`}</td>
+          : `<button class="ghost" disabled title="Erreichbar bis Stärke ${getTransferInterestLimit(gameState)}">Kein Interesse</button>`}</td>
       </tr>`;
     });
     html += `</table></div>`;
@@ -228,14 +228,14 @@ function showPoolPlayerDetail(playerId){
     ${player.isScoutingFind ? '<div class="profTags"><span class="profTag gold">🔍 Scouting-Fund</span></div>' : ""}
     ${getPotentialView(gameState, player).exact ? "" : `<div style="margin-top:10px;">
       <button class="ghost" onclick="handleScoutPlayer('${player.id}')"${getScoutingCost(gameState) > gameState.budget ? " disabled" : ""}>🔍 Beobachten lassen · ${fmtMoney(getScoutingCost(gameState))}</button>
-      <span class="muted" style="font-size:12px; margin-left:6px;">deckt das genaue Potenzial auf</span></div>`}
+</div>`}
 
     <div style="margin-top:14px;">
       <button onclick="handleSignPlayer('${player.id}')"${tw.open && bezahlbar && interesse ? "" : " disabled"}>
         Verpflichten · ${fmtMoney(fee)}
       </button>
       ${!tw.open ? '<p class="muted" style="margin:8px 0 0;">Transferfenster geschlossen.</p>' : ""}
-      ${tw.open && !interesse ? `<p class="muted" style="margin:8px 0 0; color:var(--loss);">Kein Interesse: ${gameState.clubName} ist ihm zu klein. Spieler wechseln bis Stärke ${getTransferInterestLimit(gameState)}.</p>` : ""}
+      ${tw.open && !interesse ? `<p class="muted" style="margin:8px 0 0; color:var(--loss);">Kein Wechselinteresse.</p>` : ""}
       ${tw.open && interesse && !bezahlbar ? `<p class="muted" style="margin:8px 0 0; color:var(--loss);">Budget reicht nicht (${fmtMoney(gameState.budget)} verfügbar).</p>` : ""}
     </div>
   `;

@@ -376,7 +376,7 @@ function setupOwnUefaCampaign(gameState){
   const stufe = rang <= 4 ? 2 : rang <= 10 ? 1 : rang <= 22 ? 0 : -1;
   uefa.goal = stufe >= 0 ? { stage: stufe, label: `${UEFA_KO_STAGES[stufe]} erreichen` } : null;
   gameState.budget = addToBudget(gameState.budget, cfg.prize.start);
-  addLogEntry(gameState, `${cfg.icon} ${cfg.name}: Startprämie ${fmtMoney(cfg.prize.start)}.${uefa.goal ? ` Ziel des Vorstands: ${uefa.goal.label}.` : ""}`, "win", true);
+  addLogEntry(gameState, `${cfg.icon} ${cfg.name}: Startprämie ${fmtMoney(cfg.prize.start)}${uefa.goal ? ` · Vorstandsziel: ${uefa.goal.label}` : ""}`, "win", true);
 }
 
 // ---------- Spiele ----------
@@ -450,7 +450,7 @@ function finishUefaLeaguePhase(gameState, comp){
       const stufe = comp.ownBest;
       const praemie = cfg.prize.stages.slice(0, stufe + 1).reduce((s, x) => s + x, 0);
       gameState.budget = addToBudget(gameState.budget, praemie);
-      addLogEntry(gameState, `${cfg.icon} ${cfg.name}: Ligaphase als ${platz}. abgeschlossen — ${platz <= UEFA_DIRECT_R16 ? "direkt im Achtelfinale" : "weiter in die K.o.-Play-offs"}! Prämie ${fmtMoney(praemie)}.`, "win", true);
+      addLogEntry(gameState, `${cfg.icon} ${cfg.name}: Ligaphase auf Platz ${platz} · ${platz <= UEFA_DIRECT_R16 ? "Achtelfinale" : "K.o.-Play-offs"} · Prämie ${fmtMoney(praemie)}`, "win", true);
     }
   }
   drawUefaKnockout(gameState, comp, 0);
@@ -550,16 +550,16 @@ function resolveUefaStage(gameState, comp){
       if(stufe === 4){
         comp.ownBest = 5;
         gameState.budget = addToBudget(gameState.budget, cfg.prize.champion);
-        addLogEntry(gameState, `${cfg.icon}👑 ${cfg.name} gewonnen! Prämie: +${fmtMoney(cfg.prize.champion)}`, "win", true);
+        addLogEntry(gameState, `${cfg.icon}👑 ${cfg.name} gewonnen · Prämie ${fmtMoney(cfg.prize.champion)}`, "win", true);
         changeReputation(gameState, cfg.reputation.title);
         if(typeof unlockAchievement === "function") unlockAchievement("europeChampion");
-        if(typeof showToast === "function") showToast(`${cfg.icon}👑 ${cfg.name} gewonnen!`, "success");
+        if(typeof showToast === "function") showToast(`${cfg.icon}👑 ${cfg.name} gewonnen`, "success");
         evaluateOwnUefaCampaign(gameState);
       } else {
         comp.ownBest = Math.max(comp.ownBest, stufe + 1);
         const praemie = cfg.prize.stages[stufe + 1] || 0;
         gameState.budget = addToBudget(gameState.budget, praemie);
-        addLogEntry(gameState, `${cfg.icon} ${cfg.name}: ${UEFA_KO_STAGES[stufe]} überstanden — weiter ins ${UEFA_KO_STAGES[stufe + 1]}! Prämie ${fmtMoney(praemie)}.`, "win", true);
+        addLogEntry(gameState, `${cfg.icon} ${cfg.name}: ${UEFA_KO_STAGES[stufe + 1]} erreicht · Prämie ${fmtMoney(praemie)}`, "win", true);
         changeReputation(gameState, cfg.reputation.stage);
         addBoardCredit(gameState, BOARD_EUROPE_ROUND_CREDIT);
       }
@@ -592,10 +592,10 @@ function evaluateOwnUefaCampaign(gameState){
   const erreicht = comp.ownBest;
   if(erreicht >= ziel.stage){
     gameState.board.patience = Math.min(100, gameState.board.patience + BOARD_EUROPE_GOAL_BONUS);
-    addLogEntry(gameState, `👔 Europapokal-Ziel erfüllt (${ziel.label}) — der Vorstand ist zufrieden.`, "win");
+    addLogEntry(gameState, `👔 Europapokal-Ziel erfüllt: ${ziel.label}`, "win");
   } else if(erreicht <= ziel.stage - 2 || erreicht < 0){
     gameState.board.patience = Math.max(0, gameState.board.patience - BOARD_EUROPE_GOAL_MISS);
-    addLogEntry(gameState, `👔 Europapokal-Ziel verfehlt (${ziel.label}) — der Vorstand ist enttäuscht.`, "loss");
+    addLogEntry(gameState, `👔 Europapokal-Ziel verfehlt: ${ziel.label}`, "loss");
   }
 }
 
@@ -771,7 +771,7 @@ function playSupercup(gameState, sc){
       gameState.budget = addToBudget(gameState.budget, praemie);
       changeReputation(gameState, sc.key === "uefa" ? 2 : 1);
     }
-    addLogEntry(gameState, `🏆 ${sc.name}: ${sc.a} ${sc.homeGoals}:${sc.awayGoals} ${sc.b}${sc.pens ? ` (i.E. ${sc.pens.home}:${sc.pens.away})` : ""} — ${sieg ? "gewonnen!" : "verloren."}`, sieg ? "win" : "loss", true);
+    addLogEntry(gameState, `🏆 ${sc.name}: ${sc.a} ${sc.homeGoals}:${sc.awayGoals} ${sc.b}${sc.pens ? ` (i.E. ${sc.pens.home}:${sc.pens.away})` : ""} · ${sieg ? "Titel" : "verloren"}`, sieg ? "win" : "loss", true);
   } else if(typeof addNews === "function"){
     addNews(gameState, `${sc.winner} gewinnt den ${sc.name}.`, "🏆");
   }

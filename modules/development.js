@@ -156,14 +156,14 @@ function getRenewalFee(player){
 // Formsache mit festem Handgeld.
 function getRenewalTerms(gameState, player){
   if(player.age >= RETIREMENT_FORCED_AGE - 1){
-    return { refused: true, reason: `${player.name} beendet seine Karriere und verlängert nicht mehr.` };
+    return { refused: true, reason: `${player.name} beendet seine Karriere.` };
   }
   const stimmung = typeof getMorale === "function" ? getMorale(player) : MORALE_NEUTRAL;
   if(stimmung < MORALE_UNHAPPY_THRESHOLD){
-    return { refused: true, reason: `${player.name} ist unzufrieden und will nicht verlängern. Mehr Einsatzzeit oder bessere Ergebnisse könnten seine Meinung ändern.` };
+    return { refused: true, reason: `${player.name} lehnt ab (unzufrieden).` };
   }
   if(typeof getTransferInterestLimit === "function" && player.strength > getTransferInterestLimit(gameState)){
-    return { refused: true, reason: `${player.name} sieht seine Zukunft bei einem größeren Verein und lehnt eine Verlängerung ab.` };
+    return { refused: true, reason: `${player.name} lehnt ab (will zu einem größeren Verein).` };
   }
 
   const team = teamRating(gameState.squad, gameState.matchday + 1);

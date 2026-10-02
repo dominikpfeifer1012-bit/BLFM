@@ -92,7 +92,7 @@ function renderNewsPanel(gameState){
   if(!el) return;
   const news = (gameState.news || []).slice(0, 8);
   el.innerHTML = news.length === 0
-    ? '<p class="muted" style="margin:0;">Noch keine Meldungen. Trainerwechsel und Transfers anderer Vereine erscheinen hier.</p>'
+    ? '<p class="muted" style="margin:0;">Keine Meldungen.</p>'
     : news.map(n => `<div class="newsRow"><span class="newsIcon">${n.icon}</span><span>${n.text}<span class="muted" style="font-size:11px;"> · ${n.matchday ? "Spieltag " + n.matchday : "Sommer"} ${n.season}/${String(n.season + 1).slice(2)}</span></span></div>`).join("");
 }
 
@@ -112,15 +112,15 @@ function computeSeasonAwards(gameState){
   const bester = benotet[0] || [...kader].sort((a, b) => wert(b) - wert(a))[0];
   if(bester) awards.playerOfSeason = { name: bester.name, pos: bester.pos,
     info: bester.gradeCount >= 10
-      ? `Note ${fmtGrade(getAverageGrade(bester))} · ${bester.goalsSeason || 0} Tore${bester.motmCount ? ` · ${bester.motmCount}× bester Spieler` : ""}`
-      : `${Math.round(bester.strength)} · ${bester.goalsSeason || 0} Tore` };
+      ? `Note ${fmtGrade(getAverageGrade(bester))} · ${fmtTore(bester.goalsSeason || 0)}${bester.motmCount ? ` · ${bester.motmCount}× bester Spieler` : ""}`
+      : `${Math.round(bester.strength)} · ${fmtTore(bester.goalsSeason || 0)}` };
 
   const zuwachs = p => p.seasonStartStrength != null ? p.strength - p.seasonStartStrength : 0;
   const talent = kader.filter(p => p.age <= 21 && zuwachs(p) >= 2).sort((a, b) => zuwachs(b) - zuwachs(a))[0];
   if(talent) awards.discovery = { name: talent.name, pos: talent.pos, info: `${talent.age} J. · +${Math.round(zuwachs(talent))} in dieser Saison` };
 
   const torjaeger = getLeagueTopScorers(gameState, 1)[0];
-  if(torjaeger) awards.topScorer = { name: torjaeger.name, club: torjaeger.club, info: `${torjaeger.goals} Tore` };
+  if(torjaeger) awards.topScorer = { name: torjaeger.name, club: torjaeger.club, info: fmtTore(torjaeger.goals) };
 
   // Elf der Saison der eigenen Liga (4-4-2)
   const liga = new Set((gameState.teams || []).map(t => t.name));
