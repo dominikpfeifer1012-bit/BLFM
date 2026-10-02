@@ -104,7 +104,9 @@ function startCareer(){
     cup: null,
     europe: createFreshEurope(false),
     lastTopFour: [],
-    lastSeasonWasDivision1: startDivision.nr === 1
+    lastSeasonWasDivision1: startDivision.nr === 1,
+    difficulty: (document.getElementById("difficultySelect") || {}).value || "normal",
+    reputation: REPUTATION_START
   };
 
   gameState.cup = createFreshCup(gameState);
@@ -114,6 +116,20 @@ function startCareer(){
   gameState.shadowLeagues = createShadowLeagues(gameState);
   gameState.youth = createFreshYouthTeam();
   ensureSquadMorale(gameState.squad);
+
+  // Schwierigkeit: Startbudget und Geduld des Vorstands
+  const schwierigkeit = getDifficulty(gameState);
+  gameState.budget = Math.round(gameState.budget * schwierigkeit.budget / 50000) * 50000;
+  gameState.board.patience = schwierigkeit.patience;
+  if(applyCustomData(gameState)){
+    ensureSquadMorale(gameState.squad);
+    // Vereinsstaerken koennen sich geaendert haben: Ziel neu bestimmen.
+    gameState.board = createFreshBoard(getBoardReferenceStrength(gameState), gameState.division, schwierigkeit.patience);
+    addLogEntry(gameState, "📂 Eigene Kaderdatei verwendet.");
+  }
+  ensureCoaches(gameState);
+  markSeasonStart(gameState);
+  simulateAiTransfers(gameState);
 
   document.getElementById("setup").style.display = "none";
   document.getElementById("stickyBar").style.display = "block";

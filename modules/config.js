@@ -113,7 +113,9 @@ const CONTRACT_MAX_YEARS = 5;
 const CONTRACT_YOUTH_YEARS = 3;
 const CONTRACT_RENEWAL_YEARS = 3;
 const CONTRACT_RENEWAL_FEE_FACTOR = 0.12;   // Anteil des Marktwerts als Handgeld
-const CONTRACT_REMINDER_MATCHDAYS = [26, 32];   // Erinnerung an auslaufende Vertraege
+const CONTRACT_REMINDER_MATCHDAYS = [26, 32];
+const CONTRACT_RAISE_BASE = 0.05;    // Grundaufschlag beim Verlaengern
+const CONTRACT_RAISE_MAX = 0.6;   // Erinnerung an auslaufende Vertraege
 
 // --- Belastung durch Pokalspiele ---
 const CUP_INJURY_FACTOR = 0.8;   // etwas geringer als im Ligaspiel
@@ -446,6 +448,7 @@ const FAMILIARITY_FACTOR = 0.45;
 
 // --- Live-Simulation ---
 const MATCH_MINUTES = 90;
+const HALFTIME_FIRST_SHARE = 0.44;      // Anteil der Torerwartung in Halbzeit 1 (spaete Tore sind haeufiger)
 const LIVE_TICK_MS = 55;              // Zeit je Spielminute
 const LIVE_EVENT_PAUSE_MS = 950;      // Pause bei einem Ereignis
 // Tore fallen im echten Fussball haeufiger in der zweiten Halbzeit.
@@ -510,6 +513,61 @@ const TRANSFER_MAX_ABOVE_CLUB = 10;
 // Automatische Aufstellung: kleiner Vorzug fuer die gelernte Position, damit
 // niemand fuer ein bis zwei Punkte auf einen fremden Platz rutscht.
 const AUTO_LINEUP_NATURAL_BONUS = 1.5;
+
+// Scouting: Breite der Potenzialspanne fremder Spieler
+const SCOUT_RANGE_BASE = 12;
+const SCOUT_RANGE_PER_LEVEL = 2;        // je Ausbaustufe der Scouting-Abteilung
+const SCOUT_COST_BASE = 60000;          // gezielte Beobachtung, skaliert mit dem Verein
+
+// Leihen
+const LOAN_MAX_AGE = 23;
+const LOAN_GAIN_MIN = 3;
+const LOAN_GAIN_MAX = 7;
+
+// Schwierigkeitsgrade
+const DIFFICULTIES = {
+  leicht: { label: "Leicht", budget: 1.4,  patience: 85, patienceLoss: 0.7, transferBonus: 4 },
+  normal: { label: "Normal", budget: 1.0,  patience: 75, patienceLoss: 1.0, transferBonus: 0 },
+  schwer: { label: "Schwer", budget: 0.75, patience: 60, patienceLoss: 1.3, transferBonus: -4 }
+};
+
+// Liga-Leben: Nachrichten, Trainerwechsel, Transfers anderer Vereine
+const NEWS_MAX = 40;
+const COACH_FIRE_CHANCE = 0.3;
+const AI_TRANSFERS_PER_WINDOW = 4;
+const TEAM_OF_SEASON_SLOTS = [
+  { label: "TW", pos: ["TW"] }, { label: "RV", pos: ["RV"] }, { label: "IV", pos: ["IV"] }, { label: "IV", pos: ["IV"] },
+  { label: "LV", pos: ["LV"] }, { label: "RM", pos: ["RM"] }, { label: "ZM", pos: ["ZM", "DM", "OM"] },
+  { label: "ZM", pos: ["ZM", "DM", "OM"] }, { label: "LM", pos: ["LM"] }, { label: "ST", pos: ["ST"] }, { label: "ST", pos: ["ST", "OM"] }
+];
+
+// Kapitaen
+const CAPTAIN_MORALE_PULL = 0.6;       // je Spieltag, bei sehr guter/schlechter Laune des Kapitaens
+const CAPTAIN_APPOINTED_MORALE = 6;
+const CAPTAIN_DEPOSED_MORALE = 8;
+
+// Trainer-Ruf (0-100)
+const REPUTATION_START = 40;
+const REPUTATION_PER_RANK = 1.5;
+
+// Finanzen: Sponsoren, Trainingslager, Unterhalt
+const SPONSOR_BASE = 1800000;               // pro Saison, mal (0,2 + Einnahmefaktor)
+const FACILITY_UPKEEP_PER_LEVEL = 8000;     // pro Ausbaustufe und Spieltag (skaliert)
+const CAMP_TIERS = [
+  { key: "basis",   label: "Heimtrainingslager", icon: "🏠", costBase: 250000,  morale: 5,  boost: 0,   matchdays: 0 },
+  { key: "ausland", label: "Auslandslager",      icon: "✈️", costBase: 700000,  morale: 8,  boost: 1.5, matchdays: 8 },
+  { key: "premium", label: "Premium-Camp",       icon: "🌴", costBase: 1600000, morale: 12, boost: 2.5, matchdays: 12 }
+];
+
+// Angebote anderer Vereine fuer eigene Spieler (nur im Transferfenster)
+const OFFER_CHANCE_PER_MATCHDAY = 0.55;
+const OFFER_MAX_ACTIVE = 3;
+const OFFER_FEE_MIN = 0.85;          // Anteil des Marktwerts
+const OFFER_FEE_MAX = 1.45;
+const OFFER_BUYER_MAX_BELOW = 6;     // Kaeufer hoechstens so viel schwaecher als der Spieler
+const OFFER_COUNTER_RAISE = 0.20;    // Nachforderung beim Nachverhandeln
+const OFFER_DISAPPOINT_RATIO = 1.2;  // ab diesem Angebot ist eine Absage enttaeuschend
+const OFFER_REJECT_MORALE = 14;
 
 // Notverpflichtungen bei zu kleinem Kader: hoechstens so stark wie der Verein.
 const REFILL_MAX_ABOVE_CLUB = 0;

@@ -230,6 +230,7 @@ function renderBoardPanel(gameState){
       Aktuell Platz ${position} · <span style="color:${aufKurs ? "var(--win)" : "var(--loss)"};">${aufKurs ? "auf Kurs" : "hinter der Erwartung"}</span>
       ${next ? ` · nächste Bewertung an Spieltag ${next}` : " · letzte Bewertung erfolgt"}
     </p>
+    <p class="muted" style="margin:6px 0 0;">🎓 Trainer-Ruf: <b>${Math.round(getReputation(gameState))}</b> (${getReputationLabel(getReputation(gameState))})</p>
     ${verlauf}`;
 }
 

@@ -179,8 +179,30 @@ function registerExistingNames(players){
   (players || []).forEach(p => { if(p && p.name) usedPlayerNames.add(p.name); });
 }
 
+// Weitere Nationen, die nur ueber eine Kaderdatei ins Spiel kommen. Fuer sie
+// gibt es keine Namenslisten, aber Flagge und Landesname.
+const EXTRA_NATIONALITY_NAMES = {
+  CO: "Kolumbien", CA: "Kanada", DZ: "Algerien", GN: "Guinea", BF: "Burkina Faso", CM: "Kamerun",
+  TN: "Tunesien", XK: "Kosovo", HU: "Ungarn", SI: "Slowenien", BA: "Bosnien-Herzegowina",
+  CD: "DR Kongo", FI: "Finnland", GR: "Griechenland", EE: "Estland", IS: "Island", GM: "Gambia",
+  TG: "Togo", UY: "Uruguay", MX: "Mexiko", AU: "Australien", IE: "Irland", SK: "Slowakei",
+  UA: "Ukraine", RO: "Rumänien", BG: "Bulgarien", AL: "Albanien", MK: "Nordmazedonien",
+  ME: "Montenegro", GE: "Georgien", IL: "Israel", EG: "Ägypten", ML: "Mali", CV: "Kap Verde",
+  AO: "Angola", ZA: "Südafrika", EC: "Ecuador", PY: "Paraguay", CL: "Chile", PE: "Peru",
+  VE: "Venezuela", JM: "Jamaika", LU: "Luxemburg", LT: "Litauen", LV: "Lettland",
+  CN: "China", IR: "Iran", SA: "Saudi-Arabien", GA: "Gabun", ZM: "Sambia"
+};
+const extraNationalityCache = {};
 function getNationality(player){
-  return NATIONALITY_BY_CODE[player && player.nat] || null;
+  const code = player && player.nat;
+  if(!code) return null;
+  if(NATIONALITY_BY_CODE[code]) return NATIONALITY_BY_CODE[code];
+  if(!EXTRA_NATIONALITY_NAMES[code] || !/^[A-Z]{2}$/.test(code)) return null;
+  if(!extraNationalityCache[code]){
+    extraNationalityCache[code] = { code, name: EXTRA_NATIONALITY_NAMES[code],
+      flag: String.fromCodePoint(...[...code].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)) };
+  }
+  return extraNationalityCache[code];
 }
 
 // Windows liefert keine Flaggen-Glyphen: aus 🇩🇪 werden zwei Buchstaben "DE".

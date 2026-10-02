@@ -150,25 +150,61 @@ function getRenewalFee(player){
   return Math.max(50000, Math.round(player.value * CONTRACT_RENEWAL_FEE_FACTOR / 10000) * 10000);
 }
 
-function renewContract(gameState, playerId){
+// Vertragsverhandlung: Der Spieler stellt Forderungen, abhaengig von seiner
+// Rolle im Team und seiner Stimmung. Unzufriedene Spieler und Stars, fuer
+// die der Verein zu klein ist, lehnen ab. Vorher war die Verlaengerung eine
+// Formsache mit festem Handgeld.
+function getRenewalTerms(gameState, player){
+  if(player.age >= RETIREMENT_FORCED_AGE - 1){
+    return { refused: true, reason: `${player.name} beendet seine Karriere und verlängert nicht mehr.` };
+  }
+  const stimmung = typeof getMorale === "function" ? getMorale(player) : MORALE_NEUTRAL;
+  if(stimmung < MORALE_UNHAPPY_THRESHOLD){
+    return { refused: true, reason: `${player.name} ist unzufrieden und will nicht verlängern. Mehr Einsatzzeit oder bessere Ergebnisse könnten seine Meinung ändern.` };
+  }
+  if(typeof getTransferInterestLimit === "function" && player.strength > getTransferInterestLimit(gameState)){
+    return { refused: true, reason: `${player.name} sieht seine Zukunft bei einem größeren Verein und lehnt eine Verlängerung ab.` };
+  }
+
+  const team = teamRating(gameState.squad, gameState.matchday + 1);
+  // Gehaltsforderung: Leistungstraeger und Unzufriedene wollen mehr.
+  const aufschlag = Math.max(0, Math.min(CONTRACT_RAISE_MAX,
+    CONTRACT_RAISE_BASE + (player.strength - team) * 0.012 + (MORALE_NEUTRAL - stimmung) * 0.004));
+  const basisFaktor = player.salaryFactor || 1;
+  // Aeltere Spieler bekommen hoechstens zwei Jahre angeboten.
+  const maxJahre = player.age >= 31 ? 2 : 4;
+  const optionen = [];
+  for(let jahre = 1; jahre <= maxJahre; jahre++){
+    const handgeld = Math.max(50000, Math.round(player.value * CONTRACT_RENEWAL_FEE_FACTOR
+      * (0.6 + 0.2 * jahre) * (1 + aufschlag) / 10000) * 10000);
+    // Lange Vertraege geben Sicherheit, dafuer verzichtet der Spieler auf einen Teil des Aufschlags.
+    const faktor = Math.round(basisFaktor * (1 + aufschlag * (1 - 0.08 * (jahre - 1))) * 100) / 100;
+    optionen.push({ jahre, handgeld, faktor });
+  }
+  return { refused: false, aufschlag, optionen };
+}
+
+function renewContract(gameState, playerId, jahre){
   const player = (gameState.squad || []).find(p => p.id === playerId);
   if(!player) return { success:false, message:"Spieler nicht gefunden." };
 
-  if(player.age >= RETIREMENT_FORCED_AGE - 1){
-    return { success:false, message:`${player.name} beendet seine Karriere und verlängert nicht mehr.` };
-  }
+  const terms = getRenewalTerms(gameState, player);
+  if(terms.refused) return { success:false, message: terms.reason };
+  const option = terms.optionen.find(o => o.jahre === (jahre || Math.min(CONTRACT_RENEWAL_YEARS, terms.optionen.length)))
+    || terms.optionen[terms.optionen.length - 1];
 
-  const fee = getRenewalFee(player);
-  const deduction = deductFromBudget(gameState.budget, fee);
+  const deduction = deductFromBudget(gameState.budget, option.handgeld);
   if(!deduction.success){
-    return { success:false, message:`Handgeld von ${fmtMoney(fee)} nicht bezahlbar (verfügbar: ${fmtMoney(gameState.budget)}).` };
+    return { success:false, message:`Handgeld von ${fmtMoney(option.handgeld)} nicht bezahlbar (verfügbar: ${fmtMoney(gameState.budget)}).` };
   }
 
   gameState.budget = deduction.newBudget;
-  player.contractYears = getContractYears(player) + CONTRACT_RENEWAL_YEARS;
+  player.contractYears = getContractYears(player) + option.jahre;
+  player.salaryFactor = option.faktor;
+  const plus = Math.round((option.faktor - 1) * 100);
   return {
-    success: true, fee: fee,
-    message: `📝 ${player.name} verlängert um ${CONTRACT_RENEWAL_YEARS} Jahre. Handgeld: ${fmtMoney(fee)}.`
+    success: true, fee: option.handgeld,
+    message: `📝 ${player.name} verlängert um ${option.jahre} Jahr${option.jahre === 1 ? "" : "e"}. Handgeld ${fmtMoney(option.handgeld)}${plus > 0 ? `, Gehalt +${plus} %` : ""}.`
   };
 }
 

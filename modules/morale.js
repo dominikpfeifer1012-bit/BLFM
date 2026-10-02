@@ -91,6 +91,7 @@ function updateSquadMorale(gameState, context){
 
     setMorale(player, aktuell + delta);
   });
+  if(typeof applyCaptainInfluence === "function") applyCaptainInfluence(gameState, xiIds);
 }
 
 // Spieler, die einen Wechsel wollen — nach Dringlichkeit sortiert.

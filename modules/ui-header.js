@@ -173,6 +173,7 @@ function renderNextMatch(gameState){
       <div style="flex:1; min-width:150px;">
         <p class="eyebrow">${info.isHome ? "Heimspiel gegen" : "Auswärts bei"}</p>
         <h2 style="margin:2px 0 6px;">${info.opponentName}</h2>
+        ${getCoachName(gameState, info.opponentName) ? `<p class="muted" style="margin:-2px 0 6px; font-size:12px;">Trainer: ${getCoachName(gameState, info.opponentName)}</p>` : ""}
         <span class="matchupTag ${cls}">${label}</span>
       </div>
       <div class="statGrid" style="flex:1; min-width:190px;">

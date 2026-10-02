@@ -249,7 +249,7 @@ function advanceYouthSquad(gameState){
 
 function getYouthSquadSalary(gameState){
   return (gameState.youthSquad || []).reduce((sum, p) =>
-    sum + Math.round(calculatePlayerSalary(p.strength, p.age) * YOUTH_SALARY_FACTOR), 0);
+    sum + Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR), 0);
 }
 
 // Wer ist reif fuer den Sprung? Vergleich mit dem schwaechsten Profi auf
@@ -277,8 +277,10 @@ function isReadyForPromotion(gameState, player){
 function ensureMinimumSquad(gameState){
   const hochgezogen = [], verpflichtet = [];
 
-  // 1. Die staerksten Jugendspieler, die reif genug sind.
-  while(gameState.squad.length < SQUAD_REFILL_THRESHOLD && (gameState.youthSquad || []).length > 0){
+  // 1. Die staerksten Jugendspieler — nur wenn der Trainer das erlaubt hat.
+  // Sonst wanderten Talente nach einer Saison automatisch in den
+  // Profikader, und ihr Jugendvertrag lief dort ab.
+  while(gameState.youthAutoPromote && gameState.squad.length < SQUAD_REFILL_THRESHOLD && (gameState.youthSquad || []).length > 0){
     const beste = [...gameState.youthSquad].sort((a, b) => b.strength - a.strength)[0];
     const result = promoteYouthPlayer(gameState, beste.id);
     if(!result.success) break;
@@ -293,7 +295,8 @@ function ensureMinimumSquad(gameState){
   const deckel = getOwnClubStrength(gameState) + REFILL_MAX_ABOVE_CLUB;
   while(gameState.squad.length < SQUAD_REFILL_THRESHOLD){
     const frei = (gameState.pool && gameState.pool.players || [])
-      .filter(p => !p.clubName && p.strength <= deckel)
+      .filter(p => !p.clubName && p.strength <= deckel
+        && !(p.leftClub === gameState.clubName && p.leftSeason === gameState.season))
       .sort((a, b) => b.strength - a.strength);
 
     if(frei.length === 0){

@@ -41,6 +41,7 @@ function runBoardCheckpoint(){
 
   if(result.dismissed){
     addLogEntry(gameState, `\u{1F454} Der Vorstand hat dich freigestellt. Ziel verfehlt: ${board.goalLabel}.`, "loss", true);
+    changeReputation(gameState, -10);
     queueModal(() => showDismissalModal(result));
     return;
   }
@@ -72,6 +73,7 @@ function acceptJobOffer(clubName){
   // Spieler nicht einfach verschwinden und der Verein weiter Spieler hat.
   const alterVerein = gameState.clubName;
   const alteLiga = getClubDivision(gameState, alterVerein);
+  (gameState.loans || []).forEach(l => gameState.squad.push(l.player));
   if(gameState.pool && gameState.pool.players){
     (gameState.squad || []).forEach(p => {
       p.clubName = alterVerein;
@@ -85,9 +87,10 @@ function acceptJobOffer(clubName){
   gameState.clubName = clubName;
   gameState.division = division;
   gameState.clubStature = club.strength;
-  gameState.squad = generateSquad(club.strength);
+  gameState.squad = takeCustomRosterOnJobChange(gameState, clubName, club.strength) || generateSquad(club.strength);
   ensureSquadMorale(gameState.squad);
-  gameState.budget = calculateStartingBudget(club.strength);
+  gameState.budget = Math.round(calculateStartingBudget(club.strength) * getDifficulty(gameState).budget / 50000) * 50000;
+  gameState.captainId = null;
   gameState.lineup = {};
   gameState.formation = DEFAULT_FORMATION;
   gameState.tactic = DEFAULT_TACTIC;
@@ -96,6 +99,11 @@ function acceptJobOffer(clubName){
   gameState.youth = createFreshYouthTeam();
   gameState.youthSquad = [];
   gameState.pendingYouthCandidates = null;
+  if(typeof closeYouthIntakeModal === "function") closeYouthIntakeModal();
+  // Anlagen gehoeren dem Verein, nicht dem Trainer.
+  if(typeof createFreshFacilities === "function") gameState.facilities = createFreshFacilities();
+  gameState.incomingOffers = [];
+  gameState.loans = [];
   gameState.currentWinStreak = 0;
   gameState.lastTopFour = [];
   gameState.lastSeasonWasDivision1 = division === 1;
@@ -126,7 +134,12 @@ function acceptJobOffer(clubName){
     "win", true);
   showToast(`Willkommen bei ${clubName}!`, "success");
 
+  gameState.successOffers = [];
+  ensureCoaches(gameState);
+  delete gameState.coaches[clubName];
+  markSeasonStart(gameState);
   closeDismissalModal();
+  hideSeasonSummary();
   renderAll(gameState);
   autoSave();
 }
@@ -155,6 +168,9 @@ function processSquadTurnover(){
       p.clubName = null;
       p.clubTier = "frei";
       p.transferListed = false;
+      // Merken, damit die Notverpflichtung ihn nicht sofort zurueckholt.
+      p.leftClub = gameState.clubName;
+      p.leftSeason = gameState.season;
       p.contractYears = 1;
       p.consecutiveStarts = 0;
       gameState.pool.players.push(p);
@@ -221,11 +237,27 @@ function finishSeason(){
   const totalTeams = gameState.teams.length;
   const bonus = calculateSeasonEndBonus(finalPosition, totalTeams);
 
+  // Auszeichnungen vor dem Saisonwechsel (Tore und Entwicklung zaehlen noch).
+  gameState.lastAwards = computeSeasonAwards(gameState);
+  const tabelle = getSortedStandings(gameState.teams);
+  if(tabelle[0]) addNews(gameState, `${tabelle[0].name} ist Meister der ${getDivisionLabel(playedDivision)} ${gameState.season}/${String(gameState.season + 1).slice(2)}.`, "🏆");
+  if(gameState.cup && gameState.cup.champion) addNews(gameState, `${gameState.cup.champion} gewinnt den DFB-Pokal.`, "🏆");
+
+  // Leihspieler kehren vor dem Altern und den Vertragslaeufen zurueck.
+  returnLoans(gameState).forEach(r => addLogEntry(gameState,
+    `🔁 ${r.name} kehrt von ${r.club} zurück: Bewertung ${r.vorher} → ${r.nachher}.`, r.nachher > r.vorher ? "win" : null));
+
   ageSquadOneYear(gameState.squad);
   processSquadTurnover();
   healAllInjuries(gameState.squad);
   resetSeasonalPlayerState(gameState.squad);
   gameState.budget = addToBudget(gameState.budget, bonus);
+
+  const sponsorBonus = gameState.board ? getSponsorGoalBonus(gameState, finalPosition, gameState.board.targetPosition) : 0;
+  if(sponsorBonus > 0){
+    gameState.budget = addToBudget(gameState.budget, sponsorBonus);
+    addLogEntry(gameState, `🎯 Sponsor zahlt den Bonus für das erreichte Saisonziel: ${fmtMoney(sponsorBonus)}.`, "win", true);
+  }
 
   // Standing fortschreiben, bevor Auf-/Abstieg die Liga wechselt.
   const statureBefore = gameState.clubStature != null ? gameState.clubStature : getOwnClubStrength(gameState);
@@ -308,6 +340,24 @@ function finishSeason(){
   if(playedDivision === 1 && finalPosition === 1) unlockAchievement("champion");
   if(playedDivision === 1 && finalPosition <= 4) unlockAchievement("topFour");
 
+  // Trainer-Ruf und Anfragen groesserer Vereine
+  const ziel = gameState.board ? gameState.board.targetPosition : finalPosition;
+  const ruf = updateReputationForSeason(gameState, {
+    position: finalPosition, target: ziel,
+    champion: playedDivision === 1 && finalPosition === 1,
+    cupWinner: cup.champion === gameState.clubName,
+    europeWinner: !!eu.champion,
+    promoted: promoRelResult.ownWasPromoted, relegated: promoRelResult.ownWasRelegated
+  });
+  if(Math.abs(ruf.delta) >= 1){
+    addLogEntry(gameState, `🎓 Trainer-Ruf ${ruf.delta > 0 ? "steigt" : "sinkt"} auf ${Math.round(ruf.neu)} (${getReputationLabel(ruf.neu)}).`, ruf.delta > 0 ? "win" : "loss");
+  }
+  gameState.successOffers = generateSuccessOffers(gameState, finalPosition, ziel);
+  if(gameState.successOffers.length > 0){
+    addLogEntry(gameState, `📞 Anfragen anderer Vereine: ${gameState.successOffers.map(o => o.name).join(", ")}.`, "win", true);
+    showToast(`📞 ${gameState.successOffers.length} Verein${gameState.successOffers.length === 1 ? "" : "e"} wollen dich als Trainer — siehe Saisonbilanz.`, "success");
+  }
+
   renderSeasonSummary(gameState);
   if(typeof showYouthIntakeModal === "function") queueModal(showYouthIntakeModal);
   renderSeasonHistory(gameState);
@@ -363,6 +413,10 @@ function startNextSeason(){
     addLogEntry(gameState, `📢 Transferfenster geöffnet bis Spieltag ${end}.`);
   }
 
+  gameState.successOffers = [];
+  ensureCoaches(gameState);
+  markSeasonStart(gameState);
+  simulateAiTransfers(gameState);
   renderAll(gameState);
   hideSeasonSummary();
   autoSave();
