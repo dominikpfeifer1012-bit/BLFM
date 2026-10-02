@@ -101,7 +101,7 @@ function renderCupStatus(gameState){
     const lastRound = cup.history[cup.history.length - 1];
     const ownMatch = lastRound.matches.find(m => m.home === gameState.clubName || m.away === gameState.clubName);
     if(ownMatch){
-      historyHtml = `<p class="breakdownLine">Letztes Spiel: ${ownMatch.home} ${ownMatch.homeGoals}:${ownMatch.awayGoals} ${ownMatch.away}${ownMatch.wasDraw ? " (n.V./Elfm.)" : ""}</p>`;
+      historyHtml = `<p class="breakdownLine">Letztes Spiel: ${ownMatch.home} ${ownMatch.homeGoals}:${ownMatch.awayGoals} ${ownMatch.away}${ownMatch.wasDraw ? ` (${knockoutSuffix(ownMatch)})` : ""}</p>`;
     }
   }
 
@@ -139,7 +139,7 @@ function renderEuropeStatus(gameState){
 
   if(eu.history && eu.history.length > 0){
     const last = eu.history[eu.history.length - 1];
-    body += `<p class="muted" style="margin-top:10px;">${last.round}: ${last.ownGoals}:${last.oppGoals} gegen ${last.opponent}${last.wasDraw ? " (n.V./Elfm.)" : ""}</p>`;
+    body += `<p class="muted" style="margin-top:10px;">${last.round}: ${last.ownGoals}:${last.oppGoals} gegen ${last.opponent}${last.wasDraw ? ` (${last.suffix || "n.V."})` : ""}</p>`;
   }
 
   container.innerHTML = `<p style="margin:0;">${head}</p>${body}`;

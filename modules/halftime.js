@@ -26,15 +26,16 @@ function findOwnFixtureToday(gameState){
     (f.home === gameState.clubName || f.away === gameState.clubName)) || null;
 }
 
-// Ereignisse einer Haelfte: Tore mit Schuetzen plus Chancen und Paraden.
-function buildHalfEvents(hs, ownIds, oppIds, von, bis){
+// Ereignisse einer Haelfte: Tore mit Minute und Schuetze, Platzverweise und
+// Verletzungen aus dem Spielverlauf, dazu Chancen und Paraden.
+function buildHalfEvents(hs, goals, von, bis){
   const belegt = new Set([45, 90]);
   const events = [];
-  const name = (liste, id) => { const p = liste.find(x => x.id === id); return p ? p.name : null; };
-  drawMinutesInRange(ownIds.length, von, bis, belegt).forEach((m, i) =>
-    events.push({ minute: m, type: "goal", side: "own", scorer: name(hs.ownPlayers, ownIds[i]) }));
-  drawMinutesInRange(oppIds.length, von, bis, belegt).forEach((m, i) =>
-    events.push({ minute: m, type: "goal", side: "opp", scorer: name(hs.roster, oppIds[i]) }));
+  goals.forEach(g => { belegt.add(g.minute); events.push({ minute: g.minute, type: "goal", side: g.side, scorer: g.scorer || null }); });
+  (hs.incidents || []).filter(i => i.minute >= von && i.minute <= bis).forEach(i => {
+    if(i.type === "red") events.push({ minute: i.minute, type: "red", side: i.side, player: i.player, opponent: i.side === "opp" });
+    else events.push({ minute: i.minute, type: "injury", player: i.player, duration: i.duration });
+  });
   const torwart = kader => { const tw = kader.find(p => p.pos === "TW"); return tw ? tw.name : null; };
   [["own", hs.xi, hs.roster], ["opp", hs.roster, hs.xi]].forEach(([seite, angreifer, verteidiger]) => {
     drawMinutesInRange(randInt(1, 2), von, Math.min(bis, von + 43), belegt).forEach(m => {
@@ -58,12 +59,6 @@ function applyRunningScore(events, ownIsHome, startH, startA){
   return { h, a };
 }
 
-function pickScorerIds(spieler, anzahl){
-  const ids = [];
-  for(let i = 0; i < anzahl; i++){ const p = pickScorer(spieler.filter(x => x.pos !== "TW")); ids.push(p ? p.id : null); }
-  return ids;
-}
-
 // Startet die erste Haelfte. Gibt false zurueck, wenn heute kein eigenes
 // Ligaspiel ansteht — dann laeuft der Spieltag wie gewohnt.
 function startHalftimeMatch(){
@@ -75,18 +70,19 @@ function startHalftimeMatch(){
   const gegner = ownIsHome ? f.away : f.home;
   const xi = getStartingXI(gameState.squad, gameState.matchday + 1);
   const roster = gameState.pool ? getClubRoster(gameState.pool, gegner) : [];
+  const incidents = planMatchIncidents(gameState, xi, roster);
   const l = getMatchLambdas(gameState, f.home, f.away);
-  const hg = poisson(l.home * HALFTIME_FIRST_SHARE), ag = poisson(l.away * HALFTIME_FIRST_SHARE);
+  const erste = playMatchSpan(l.home, l.away, ownIsHome, 0, 45, incidents);
+  assignGoalScorers(erste.goals, xi, roster, incidents);
+  const hg = erste.homeGoals, ag = erste.awayGoals;
 
   const hs = halftimeState = {
     home: f.home, away: f.away, ownIsHome, xi, roster, ownPlayers: gameState.squad,
-    hg, ag, tacticBefore: gameState.tactic || DEFAULT_TACTIC,
+    hg, ag, incidents, goals1: erste.goals, tacticBefore: gameState.tactic || DEFAULT_TACTIC,
     match: { clubName: gameState.clubName, home: f.home, away: f.away,
       label: `${getDivisionLabel(gameState.division)} · Spieltag ${gameState.matchday + 1}` }
   };
-  hs.ownIds1 = pickScorerIds(xi, ownIsHome ? hg : ag);
-  hs.oppIds1 = pickScorerIds(roster, ownIsHome ? ag : hg);
-  const events = buildHalfEvents(hs, hs.ownIds1, hs.oppIds1, 1, 45);
+  const events = buildHalfEvents(hs, erste.goals, 1, 45);
   events.push({ minute: 45, type: "half", order: 1 });
   applyRunningScore(events, ownIsHome, 0, 0);
 
@@ -130,10 +126,9 @@ function playLiveSegment(match, events, von, bis, startH, startA, onEnd){
   };
   liveState.skipSegment = abschluss;
   document.getElementById("liveFooter").innerHTML =
-    `<button class="ghost" onclick="liveState.skipSegment && liveState.skipSegment()">Überspringen</button>`;
-  stopLiveTimer();
-  liveState.timer = setInterval(() => {
-    if(pause > 0){ pause -= LIVE_TICK_MS; return; }
+    `<button class="ghost" onclick="liveState.skipSegment && liveState.skipSegment()">Überspringen</button> ${liveSpeedButton()}`;
+  const tick = () => {
+    if(pause > 0){ pause -= getLiveTickMs(); return; }
     minute++;
     if(minute > bis){ abschluss(); return; }
     document.getElementById("liveClock").textContent = minute + "'";
@@ -141,9 +136,11 @@ function playLiveSegment(match, events, von, bis, startH, startA, onEnd){
     while(index < events.length && events[index].minute === minute){
       appendLiveEvent(events[index], match, ownIsHome);
       index++;
-      pause = LIVE_EVENT_PAUSE_MS;
+      pause = getLivePauseMs();
     }
-  }, LIVE_TICK_MS);
+  };
+  liveState.restart = () => { stopLiveTimer(); liveState.timer = setInterval(tick, getLiveTickMs()); };
+  liveState.restart();
 }
 
 function showHalftimeChoice(){
@@ -168,16 +165,19 @@ function chooseSecondHalfTactic(key){
   gameState.tactic = TACTICS[key] ? key : vorher;
   const l = getMatchLambdas(gameState, hs.home, hs.away);
   gameState.tactic = vorher;
-  const hg2 = poisson(l.home * (1 - HALFTIME_FIRST_SHARE)), ag2 = poisson(l.away * (1 - HALFTIME_FIRST_SHARE));
-  hs.ownIds2 = pickScorerIds(hs.xi, hs.ownIsHome ? hg2 : ag2);
-  hs.oppIds2 = pickScorerIds(hs.roster, hs.ownIsHome ? ag2 : hg2);
+  const zweite = playMatchSpan(l.home, l.away, hs.ownIsHome, 45, MATCH_MINUTES, hs.incidents);
+  assignGoalScorers(zweite.goals, hs.xi, hs.roster, hs.incidents);
+  const hg2 = zweite.homeGoals, ag2 = zweite.awayGoals;
+  hs.goals2 = zweite.goals;
   hs.hg2 = hg2; hs.ag2 = ag2;
   if(key !== hs.tacticBefore) addLogEntry(gameState, `🔁 Halbzeit: Umstellung auf ${TACTICS[key].label}.`);
 
+  const goals = [...hs.goals1, ...hs.goals2];
   const override = {
     home: hs.home, away: hs.away, homeGoals: hs.hg + hg2, awayGoals: hs.ag + ag2,
-    ownScorerIds: [...hs.ownIds1, ...hs.ownIds2].filter(Boolean),
-    oppScorerIds: [...hs.oppIds1, ...hs.oppIds2].filter(Boolean)
+    goals, incidents: hs.incidents,
+    ownScorerIds: goals.filter(g => g.side === "own").map(g => g.scorerId).filter(Boolean),
+    oppScorerIds: goals.filter(g => g.side === "opp").map(g => g.scorerId).filter(Boolean)
   };
   let fehler = null;
   try {
@@ -196,17 +196,18 @@ function continueSecondHalf(ownEvt, result, summaryLine){
   const hs = halftimeState;
   halftimeState = null;
   if(!hs) return;
-  const events = buildHalfEvents(hs, hs.ownIds2, hs.oppIds2, 46, 90);
-  (result.cards || []).forEach(c => events.push({ minute: randInt(46, 89),
-    type: c.type === "red" ? "red" : c.type === "banAccumulated" ? "yellowRed" : "yellow",
+  const events = buildHalfEvents(hs, hs.goals2, 46, 90);
+  // Platzverweise und Verletzungen stehen schon mit Minute im Verlauf.
+  (result.cards || []).filter(c => !c.minute).forEach(c => events.push({ minute: randInt(46, 89),
+    type: c.type === "banAccumulated" ? "yellowRed" : "yellow",
     player: c.player.name, count: c.player.yellowCards }));
-  (result.injuries || []).forEach(inj => events.push({ minute: randInt(46, 89), type: "injury",
-    player: inj.player.name, duration: inj.duration }));
   events.push({ minute: 90, type: "end", order: 1 });
   applyRunningScore(events, hs.ownIsHome, hs.hg, hs.ag);
 
   const match = Object.assign({}, hs.match, {
-    homeGoals: ownEvt.homeGoals, awayGoals: ownEvt.awayGoals, summaryLine, timeline: events
+    homeGoals: ownEvt.homeGoals, awayGoals: ownEvt.awayGoals, summaryLine, timeline: events,
+    grades: ownEvt.grades, otherResults: ownEvt.otherResults,
+    tablePosition: ownEvt.tablePosition, tableDelta: ownEvt.tableDelta
   });
   playLiveSegment(match, events, 45, 90, hs.hg, hs.ag, () => {
     liveState.currentMatch = match;

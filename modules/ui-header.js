@@ -176,6 +176,8 @@ function renderNextMatch(gameState){
         <h2 style="margin:2px 0 6px;">${info.opponentName}</h2>
         ${getCoachName(gameState, info.opponentName) ? `<p class="muted" style="margin:-2px 0 6px; font-size:12px;">Trainer: ${getCoachName(gameState, info.opponentName)}</p>` : ""}
         <span class="matchupTag ${cls}">${label}</span>
+        ${info.opponentForm ? `<span class="matchupTag neutral" title="Formkurve der letzten Spiele">${info.opponentForm}</span>` : ""}
+        ${info.ownForm ? `<p class="muted" style="margin:6px 0 0; font-size:12px;">Wir: ${info.ownForm}</p>` : ""}
       </div>
       <div class="statGrid" style="flex:1; min-width:190px;">
         ${statBox("Eigene Stärke", Math.round(info.ownStrength), null, true)}

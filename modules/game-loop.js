@@ -103,9 +103,10 @@ function runNextEvent(){
           timeline: buildMatchTimeline({
             clubName: gameState.clubName, home: m.home, away: m.away,
             homeGoals: m.homeGoals, awayGoals: m.awayGoals,
-            scorers: [], cards: [], injuries: load ? load.injuries : []
+            scorers: [], cards: [], injuries: load ? load.injuries : [],
+            knockout: m.wasDraw ? { extraTime: true, etHome: m.etHome, etAway: m.etAway, pens: m.pens } : null
           }),
-          summaryLine: m.wasDraw ? "Entscheidung nach Verlängerung" : ""
+          summaryLine: m.wasDraw ? (m.pens ? `Entscheidung im Elfmeterschießen (${m.pens.home}:${m.pens.away})` : "Entscheidung in der Verlängerung") : ""
         });
       }
       return;
@@ -134,9 +135,10 @@ function runNextEvent(){
             clubName: gameState.clubName, home: home, away: away,
             homeGoals: m.isHome ? m.ownGoals : m.oppGoals,
             awayGoals: m.isHome ? m.oppGoals : m.ownGoals,
-            scorers: [], cards: [], injuries: load ? load.injuries : []
+            scorers: [], cards: [], injuries: load ? load.injuries : [],
+            knockout: m.wasDraw ? m.knockout : null
           }),
-          summaryLine: m.wasDraw ? "Entscheidung nach Verlängerung" : ""
+          summaryLine: m.wasDraw ? (m.knockout && m.knockout.pens ? "Entscheidung im Elfmeterschießen" : "Entscheidung in der Verlängerung") : ""
         });
       }
       return;
@@ -155,6 +157,12 @@ function runNextEvent(){
 
 // Pokalspiele zaehlen zur Belastung: sie erzeugen Verletzungen und lassen
 // die Ermuedung weiterlaufen. Englische Wochen kosten damit wirklich Substanz.
+function getOwnTablePosition(gameState){
+  if(!gameState.teams) return null;
+  const idx = getSortedStandings(gameState.teams).findIndex(t => t.name === gameState.clubName);
+  return idx >= 0 ? idx + 1 : null;
+}
+
 function applyMatchLoad(wettbewerb){
   const day = gameState.matchday + 1;
   const startingInfo = getStartingXIInfo(gameState.squad, day);
@@ -177,6 +185,7 @@ function runMatchdaySimulation(override){
   const youthResult = gameState.youth ? simulateYouthMatchday(gameState) : null;
   gameState.pendingYouthAppearances = youthResult ? youthResult.appearances : new Set();
 
+  const platzVorher = getOwnTablePosition(gameState);
   const result = simulateMatchday(gameState, override);
   gameState.pendingYouthAppearances = null;
 
@@ -193,6 +202,18 @@ function runMatchdaySimulation(override){
   }
 
   let ownEvt = null, ownBonus = 0;
+
+  // Konferenz: die anderen Partien des Spieltags und der neue Tabellenplatz.
+  result.events.forEach(evt => {
+    evt.otherResults = getRoundFixtures(gameState.fixtures, gameState.teams.length, evt.matchday - 1)
+      .filter(f => f.played && f.home !== gameState.clubName && f.away !== gameState.clubName)
+      .map(f => ({ home: f.home, away: f.away, homeGoals: f.homeGoals, awayGoals: f.awayGoals }));
+    evt.tablePosition = getOwnTablePosition(gameState);
+    evt.tableDelta = platzVorher && evt.tablePosition && evt.matchday > 1 ? platzVorher - evt.tablePosition : 0;
+    if(evt.grades && evt.grades.motm){
+      addLogEntry(gameState, `⭐ Spieler des Spiels: ${evt.grades.motm.name} (Note ${fmtGrade(evt.grades.motm.grade)})`);
+    }
+  });
 
   // Ohne Wahl gilt der Festbetrag; der Sponsor zahlt dann vor dem ersten Spiel.
   if(!ensureSeasonFinance(gameState).sponsor){
@@ -310,8 +331,11 @@ function runMatchdaySimulation(override){
         home: ownEvt.home, away: ownEvt.away,
         homeGoals: ownEvt.homeGoals, awayGoals: ownEvt.awayGoals,
         scorers: ownEvt.scorers, opponentScorers: ownEvt.opponentScorers,
+        goals: ownEvt.goals, incidents: ownEvt.incidents,
         cards: result.cards, injuries: result.injuries
       }),
+      grades: ownEvt.grades, otherResults: ownEvt.otherResults,
+      tablePosition: ownEvt.tablePosition, tableDelta: ownEvt.tableDelta,
       summaryLine: `Einnahmen ${fmtMoney(ownBonus + baseRevenue)} · Gehälter ${fmtMoney(salaryCost)}`
     });
   }
@@ -377,4 +401,75 @@ function remindExpiringContracts(){
   const text = `📝 ${n} Vertrag${n === 1 ? " läuft" : "e laufen"} zum Saisonende aus — Übersicht im Kader-Tab.`;
   addLogEntry(gameState, text, null, false);
   showToast(text, "info");
+}
+
+// ============================================
+// Vorspulen: mehrere Termine am Stueck
+// ============================================
+
+let batchRun = null;
+
+function isBatchRunning(){ return !!batchRun; }
+
+function getFastForwardTargets(gameState){
+  const ende = getSeasonMatchdays(gameState);
+  const winter = Math.floor(ende / 2);
+  const ziele = [];
+  const jetzt = gameState.matchday;
+  if(jetzt + 5 < ende) ziele.push({ ziel: jetzt + 5, titel: "5 Spieltage", sub: `bis Spieltag ${jetzt + 5}` });
+  if(jetzt < winter) ziele.push({ ziel: winter, titel: "Bis zur Winterpause", sub: `bis Spieltag ${winter}` });
+  const naechsterCheck = typeof getNextBoardCheckpoint === "function" ? getNextBoardCheckpoint(jetzt) : null;
+  if(naechsterCheck && naechsterCheck < ende && naechsterCheck !== winter) ziele.push({ ziel: naechsterCheck, titel: "Bis zur Vorstandsbewertung", sub: `bis Spieltag ${naechsterCheck}` });
+  ziele.push({ ziel: ende, titel: "Bis zum Saisonende", sub: `alle ${ende - jetzt} restlichen Spieltage` });
+  return ziele;
+}
+
+function openFastForward(){
+  if(gameState.board && gameState.board.dismissed){ showToast("Du bist entlassen.", "error"); return; }
+  if(gameState.seasonEnded){ showToast("Die Saison ist beendet.", "info"); return; }
+  document.getElementById("fastForwardChoices").innerHTML = getFastForwardTargets(gameState).map(z => `
+    <button class="ghost choiceBtn" onclick="simulateUntil(${z.ziel})">
+      <span class="choiceTitle">${z.titel}</span><span class="choiceSub">${z.sub}</span></button>`).join("");
+  document.getElementById("fastForwardOverlay").classList.add("show");
+}
+
+function closeFastForward(){
+  document.getElementById("fastForwardOverlay").classList.remove("show");
+}
+
+// Spielt alle Termine (Liga, Pokal, Europapokal) bis zum Zielspieltag.
+function simulateUntil(ziel){
+  closeFastForward();
+  const startTag = gameState.matchday;
+  const platzVorher = getOwnTablePosition(gameState);
+  batchRun = { ziel };
+  holdModals();
+  let termine = 0;
+  try {
+    while(termine++ < 120){
+      if(gameState.seasonEnded || (gameState.board && gameState.board.dismissed)) break;
+      if(gameState.matchday >= ziel) break;
+      runNextEvent();
+    }
+  } catch(e){
+    console.error("Vorspulen fehlgeschlagen:", e);
+    showToast("Das Vorspulen ist fehlgeschlagen. Details stehen in der Browser-Konsole.", "error");
+  } finally {
+    batchRun = null;
+  }
+
+  const bilanz = { win: 0, draw: 0, loss: 0 };
+  gameState.fixtures.forEach((f, idx) => {
+    const tag = getFixtureMatchday(idx, gameState.teams.length);
+    if(!f.played || tag <= startTag || (f.home !== gameState.clubName && f.away !== gameState.clubName)) return;
+    bilanz[getResultForClub(gameState.clubName, f.home, f.away, f.homeGoals, f.awayGoals)]++;
+  });
+  const platz = getOwnTablePosition(gameState);
+  const text = `⏭ ${gameState.matchday - startTag} Spieltage: ${bilanz.win} S · ${bilanz.draw} U · ${bilanz.loss} N`
+    + (platz ? ` · Platz ${platz}${platzVorher && platzVorher !== platz ? ` (vorher ${platzVorher})` : ""}` : "");
+  addLogEntry(gameState, text, bilanz.win >= bilanz.loss ? "win" : "loss", true);
+  showToast(text, "info");
+  renderAll(gameState);
+  autoSave();
+  releaseModals();
 }

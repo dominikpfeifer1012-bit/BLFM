@@ -55,7 +55,7 @@ function simulateYouthMatchday(gameState){
   const basis = (gameState.clubStature != null ? gameState.clubStature : 65) - YOUTH_OPPONENT_OFFSET;
   const gegner = Math.max(35, basis + randInt(-YOUTH_OPPONENT_SPREAD, YOUTH_OPPONENT_SPREAD));
 
-  const { goalsA, goalsB } = simulateGenericMatch(eigene + 2, gegner);
+  const { goalsA, goalsB } = simulateGenericMatch(eigene, gegner);
   const scorers = assignYouthScorers(youth, lineup, goalsA);
 
   youth.played++;

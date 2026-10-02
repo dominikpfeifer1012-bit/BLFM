@@ -39,6 +39,28 @@ function poisson(lambda){
   return k - 1;
 }
 
+// Torerwartung zweier Mannschaften aus Angriff und Abwehr. neutral: kein
+// Heimvorteil (z.B. Endspiel).
+function getBaseLambdas(h, a, neutral){
+  const hv = neutral ? 0 : MATCH_ENGINE.homeAdvantage;
+  const e = MATCH_ENGINE;
+  return {
+    home: Math.max(e.minLambda, e.baseGoals * Math.exp((h.attack + hv - a.defence) / e.scale)),
+    away: Math.max(e.minLambda, e.baseGoals * Math.exp((a.attack - h.defence - hv) / e.scale))
+  };
+}
+
+// Ergebnis wuerfeln. Ein kleiner gemeinsamer Anteil (bivariater Poisson)
+// koppelt die Tore beider Teams: realistischer Remis-Anteil, gleicher Schnitt.
+// anteil: Spielzeitanteil, z.B. eine Halbzeit.
+function rollScore(lambdaHome, lambdaAway, anteil){
+  const f = anteil != null ? anteil : 1;
+  const lh = lambdaHome * f, la = lambdaAway * f;
+  const c = Math.min(MATCH_ENGINE.sharedGoals * f, lh * 0.4, la * 0.4);
+  const z = poisson(c);
+  return { homeGoals: poisson(lh - c) + z, awayGoals: poisson(la - c) + z };
+}
+
 function getTeamStrength(gameState, teamName){
   if(teamName === gameState.clubName){
     return teamRating(gameState.squad, gameState.matchday + 1);
@@ -71,6 +93,12 @@ function applyTactic(gameState, lambdaOwn, lambdaOpp){
 // Angriff und Abwehr getrennt. Fuer KI-Verene sind beide Werte gleich der
 // Vereinsstaerke — dadurch rechnet die Formel fuer KI-Duelle exakt wie vorher,
 // und nur die eigenen Spiele bekommen durch die Attribute Struktur.
+// Form gilt nur in der Liga (Tabellenzeile mit den letzten Ergebnissen).
+function getTeamFormBonus(gameState, teamName){
+  const row = gameState.teams ? gameState.teams.find(t => t.name === teamName) : null;
+  return typeof getFormBonus === "function" ? getFormBonus(row) : 0;
+}
+
 function getTeamSides(gameState, teamName){
   if(teamName === gameState.clubName){
     const ad = getTeamAttackDefence(gameState.squad, gameState.matchday + 1);
@@ -79,9 +107,10 @@ function getTeamSides(gameState, teamName){
     const training = typeof getActiveTraining === "function" ? getActiveTraining() : null;
     const effekt = (training && training.match) || { att: 0, def: 0 };
     const lager = typeof getCampBoost === "function" ? getCampBoost(gameState) : 0;
-    return { attack: ad.attack + effekt.att + lager, defence: ad.defence + effekt.def + lager };
+    const form = getTeamFormBonus(gameState, teamName);
+    return { attack: ad.attack + effekt.att + lager + form, defence: ad.defence + effekt.def + lager + form };
   }
-  const strength = getTeamStrength(gameState, teamName);
+  const strength = getTeamStrength(gameState, teamName) + getTeamFormBonus(gameState, teamName);
   return { attack: strength, defence: strength };
 }
 
@@ -90,12 +119,9 @@ function getTeamSides(gameState, teamName){
 function getMatchLambdas(gameState, home, away){
   const h = getTeamSides(gameState, home);
   const a = getTeamSides(gameState, away);
-  const homeAttack = h.attack + 3, homeDefence = h.defence + 3;
-
-  // Grundwerte so, dass im Schnitt knapp 2,8 Tore pro Spiel fallen
-  // (Bundesliga: rund 3). Vorher waren es 2,57.
-  let lambdaHome = Math.max(0.3, 1.5 + (homeAttack - a.defence) / 25);
-  let lambdaAway = Math.max(0.3, 1.27 + (a.attack - homeDefence) / 25);
+  const basis = getBaseLambdas(h, a);
+  let lambdaHome = basis.home;
+  let lambdaAway = basis.away;
 
   // Grundausrichtung der eigenen Mannschaft
   if(home === gameState.clubName){
@@ -118,10 +144,7 @@ function getMatchLambdas(gameState, home, away){
 
 function simulateMatch(gameState, home, away){
   const l = getMatchLambdas(gameState, home, away);
-  return {
-    homeGoals: poisson(l.home),
-    awayGoals: poisson(l.away)
-  };
+  return rollScore(l.home, l.away);
 }
 
 function updateStandings(teams, home, away, homeGoals, awayGoals){
@@ -139,6 +162,10 @@ function updateStandings(teams, home, away, homeGoals, awayGoals){
   } else {
     h.drawn++; a.drawn++; h.points++; a.points++;
   }
+  if(typeof pushForm === "function"){
+    pushForm(h, homeGoals > awayGoals ? 3 : homeGoals === awayGoals ? 1 : 0);
+    pushForm(a, awayGoals > homeGoals ? 3 : homeGoals === awayGoals ? 1 : 0);
+  }
 }
 
 function getResultForClub(clubName, home, away, homeGoals, awayGoals){
@@ -151,15 +178,27 @@ function getResultForClub(clubName, home, away, homeGoals, awayGoals){
   return "draw";
 }
 
-function processInjuries(gameState, matchdayJustPlayed, chanceFactor){
+// incidents: im Spiel geplante Verletzungen der Startelf (mit Minute). Dann
+// wuerfelt hier nur noch die Bank (Training).
+function processInjuries(gameState, matchdayJustPlayed, chanceFactor, incidents){
   const startingIds = getStartingXIIds(gameState.squad, matchdayJustPlayed);
   const newlyInjured = [];
   const factor = chanceFactor != null ? chanceFactor : 1;
+
+  if(incidents){
+    incidents.filter(i => i.type === "injury" && i.side === "own").forEach(i => {
+      const player = gameState.squad.find(p => p.id === i.playerId);
+      if(!player) return;
+      player.injuredUntilMatchday = matchdayJustPlayed + i.duration;
+      newlyInjured.push({ player, duration: i.duration, wasStarter: true, minute: i.minute });
+    });
+  }
 
   gameState.squad.forEach(player => {
     if(isInjured(player, matchdayJustPlayed)) return;
 
     const isStarter = startingIds.has(player.id);
+    if(incidents && isStarter) return;
     const training = typeof getActiveTraining === "function" ? getActiveTraining().injury : 1;
     const medizin = typeof getMedicalInjuryFactor === "function" ? getMedicalInjuryFactor(gameState) : 1;
     const chance = (isStarter ? INJURY_CHANCE_STARTER : INJURY_CHANCE_BENCH) * factor * training * medizin;
@@ -174,11 +213,23 @@ function processInjuries(gameState, matchdayJustPlayed, chanceFactor){
   return newlyInjured;
 }
 
-function processCards(startingXI, matchdayJustPlayed){
+// incidents: Platzverweise stehen dann schon fest (mit Minute).
+function processCards(startingXI, matchdayJustPlayed, incidents){
   const cardEvents = [];
+  const rote = new Set();
+  if(incidents){
+    incidents.filter(i => i.type === "red" && i.side === "own").forEach(i => {
+      const player = startingXI.find(p => p.id === i.playerId);
+      if(!player) return;
+      player.suspendedUntilMatchday = matchdayJustPlayed + RED_CARD_BAN_MATCHES;
+      cardEvents.push({ player, type: "red", minute: i.minute });
+      rote.add(player.id);
+    });
+  }
 
   startingXI.forEach(player => {
-    if(Math.random() < RED_CARD_CHANCE){
+    if(rote.has(player.id)) return;
+    if(!incidents && Math.random() < RED_CARD_CHANCE){
       player.suspendedUntilMatchday = matchdayJustPlayed + RED_CARD_BAN_MATCHES;
       cardEvents.push({ player, type: "red" });
       return;
@@ -251,6 +302,12 @@ function simulateMatchday(gameState, override){
   let cards = [];
 
   roundFixtures.forEach(f => {
+    const eigenes = f.home === gameState.clubName || f.away === gameState.clubName;
+    // Das eigene Spiel laeuft immer mit Ereignissen (Rote Karte, Verletzung
+    // ab ihrer Minute). Im Live-Modus kommt es fertig aus der Halbzeit.
+    if(eigenes && !(override && override.home === f.home && override.away === f.away)){
+      override = playOwnLeagueMatch(gameState, f.home, f.away);
+    }
     const vorgegeben = override && override.home === f.home && override.away === f.away;
     const { homeGoals, awayGoals } = vorgegeben ? override : simulateMatch(gameState, f.home, f.away);
     updateStandings(gameState.teams, f.home, f.away, homeGoals, awayGoals);
@@ -287,7 +344,17 @@ function simulateMatchday(gameState, override){
         ? creditScorersById(gameState.squad, override.ownScorerIds || [])
         : assignScorers(startingInfo.xi, ownGoals);
 
+      const ownIncidents = vorgegeben ? (override.incidents || null) : null;
+      injuries = processInjuries(gameState, day + 1, null, ownIncidents);
+      cards = processCards(startingInfo.xi, day + 1, ownIncidents);
+      const goals = vorgegeben ? (override.goals || []) : [];
+      const bewertung = typeof rateOwnPlayers === "function" ? rateOwnPlayers(startingInfo.xi, {
+        ownGoals, oppGoals: isHome ? awayGoals : homeGoals, goals,
+        incidents: ownIncidents, teamRatingValue: ownStrength }) : null;
+      if(typeof recordGrades === "function") recordGrades(gameState.squad, bewertung);
+
       events.push({
+        goals, incidents: ownIncidents, grades: bewertung,
         matchday: day + 1,
         home: f.home,
         away: f.away,
@@ -300,8 +367,6 @@ function simulateMatchday(gameState, override){
         opponentScorers: gegnerTorschuetzen
       });
 
-      injuries = processInjuries(gameState, day + 1);
-      cards = processCards(startingInfo.xi, day + 1);
 
       const startingIds = new Set(startingInfo.xi.map(p => p.id));
       updateFatigue(gameState.squad, startingIds);
@@ -341,6 +406,8 @@ function getNextOpponentInfo(gameState){
     opponentStrength,
     // Deterministisch, deshalb stimmt die Vorschau mit dem Spiel ueberein.
     opponentTactic: getAiTactic(opponentStrength, ownStrength, day, opponentName, gameState.clubName),
+    ownForm: getFormLabel(gameState.teams.find(t => t.name === gameState.clubName)),
+    opponentForm: getFormLabel(gameState.teams.find(t => t.name === opponentName)),
     ownTactic: gameState.tactic || DEFAULT_TACTIC
   };
 }
@@ -407,33 +474,59 @@ function buildMatchTimeline(input){
   const events = [];
 
   const ownIsHome = input.home === input.clubName;
-  const ownGoals = ownIsHome ? input.homeGoals : input.awayGoals;
-  const oppGoals = ownIsHome ? input.awayGoals : input.homeGoals;
-  const scorers = (input.scorers || []).slice();
+  const ko = input.knockout || null;
+  const etOwn = ko ? (ownIsHome ? ko.etHome : ko.etAway) || 0 : 0;
+  const etOpp = ko ? (ownIsHome ? ko.etAway : ko.etHome) || 0 : 0;
+  const ownGoals = (ownIsHome ? input.homeGoals : input.awayGoals) - etOwn;
+  const oppGoals = (ownIsHome ? input.awayGoals : input.homeGoals) - etOpp;
 
-  drawDistinctMinutes(ownGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach((minute, i) => {
-    events.push({ minute, type: "goal", side: "own", scorer: scorers[i] || null });
-  });
-  const oppScorers = (input.opponentScorers || []).slice();
-  drawDistinctMinutes(oppGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach((minute, i) => {
-    events.push({ minute, type: "goal", side: "opp", scorer: oppScorers[i] || null });
-  });
+  if(input.goals && input.goals.length === ownGoals + oppGoals){
+    // Tore mit echter Minute aus dem Spielverlauf.
+    input.goals.forEach(g => { used.add(g.minute); events.push({ minute: g.minute, type: "goal", side: g.side, scorer: g.scorer || null }); });
+  } else {
+    const scorers = (input.scorers || []).slice();
+    drawDistinctMinutes(ownGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach((minute, i) => {
+      events.push({ minute, type: "goal", side: "own", scorer: scorers[i] || null });
+    });
+    const oppScorers = (input.opponentScorers || []).slice();
+    drawDistinctMinutes(oppGoals, GOAL_MINUTE_SECOND_HALF_BIAS, used).forEach((minute, i) => {
+      events.push({ minute, type: "goal", side: "opp", scorer: oppScorers[i] || null });
+    });
+  }
 
   addChanceEvents(input, ownIsHome, ownGoals, oppGoals, used, events);
 
   (input.cards || []).forEach(c => {
-    const minute = drawDistinctMinutes(1, 0.55, used)[0];
+    const minute = c.minute || drawDistinctMinutes(1, 0.55, used)[0];
     events.push({ minute, type: c.type === "red" ? "red" : c.type === "banAccumulated" ? "yellowRed" : "yellow",
-      player: c.player.name, count: c.player.yellowCards });
+      side: "own", player: c.player.name, count: c.player.yellowCards });
+  });
+  (input.incidents || []).filter(i => i.type === "red" && i.side === "opp").forEach(i => {
+    events.push({ minute: i.minute, type: "red", side: "opp", player: i.player, opponent: true });
   });
 
   (input.injuries || []).forEach(inj => {
-    const minute = drawDistinctMinutes(1, 0.5, used)[0];
+    // Verletzungen ohne Minute stammen aus dem Training, nicht aus dem Spiel.
+    if(input.goals && !inj.minute) return;
+    const minute = inj.minute || drawDistinctMinutes(1, 0.5, used)[0];
     events.push({ minute, type: "injury", player: inj.player.name, duration: inj.duration });
   });
 
   events.push({ minute: 45, type: "half", order: 1 });
-  events.push({ minute: 90, type: "end", order: 1 });
+  let schluss = MATCH_MINUTES;
+  if(ko && ko.extraTime){
+    events.push({ minute: 90, type: "extraTime", order: 1 });
+    const belegt = new Set();
+    for(let i = 0; i < etOwn; i++) events.push({ minute: drawMinutesInRange(1, 91, 120, belegt)[0], type: "goal", side: "own", scorer: null });
+    for(let i = 0; i < etOpp; i++) events.push({ minute: drawMinutesInRange(1, 91, 120, belegt)[0], type: "goal", side: "opp", scorer: null });
+    schluss = 120;
+  }
+  if(ko && ko.pens){
+    events.push({ minute: schluss, type: "pens", order: 2,
+      ownPens: ownIsHome ? ko.pens.home : ko.pens.away, oppPens: ownIsHome ? ko.pens.away : ko.pens.home,
+      ownSeq: ownIsHome ? ko.pens.seqHome : ko.pens.seqAway, oppSeq: ownIsHome ? ko.pens.seqAway : ko.pens.seqHome });
+  }
+  events.push({ minute: schluss, type: "end", order: 3 });
   events.sort((a, b) => a.minute - b.minute || (a.order || 0) - (b.order || 0));
 
   // Zwischenstand nach jedem Ereignis mitfuehren, damit die Anzeige beim

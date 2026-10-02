@@ -31,11 +31,13 @@ function getFixtureMatchday(idx, teamCount){
   return Math.floor(idx / getRoundSize(teamCount)) + 1;
 }
 
-function simulateGenericMatch(strengthA, strengthB){
-  const diff = strengthA - strengthB;
-  const lambdaA = Math.max(0.3, 1.3 + diff / 25);
-  const lambdaB = Math.max(0.3, 1.2 - diff / 25);
-  return { goalsA: poisson(lambdaA), goalsB: poisson(lambdaB) };
+// Spiel zweier Vereine ohne eigenen Kader. A hat Heimrecht, ausser neutral.
+// Gleiche Formel wie die eigenen Spiele (getBaseLambdas/rollScore).
+function simulateGenericMatch(strengthA, strengthB, neutral){
+  const l = getBaseLambdas({ attack: strengthA, defence: strengthA },
+    { attack: strengthB, defence: strengthB }, neutral);
+  const r = rollScore(l.home, l.away);
+  return { goalsA: r.homeGoals, goalsB: r.awayGoals };
 }
 
 function simulateShadowSeason(clubPool){
@@ -56,11 +58,10 @@ function simulateShadowSeason(clubPool){
 }
 
 function resolvePlayoff(teamA, teamB){
-  const { goalsA, goalsB } = simulateGenericMatch(teamA.strength, teamB.strength);
+  const { goalsA, goalsB } = simulateGenericMatch(teamA.strength, teamB.strength, true);
   if(goalsA === goalsB){
-    const diff = teamA.strength - teamB.strength;
-    const winProb = Math.max(0.15, Math.min(0.85, 0.5 + diff / 200));
-    return Math.random() < winProb ? teamA : teamB;
+    const e = penaltyShootout(teamA.strength, teamB.strength);
+    return e.home > e.away ? teamA : teamB;
   }
   return goalsA > goalsB ? teamA : teamB;
 }
@@ -413,7 +414,7 @@ function playShadowRound(gameState, shadow){
   runde.forEach(f => {
     const home = shadow.teams.find(t => t.name === f.home);
     const away = shadow.teams.find(t => t.name === f.away);
-    const { goalsA, goalsB } = simulateGenericMatch(home.strength + 3, away.strength);
+    const { goalsA, goalsB } = simulateGenericMatch(home.strength, away.strength);
     updateStandings(shadow.teams, f.home, f.away, goalsA, goalsB);
     f.played = true; f.homeGoals = goalsA; f.awayGoals = goalsB;
 

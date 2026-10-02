@@ -90,10 +90,16 @@ function europeSides(gameState, name, fallback){
 }
 
 function europeMatch(gameState, homeName, homeStrength, awayName, awayStrength){
+  const l = europeLambdas(gameState, homeName, homeStrength, awayName, awayStrength);
+  return rollScore(l.home, l.away);
+}
+
+function europeLambdas(gameState, homeName, homeStrength, awayName, awayStrength){
   const h = europeSides(gameState, homeName, homeStrength);
   const a = europeSides(gameState, awayName, awayStrength);
-  let lambdaHome = Math.max(0.3, 1.3 + (h.attack + 2 - a.defence) / 25);
-  let lambdaAway = Math.max(0.3, 1.2 + (a.attack - (h.defence + 2)) / 25);
+  const basis = getBaseLambdas(h, a);
+  let lambdaHome = basis.home;
+  let lambdaAway = basis.away;
 
   if(homeName === gameState.clubName){
     const t = applyTactic(gameState, lambdaHome, lambdaAway);
@@ -110,7 +116,7 @@ function europeMatch(gameState, homeName, homeStrength, awayName, awayStrength){
   lambdaHome = Math.max(0.25, lambdaHome + konter.own);
   lambdaAway = Math.max(0.25, lambdaAway + konter.opp);
 
-  return { homeGoals: poisson(lambdaHome), awayGoals: poisson(lambdaAway) };
+  return { home: lambdaHome, away: lambdaAway };
 }
 
 // ---------- Gruppenphase ----------
@@ -219,18 +225,20 @@ function drawRoundOf16(winners, runnersUp){
 // ---------- K.o.-Runde ----------
 
 function playKnockoutPair(gameState, teamA, teamB){
-  const { homeGoals, awayGoals } = europeMatch(gameState, teamA.name, teamA.strength, teamB.name, teamB.strength);
-  const wasDraw = homeGoals === awayGoals;
-  let winner;
-  if(wasDraw){
-    const diff = europeStrengthOf(gameState, teamA.name, teamA.strength)
-               - europeStrengthOf(gameState, teamB.name, teamB.strength);
-    const winProb = Math.max(0.15, Math.min(0.85, 0.5 + diff / 200));
-    winner = Math.random() < winProb ? teamA : teamB;
+  const l = europeLambdas(gameState, teamA.name, teamA.strength, teamB.name, teamB.strength);
+  const nach90 = rollScore(l.home, l.away);
+  let homeGoals = nach90.homeGoals, awayGoals = nach90.awayGoals;
+  let winner, ko = null;
+  if(homeGoals === awayGoals){
+    ko = resolveKnockoutDraw(l.home, l.away,
+      europeStrengthOf(gameState, teamA.name, teamA.strength), europeStrengthOf(gameState, teamB.name, teamB.strength));
+    homeGoals += ko.etHome; awayGoals += ko.etAway;
+    winner = ko.homeWins ? teamA : teamB;
   } else {
     winner = homeGoals > awayGoals ? teamA : teamB;
   }
-  return { home: teamA, away: teamB, homeGoals, awayGoals, wasDraw, winner };
+  return { home: teamA, away: teamB, homeGoals, awayGoals, wasDraw: !!ko, winner,
+    extraTime: !!ko, etHome: ko ? ko.etHome : 0, etAway: ko ? ko.etAway : 0, pens: ko ? ko.pens : null };
 }
 
 function simulateEuropeKnockoutRound(gameState){
@@ -260,12 +268,15 @@ function simulateEuropeKnockoutRound(gameState){
       ownGoals: isHome ? ownMatch.homeGoals : ownMatch.awayGoals,
       oppGoals: isHome ? ownMatch.awayGoals : ownMatch.homeGoals,
       wasDraw: ownMatch.wasDraw,
-      won: ownMatch.winner.name === gameState.clubName
+      won: ownMatch.winner.name === gameState.clubName,
+      knockout: { extraTime: ownMatch.extraTime, etHome: ownMatch.etHome, etAway: ownMatch.etAway, pens: ownMatch.pens },
+      suffix: knockoutSuffix(isHome ? ownMatch : { extraTime: ownMatch.extraTime,
+        pens: ownMatch.pens && { home: ownMatch.pens.away, away: ownMatch.pens.home } })
     };
     eu.history.push({
       round: roundLabel, opponent: ownResult.opponent, opponentStrength: ownResult.opponentStrength,
       ownGoals: ownResult.ownGoals, oppGoals: ownResult.oppGoals,
-      won: ownResult.won, wasDraw: ownResult.wasDraw
+      won: ownResult.won, wasDraw: ownResult.wasDraw, suffix: ownResult.suffix
     });
   }
 

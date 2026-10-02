@@ -74,18 +74,22 @@ function simulateCupRound(gameState){
       const tmp = home; home = away; away = tmp;
     }
 
-    const { homeGoals, awayGoals } = simulateMatch(gameState, home, away);
-    let winner;
+    const nach90 = simulateMatch(gameState, home, away);
+    let homeGoals = nach90.homeGoals, awayGoals = nach90.awayGoals;
+    let winner, ko = null;
     if(homeGoals === awayGoals){
-      const diff = getTeamStrength(gameState, home) - getTeamStrength(gameState, away);
-      const winProb = Math.max(0.15, Math.min(0.85, 0.5 + diff / 200));
-      winner = Math.random() < winProb ? home : away;
+      // Verlaengerung und, wenn noetig, Elfmeterschiessen.
+      const l = getMatchLambdas(gameState, home, away);
+      ko = resolveKnockoutDraw(l.home, l.away, getTeamStrength(gameState, home), getTeamStrength(gameState, away));
+      homeGoals += ko.etHome; awayGoals += ko.etAway;
+      winner = ko.homeWins ? home : away;
     } else {
       winner = homeGoals > awayGoals ? home : away;
     }
     const loser = winner === home ? away : home;
     matches.push({
-      home, away, homeGoals, awayGoals, winner, wasDraw: homeGoals === awayGoals,
+      home, away, homeGoals, awayGoals, winner, wasDraw: !!ko,
+      extraTime: !!ko, etHome: ko ? ko.etHome : 0, etAway: ko ? ko.etAway : 0, pens: ko ? ko.pens : null,
       // Pokalsensation: Zweitligist wirft einen Erstligisten raus
       upset: getCupDivisionRank(gameState, winner) > getCupDivisionRank(gameState, loser)
     });
