@@ -176,8 +176,12 @@ function sortPoolResults(list, key, dir){
 
 // Massgeblich ist das Standing des Vereins, nicht die Kaderbewertung —
 // sonst liesse sich die Grenze durch Einkaeufe Schritt fuer Schritt anheben.
+// Wer wechselt? Massgeblich ist das Hoechste aus Vereinsstaerke, Standing
+// und der echten Kaderstaerke — ein aufgeruesteter Kader zieht bessere
+// Spieler an, auch wenn der Verein selbst noch klein ist.
 function getTransferInterestLimit(gameState){
-  const staerke = Math.max(getOwnClubStrength(gameState), gameState.clubStature || 0);
+  const kader = (gameState.squad || []).length ? teamRating(gameState.squad, (gameState.matchday || 0) + 1) : 0;
+  const staerke = Math.max(getOwnClubStrength(gameState), gameState.clubStature || 0, kader);
   const bonus = typeof getDifficulty === "function" ? getDifficulty(gameState).transferBonus : 0;
   return Math.round(staerke + TRANSFER_MAX_ABOVE_CLUB + bonus);
 }

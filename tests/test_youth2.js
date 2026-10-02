@@ -229,6 +229,28 @@ check("Nach fünf Saisons gibt es Eigengewächse im Profikader", () => {
   return eigen>0 ? true : "keine Eigengewächse hochgekommen";
 });
 
+console.log("\n--- Geparkte Profis ---");
+check("Jugend und zurück verlängert keinen Vertrag, Gehalt bleibt voll", () => {
+  const p=gs.squad.find(x=>!x.isYouthProduct) || gs.squad[0];
+  p.age=Math.min(p.age,K.YOUTH_SQUAD_MAX_AGE); p.contractYears=1;
+  while(gs.youthSquad.length>=K.YOUTH_SQUAD_MAX_SIZE) gs.youthSquad.pop();
+  const vor=win.getMatchdaySalaryCost(gs.squad,gs.youthSquad);
+  const r=win.demoteToYouthSquad(gs,p.id); if(!r.success) return r.message;
+  const nach=win.getMatchdaySalaryCost(gs.squad,gs.youthSquad);
+  win.promoteYouthPlayer(gs,p.id);
+  if(Math.abs(vor-nach)>1) return `Gehalt ${vor} -> ${nach}`;
+  return p.contractYears===1 ? true : `Vertrag ${p.contractYears} Jahre`;
+});
+check("Prämien steigen mit der Liga", () => {
+  const s=[3,2,1].map(d=>win.getMatchBonus("win",60,60,d));
+  const b=[3,2,1].map(d=>win.calculateSeasonEndBonus(1,18,d));
+  return s[0]<s[1]&&s[1]<s[2]&&b[0]<b[1]&&b[1]<b[2] ? true : s.join("/")+" "+b.join("/");
+});
+check("Transferinteresse folgt der Kaderstärke", () => {
+  const kader=win.teamRating(gs.squad,(gs.matchday||0)+1);
+  return win.getTransferInterestLimit(gs)>=kader+10 ? true : `Kader ${kader}, Grenze ${win.getTransferInterestLimit(gs)}`;
+});
+
 check("Keine Laufzeitfehler", () => errors.length===0 ? true : errors.join(" | "));
 
 console.log(fails===0?"\nAlle Tests bestanden.":`\n${fails} Test(s) fehlgeschlagen.`);
