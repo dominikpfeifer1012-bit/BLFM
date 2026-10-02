@@ -192,7 +192,7 @@ function updateReputationForSeason(gameState, info){
   let delta = (info.target - info.position) * REPUTATION_PER_RANK;
   if(info.champion) delta += 8;
   if(info.cupWinner) delta += 5;
-  if(info.europeWinner) delta += 7;
+  // Europapokal-Titel zaehlen schon beim Gewinn (uefa.js), hier nicht doppelt.
   if(info.promoted) delta += 5;
   if(info.relegated) delta -= 7;
   return { delta, neu: changeReputation(gameState, Math.max(-12, Math.min(18, delta))) };

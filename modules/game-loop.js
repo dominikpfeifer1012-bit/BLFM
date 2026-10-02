@@ -56,14 +56,18 @@ function getNextEvent(gameState){
   if(gameState.seasonEnded) return { type: "seasonEnd" };
   const upcomingDay = gameState.matchday + 1;
 
+  // Supercups eroeffnen die Saison.
+  const sc = typeof getPendingOwnSupercup === "function" ? getPendingOwnSupercup(gameState) : null;
+  if(sc) return { type: "supercup", label: sc.name, beforeMatchday: upcomingDay };
+
   const cup = gameState.cup;
   if(cup && cup.active && getCupTriggerMatchdays(gameState)[cup.round] === upcomingDay){
     return { type: "cup", label: CUP_ROUND_LABELS[cup.round] || `Runde ${cup.round + 1}`, beforeMatchday: upcomingDay };
   }
 
-  const euEvent = getEuropeEvent(gameState);
+  const euEvent = typeof getUefaEvent === "function" ? getUefaEvent(gameState) : null;
   if(euEvent){
-    return { type: "europe", label: euEvent.label, stage: euEvent.stage, beforeMatchday: upcomingDay };
+    return { type: "europe", label: euEvent.label, comp: euEvent.comp, beforeMatchday: upcomingDay };
   }
 
   return { type: "league", matchday: upcomingDay };
@@ -71,8 +75,9 @@ function getNextEvent(gameState){
 
 function getNextEventLabel(){
   const evt = getNextEvent(gameState);
+  if(evt.type === "supercup") return `${evt.label} spielen`;
   if(evt.type === "cup") return `${getCountryConfig(getOwnCountry(gameState)).cupShort}: ${evt.label} spielen`;
-  if(evt.type === "europe") return `Europapokal: ${evt.label} spielen`;
+  if(evt.type === "europe") return `${evt.label} spielen`;
   if(evt.type === "seasonEnd") return "Saison beendet";
   return `Spieltag ${evt.matchday} simulieren`;
 }
@@ -88,11 +93,27 @@ function runNextEvent(){
     return;
   }
 
+  if(evt.type === "supercup"){
+    const sc = playSupercup(gameState, getPendingOwnSupercup(gameState));
+    playBackgroundSupercups(gameState);
+    renderAll(gameState);
+    presentMatch({
+      clubName: gameState.clubName, label: sc.name, home: sc.a, away: sc.b,
+      homeGoals: sc.homeGoals, awayGoals: sc.awayGoals,
+      timeline: buildMatchTimeline({ clubName: gameState.clubName, home: sc.a, away: sc.b,
+        homeGoals: sc.homeGoals, awayGoals: sc.awayGoals, scorers: [], cards: [], injuries: [],
+        knockout: sc.pens ? { extraTime: false, etHome: 0, etAway: 0, pens: sc.pens } : null }),
+      summaryLine: sc.winner === gameState.clubName ? "🏆 Titel gewonnen!" : ""
+    });
+    return;
+  }
+
   if(evt.type === "cup"){
     const cupResult = simulateCupRound(gameState);
     if(cupResult){
       processCupResult(cupResult);
       const load = cupResult.ownMatch ? applyMatchLoad(getCupName(gameState)) : null;
+      advanceUefaBackground(gameState);
       renderAll(gameState);
       if(cupResult.ownMatch){
         const m = cupResult.ownMatch;
@@ -116,34 +137,33 @@ function runNextEvent(){
   }
 
   if(evt.type === "europe"){
-    const euResult = simulateEuropeEvent(gameState);
-    if(euResult){
-      processEuropeResult(euResult);
-      const load = euResult.ownMatch ? applyMatchLoad("Europapokal") : null;
+    const r = playUefaDate(gameState);
+    advanceUefaBackground(gameState);
+    if(r){
+      const cfg = UEFA_COMPS[r.comp];
+      const m = r.match;
+      const load = applyMatchLoad(cfg.name);
+      const ko = m.extraTime ? { extraTime: true, etHome: m.etHome, etAway: m.etAway, pens: m.pens } : null;
+      const tie = m.tie;
+      const gesamt = tie && tie.aggA != null
+        ? ` · Gesamt ${tie.a === gameState.clubName ? tie.aggA : tie.aggB}:${tie.a === gameState.clubName ? tie.aggB : tie.aggA}` : "";
+      const ergebnis = getResultForClub(gameState.clubName, m.home, m.away, m.homeGoals, m.awayGoals);
+      addLogEntry(gameState, `${cfg.icon} ${cfg.name} · ${r.label}: ${m.home} ${m.homeGoals}:${m.awayGoals} ${m.away}${ko ? ` (${knockoutSuffix(ko)})` : ""}${gesamt}`, ergebnis, true);
       renderAll(gameState);
-      if(euResult.ownMatch){
-        const m = euResult.ownMatch;
-        const home = m.isHome ? gameState.clubName : m.opponent;
-        const away = m.isHome ? m.opponent : gameState.clubName;
-        presentMatch({
-          clubName: gameState.clubName,
-          label: `Europapokal · ${evt.label}`,
-          home: home, away: away,
-          homeGoals: m.isHome ? m.ownGoals : m.oppGoals,
-          awayGoals: m.isHome ? m.oppGoals : m.ownGoals,
-          timeline: buildMatchTimeline({
-            clubName: gameState.clubName, home: home, away: away,
-            homeGoals: m.isHome ? m.ownGoals : m.oppGoals,
-            awayGoals: m.isHome ? m.oppGoals : m.ownGoals,
-            scorers: [], cards: [], injuries: load ? load.injuries : [],
-            knockout: m.wasDraw ? m.knockout : null
-          }),
-          summaryLine: m.wasDraw ? (m.knockout && m.knockout.pens ? "Entscheidung im Elfmeterschießen" : "Entscheidung in der Verlängerung") : ""
-        });
-      }
-      return;
-    }
-    renderAll(gameState);
+      presentMatch({
+        clubName: gameState.clubName,
+        label: `${cfg.name} · ${r.label}`,
+        home: m.home, away: m.away, homeGoals: m.homeGoals, awayGoals: m.awayGoals,
+        timeline: buildMatchTimeline({
+          clubName: gameState.clubName, home: m.home, away: m.away,
+          homeGoals: m.homeGoals, awayGoals: m.awayGoals,
+          scorers: [], cards: [], injuries: load ? load.injuries : [], knockout: ko
+        }),
+        otherResults: r.others, tablePosition: r.tablePosition,
+        tableLabel: r.stage.type === "league" ? `${cfg.short}-Ligaphase` : null,
+        summaryLine: (tie && tie.winner ? (tie.winner === gameState.clubName ? "Weiter!" : "Ausgeschieden") : "") + gesamt
+      });
+    } else renderAll(gameState);
     return;
   }
 
@@ -191,6 +211,8 @@ function runMatchdaySimulation(override){
 
   // Die andere Liga spielt denselben Spieltag mit.
   simulateShadowMatchday(gameState);
+  // Europapokal-Termine ohne eigenes Spiel laufen im Hintergrund mit.
+  if(typeof advanceUefaBackground === "function" && !result.finished) advanceUefaBackground(gameState);
 
   developYouthSquad(gameState, gameState.matchday,
     youthResult ? youthResult.appearances : new Set());

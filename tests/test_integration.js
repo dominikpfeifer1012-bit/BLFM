@@ -19,7 +19,7 @@ win.eval(mods.map(f => fs.readFileSync("/home/claude/bl/" + f, "utf8")).join("\n
   window.K = {
     CLUBS, SECOND_DIVISION_CLUBS, POSITION_ORDER, ATTRIBUTES, FORMATIONS, TACTICS,
     TOTAL_MATCHDAYS, MIN_SQUAD_SIZE, MORALE_NEUTRAL, MORALE_UNHAPPY_THRESHOLD,
-    YOUTH_TEAM_MAX_AGE, CUP_FIELD_SIZE, EUROPE_GROUP_MATCHDAYS, EURO_CLUBS,
+    YOUTH_TEAM_MAX_AGE, CUP_FIELD_SIZE, UEFA_DATES, EURO_CLUBS,
     BOARD_CHECKPOINTS, POOL_PLAYERS_PER_CLUB, MATCH_MINUTES,
     get market(){ return market; }, get liveState(){ return liveState; }
   };`);
@@ -62,7 +62,7 @@ const gs = win.gameState;
 gs.liveMatches = false;
 
 check("Alle Kernsysteme sind angelegt", () => {
-  const fehlt = ["squad","pool","youth","board","cup","europe","teams","fixtures","lineup","formation","tactic","clubStature"]
+  const fehlt = ["squad","pool","youth","board","cup","uefa","teams","fixtures","lineup","formation","tactic","clubStature"]
     .filter(k => gs[k] == null);
   return fehlt.length === 0 ? true : "fehlt: " + fehlt.join(", ");
 });

@@ -242,6 +242,12 @@ tr.dim:hover td{ opacity:1; }
 .gradeChip.g4{ color:var(--draw); }
 .gradeChip.g5,.gradeChip.g6{ color:var(--loss); }
 .confList{ display:grid; gap:3px; }
+.uefaCols{ display:grid; grid-template-columns:1fr; gap:14px; }
+@media (min-width:900px){ .uefaCols{ grid-template-columns:1fr 1fr; } }
+.confRow.own{ background:rgba(255,183,3,.14); }
+.honourGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:5px; }
+.honourItem{ display:flex; flex-direction:column; gap:1px; padding:6px 9px; border-radius:var(--r-sm); background:var(--bg-deep); font-size:12.5px; }
+.honourItem.own{ background:rgba(255,183,3,.16); box-shadow:inset 3px 0 0 var(--gold); }
 .chipBar{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
 .chipBtn{ background:var(--panel-2); color:var(--ink-dim); border:1px solid var(--line); padding:4px 9px; font-size:12px;
   text-transform:none; letter-spacing:0; border-radius:99px; }
@@ -538,8 +544,11 @@ tr.dim:hover td{ opacity:1; }
             <div style="max-height:620px; overflow-y:auto;" id="shadowTable"></div>
           </div>
           <div class="card"><div class="cardHead"><h3 id="cupTitle">Pokal</h3></div><div id="cupStatus"></div></div>
-          <div class="card"><div class="cardHead"><h3>Europapokal</h3></div><div id="europeStatus"></div></div>
         </div>
+      </div>
+      <div class="grid g23" style="margin-top:16px;">
+        <div class="card"><div class="cardHead"><h3>Europapokal</h3><span class="eyebrow">Champions League · Europa League · Conference League</span></div><div id="europeStatus"></div></div>
+        <div class="card"><div class="cardHead"><h3>UEFA-Fünfjahreswertung</h3></div><div id="uefaRanking"></div></div>
       </div>
       <div class="card" style="margin-top:16px;">
         <div class="cardHead"><h3>Spielplan</h3><span class="eyebrow">alle Termine der Saison</span></div>
@@ -583,6 +592,10 @@ tr.dim:hover td{ opacity:1; }
         <div id="trendPanel"></div>
       </div>
       <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Ehrentafel</h3><span class="eyebrow">alle Titel aller Wettbewerbe</span></div>
+        <div id="honoursList"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
         <div class="cardHead"><h3>Bestmarken</h3><span class="eyebrow">gesamte Karriere</span></div>
         <div id="recordsPanel"></div>
       </div>
@@ -606,6 +619,14 @@ tr.dim:hover td{ opacity:1; }
     </section>
 
   </main>
+</div>
+
+<div id="uefaDrawOverlay" class="modalOverlay">
+  <div class="modalBox">
+    <span class="modalClose" onclick="closeUefaDrawModal()">✕</span>
+    <div id="uefaDrawContent"></div>
+    <div style="text-align:center; margin-top:14px;"><button onclick="closeUefaDrawModal()">Weiter</button></div>
+  </div>
 </div>
 
 <div id="clubOverlay" class="modalOverlay">
@@ -734,12 +755,13 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/league-life.js"></script>
 <script src="modules/custom-data.js"></script>
 <script src="modules/cup.js"></script>
-<script src="modules/europe.js"></script>
+<script src="modules/uefa.js"></script>
 <script src="modules/ui-core.js"></script>
 <script src="modules/ui-header.js"></script>
 <script src="modules/ui-squad.js"></script>
 <script src="modules/ui-market.js"></script>
 <script src="modules/ui-competitions.js"></script>
+<script src="modules/ui-uefa.js"></script>
 <script src="modules/ui-stats.js"></script>
 <script src="modules/ui-match.js"></script>
 <script src="modules/halftime.js"></script>

@@ -22,27 +22,6 @@ function getOwnRevenueFactor(){
   return getClubRevenueFactor(stature, gameState.division);
 }
 
-function buildEuropeContext(){
-  const pool = typeof getAllLeagueClubs === "function" ? getAllLeagueClubs(gameState) : [];
-  const strengthOf = name => {
-    const club = pool.find(c => c.name === name);
-    return club ? club.strength : 78;
-  };
-
-  // Die Top-Vereine der fuenf grossen Ligen; aeltere Spielstaende kennen
-  // nur die besten vier der eigenen Liga.
-  const quali = gameState.europeQualifiers || gameState.lastTopFour || [];
-  const others = quali
-    .filter(n => n !== gameState.clubName)
-    .map(n => ({ name: n, strength: strengthOf(n) }));
-
-  return {
-    ownClubName: gameState.clubName,
-    ownStrength: teamRating(gameState.squad, 1),
-    others
-  };
-}
-
 function startCareer(){
   const managerName = document.getElementById("managerName").value.trim();
   const clubName = document.getElementById("clubSelect").value;
@@ -97,7 +76,6 @@ function startCareer(){
     achievements: [],
     currentWinStreak: 0,
     cup: null,
-    europe: createFreshEurope(false),
     lastTopFour: [],
     lastSeasonWasDivision1: isTopDivision(startDivision.nr),
     difficulty: (document.getElementById("difficultySelect") || {}).value || "normal",
@@ -123,6 +101,7 @@ function startCareer(){
     addLogEntry(gameState, "📂 Eigene Kaderdatei verwendet.");
   }
   ensureCoaches(gameState);
+  startUefaSeasonForClub(gameState);
   markSeasonStart(gameState);
   simulateAiTransfers(gameState);
 

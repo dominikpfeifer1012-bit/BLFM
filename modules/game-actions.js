@@ -217,7 +217,7 @@ function applyLoadedState(state){
     if(!gameState.cup || !Array.isArray(gameState.cup.teamsRemaining)) gameState.cup = createFreshCup(gameState);
     gameState.lastTopFour = gameState.lastTopFour || [];
     // Altstände ohne Gruppenphase laufen ohne Europapokal weiter.
-    if(!gameState.europe || !gameState.europe.phase) gameState.europe = createFreshEurope(false);
+
 
     registerExistingNames(gameState.squad);
     registerExistingNames((gameState.loans || []).map(l => l.player));
@@ -246,6 +246,8 @@ function applyLoadedState(state){
     }
     simulateShadowMatchday(gameState);
     if(typeof ensureCoaches === "function") ensureCoaches(gameState);
+    // Neue Europapokal-Wettbewerbe fuer aeltere Spielstaende.
+    if(typeof ensureUefaState === "function") ensureUefaState(gameState);
 
     (gameState.squad || []).forEach(p => {
       if(p.goalsSeason == null) p.goalsSeason = 0;
@@ -293,6 +295,15 @@ function answerPressConference(situationKey, index){
   showToast(antwort.folge, antwort.morale >= 0 ? "success" : "info");
   refreshSquadViews();
   renderBoardPanel(gameState);
+}
+
+// Rotation: in englischen Wochen muede Stammspieler automatisch schonen.
+function toggleAutoRotate(){
+  gameState.autoRotate = !gameState.autoRotate;
+  showToast(gameState.autoRotate
+    ? `Rotation an: Spieler mit ${ROTATION_START_LIMIT}+ Startelfeinsätzen in Folge werden geschont, wenn der Ersatz kaum schwächer ist.`
+    : "Rotation aus: es spielt immer die stärkste Elf.", "info");
+  renderAll(gameState);
 }
 
 function togglePressConferences(){

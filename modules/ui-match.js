@@ -222,7 +222,7 @@ function renderMatchExtras(m){
   }
   if(m.otherResults && m.otherResults.length){
     const zeilen = m.otherResults.map(r => `<div class="confRow"><span>${r.home}</span><b class="num">${r.homeGoals}:${r.awayGoals}</b><span>${r.away}</span></div>`).join("");
-    const platz = m.tablePosition ? ` · ${m.clubName} jetzt auf Platz ${m.tablePosition}${m.tableDelta ? ` (${m.tableDelta > 0 ? "▲" : "▼"}${Math.abs(m.tableDelta)})` : ""}` : "";
+    const platz = m.tablePosition ? ` · ${m.clubName} jetzt auf Platz ${m.tablePosition}${m.tableLabel ? ` der ${m.tableLabel}` : ""}${m.tableDelta ? ` (${m.tableDelta > 0 ? "▲" : "▼"}${Math.abs(m.tableDelta)})` : ""}` : "";
     teile.push(`<p class="eyebrow" style="margin:12px 0 6px;">Konferenz · weitere Ergebnisse${platz}</p><div class="confList">${zeilen}</div>`);
   }
   return teile.join("");
