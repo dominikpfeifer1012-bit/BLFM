@@ -157,7 +157,7 @@ check("Die Rekordanzeige ist gefüllt", () => {
 
 check("Bestmarken überstehen mehrere Saisons", () => {
   const vorher=JSON.stringify(gs.records.biggestWin);
-  for(let s=0;s<2;s++){ saisonSpielen(); gs.board.patience=90; win.startNextSeason(); }
+  for(let s=0;s<2;s++){ saisonSpielen(); gs.board.patience=90; gs.board.dismissed=false; win.startNextSeason(); }
   const r=gs.records;
   if(!r.biggestWin) return "Rekord verloren";
   if(gs.seasonHistory.length!==3) return `${gs.seasonHistory.length} Saisons in der Geschichte`;

@@ -48,7 +48,7 @@ function addNews(gameState, text, icon){
 
 // Krisenclubs trennen sich von ihrem Trainer — an den Bewertungsterminen.
 function checkCoachChanges(gameState){
-  if(!BOARD_CHECKPOINTS.includes(gameState.matchday)) return;
+  if(!getBoardCheckpoints(gameState).includes(gameState.matchday)) return;
   ensureCoaches(gameState);
   const tabellen = [gameState.teams, ...Object.values(gameState.shadowLeagues || {}).map(s => s.teams || [])];
   tabellen.forEach(teams => {

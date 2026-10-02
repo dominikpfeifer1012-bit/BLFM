@@ -22,8 +22,7 @@ function drawMinutesInRange(anzahl, von, bis, belegt){
 
 function findOwnFixtureToday(gameState){
   const day = gameState.matchday;
-  return gameState.fixtures.find((f, idx) =>
-    Math.floor(idx / MATCHES_PER_MATCHDAY) === day && !f.played &&
+  return getRoundFixtures(gameState.fixtures, gameState.teams.length, day).find(f => !f.played &&
     (f.home === gameState.clubName || f.away === gameState.clubName)) || null;
 }
 

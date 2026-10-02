@@ -113,5 +113,7 @@ function getMatchdaySalaryCost(squad, youthSquad){
     ? youthSquad.reduce((sum, p) =>
         sum + Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR), 0)
     : 0;
-  return Math.round((getSquadSalaryTotal(squad) + jugend) / TOTAL_MATCHDAYS);
+  // Das Jahresgehalt verteilt sich auf die Spieltage der eigenen Liga.
+  const spieltage = typeof getSeasonMatchdays === "function" ? getSeasonMatchdays() : TOTAL_MATCHDAYS;
+  return Math.round((getSquadSalaryTotal(squad) + jugend) / spieltage);
 }

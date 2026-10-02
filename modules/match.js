@@ -239,9 +239,8 @@ function pickScorer(spieler){
 
 function simulateMatchday(gameState, override){
   const day = gameState.matchday;
-  const roundFixtures = gameState.fixtures.filter(
-    (f, idx) => Math.floor(idx / MATCHES_PER_MATCHDAY) === day && !f.played
-  );
+  const roundFixtures = getRoundFixtures(gameState.fixtures, gameState.teams.length, day)
+    .filter(f => !f.played);
 
   if(roundFixtures.length === 0){
     return { finished: true, events: [], injuries: [], cards: [] };
@@ -311,7 +310,7 @@ function simulateMatchday(gameState, override){
   });
 
   gameState.matchday++;
-  const seasonFinished = gameState.matchday * MATCHES_PER_MATCHDAY >= gameState.fixtures.length;
+  const seasonFinished = gameState.matchday >= getSeasonMatchdays(gameState);
 
   return { finished: seasonFinished, events, injuries, cards };
 }
@@ -324,9 +323,8 @@ function getSortedStandings(teams){
 
 function getNextOpponentInfo(gameState){
   const day = gameState.matchday;
-  const roundFixtures = gameState.fixtures.filter(
-    (f, idx) => Math.floor(idx / MATCHES_PER_MATCHDAY) === day && !f.played
-  );
+  const roundFixtures = getRoundFixtures(gameState.fixtures, gameState.teams.length, day)
+    .filter(f => !f.played);
   const ownFixture = roundFixtures.find(f => f.home === gameState.clubName || f.away === gameState.clubName);
   if(!ownFixture) return null;
 

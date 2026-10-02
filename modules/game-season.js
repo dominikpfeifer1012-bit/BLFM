@@ -274,7 +274,7 @@ function finishSeason(){
 
   let movement = "stayed";
   if(promoRelResult.ownWasPromoted) movement = "promoted";
-  else if(promoRelResult.ownWasRelegated) movement = "relegated";
+  else if(promoRelResult.ownWasRelegated || promoRelResult.ownRelegatedToRegional) movement = "relegated";
 
   gameState.seasonHistory = gameState.seasonHistory || [];
   const cup = gameState.cup || {};
@@ -299,7 +299,7 @@ function finishSeason(){
     // Kennzahlen fuer die Mehrsaison-Analyse. Sie entstehen ohnehin im
     // Spielverlauf und werden hier nur festgehalten.
     stature: gameState.clubStature != null ? Math.round(gameState.clubStature * 10) / 10 : null,
-    teamRating: teamRating(gameState.squad, TOTAL_MATCHDAYS),
+    teamRating: teamRating(gameState.squad, getSeasonMatchdays(gameState)),
     squadSize: gameState.squad.length,
     squadValue: gameState.squad.reduce((sum, p) => sum + p.value, 0),
     salaryTotal: getSquadSalaryTotal(gameState.squad),
@@ -324,13 +324,21 @@ function finishSeason(){
       rising ? "win" : "loss");
   }
 
-  if(promoRelResult.ownWasRelegated){
-    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die 2. Bundesliga ab!`, "loss", true);
-    showToast(`⬇️ Abstieg! ${gameState.clubName} spielt nächste Saison 2. Bundesliga.`, "error");
+  const neueLiga = getDivisionLabel(promoRelResult.ownDivisionNow);
+  if(promoRelResult.ownRelegatedToRegional){
+    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die Regionalliga ab — der Verein trennt sich von dir.`, "loss", true);
+    showToast(`⬇️ Abstieg in die Regionalliga! ${gameState.clubName} trennt sich von dir.`, "error");
+  } else if(promoRelResult.ownWasRelegated){
+    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die ${neueLiga} ab!`, "loss", true);
+    showToast(`⬇️ Abstieg! ${gameState.clubName} spielt nächste Saison ${neueLiga}.`, "error");
   } else if(promoRelResult.ownWasPromoted){
-    addLogEntry(gameState, `⬆️ ${gameState.clubName} steigt in die 1. Bundesliga auf!`, "win", true);
-    showToast(`⬆️ Aufstieg! ${gameState.clubName} spielt nächste Saison 1. Bundesliga!`, "success");
+    addLogEntry(gameState, `⬆️ ${gameState.clubName} steigt in die ${neueLiga} auf!`, "win", true);
+    showToast(`⬆️ Aufstieg! ${gameState.clubName} spielt nächste Saison ${neueLiga}!`, "success");
     unlockAchievement("promotion");
+  }
+  if(promoRelResult.regionalDown && promoRelResult.regionalDown.length){
+    addLogEntry(gameState, `🔻 In die Regionalliga: ${promoRelResult.regionalDown.join(", ")} · 🔺 Aus der Regionalliga: ${promoRelResult.regionalUp.join(", ")}`);
+    addNews(gameState, `Regionalliga-Aufsteiger in die 3. Liga: ${promoRelResult.regionalUp.join(", ")}.`, "🔺");
   }
 
   logStrengthDrift(promoRelResult.driftChanges);
@@ -347,7 +355,7 @@ function finishSeason(){
     champion: playedDivision === 1 && finalPosition === 1,
     cupWinner: cup.champion === gameState.clubName,
     europeWinner: !!eu.champion,
-    promoted: promoRelResult.ownWasPromoted, relegated: promoRelResult.ownWasRelegated
+    promoted: promoRelResult.ownWasPromoted, relegated: promoRelResult.ownWasRelegated || promoRelResult.ownRelegatedToRegional
   });
   if(Math.abs(ruf.delta) >= 1){
     addLogEntry(gameState, `🎓 Trainer-Ruf ${ruf.delta > 0 ? "steigt" : "sinkt"} auf ${Math.round(ruf.neu)} (${getReputationLabel(ruf.neu)}).`, ruf.delta > 0 ? "win" : "loss");
@@ -356,6 +364,18 @@ function finishSeason(){
   if(gameState.successOffers.length > 0){
     addLogEntry(gameState, `📞 Anfragen anderer Vereine: ${gameState.successOffers.map(o => o.name).join(", ")}.`, "win", true);
     showToast(`📞 ${gameState.successOffers.length} Verein${gameState.successOffers.length === 1 ? "" : "e"} wollen dich als Trainer — siehe Saisonbilanz.`, "success");
+  }
+
+  if(promoRelResult.ownRelegatedToRegional){
+    // Mit dem Verein geht es nicht weiter: wie eine Entlassung, mit Angeboten.
+    gameState.successOffers = [];
+    gameState.pendingYouthCandidates = null;
+    if(gameState.board){ gameState.board.dismissed = true; gameState.board.dismissedRegional = true; }
+    changeReputation(gameState, -6);
+    renderSeasonSummary(gameState);
+    renderSeasonHistory(gameState);
+    queueModal(() => showDismissalModal({ matchday: getSeasonMatchdays(gameState), position: finalPosition, regional: true }));
+    return;
   }
 
   renderSeasonSummary(gameState);
@@ -374,6 +394,11 @@ function logStrengthDrift(changes){
 }
 
 function startNextSeason(){
+  if(gameState.board && gameState.board.dismissed){
+    showToast("Mit diesem Verein geht es nicht weiter. Nimm ein Angebot an oder starte neu.", "error");
+    if(typeof showDismissalModal === "function") showDismissalModal({ matchday: gameState.matchday, position: getOwnTeamRow(gameState).position, regional: !!gameState.board.dismissedRegional });
+    return;
+  }
   gameState.season += 1;
   gameState.matchday = 0;
   gameState.seasonEnded = false;

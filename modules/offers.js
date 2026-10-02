@@ -203,7 +203,8 @@ function returnLoans(gameState){
   const zurueck = [];
   ensureLoans(gameState).forEach(l => {
     const p = l.player;
-    const anteil = Math.max(0.3, (TOTAL_MATCHDAYS - (l.fromMatchday || 0)) / TOTAL_MATCHDAYS);
+    const spieltage = getSeasonMatchdays(gameState);
+    const anteil = Math.max(0.3, (spieltage - (l.fromMatchday || 0)) / spieltage);
     const raum = Math.max(0, p.maxStrength - p.strength);
     const gewinn = Math.min(raum, randFloat(LOAN_GAIN_MIN, LOAN_GAIN_MAX) * anteil * (p.age <= 20 ? 1.2 : 1));
     const vorher = Math.round(p.strength);

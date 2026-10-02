@@ -157,7 +157,7 @@ check("Drei Saisons laufen mit Investitionen durch", () => {
       if($("liveOverlay").classList.contains("show")){ win.skipLiveMatch(); win.closeLiveMatch(); }
     }
     if(gs.pendingYouthCandidates) win.finishYouthIntake();
-    gs.board.patience=90;
+    gs.board.patience=90; gs.board.dismissed=false;
     win.startNextSeason();
   }
   return gs.matchday===0 && gs.squad.length>=18 ? true : "Ablauf gestört";
