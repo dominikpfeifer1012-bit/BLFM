@@ -156,46 +156,176 @@ const CUP_FIELD_SIZE = 32;
 const CUP_ROUND_BONUS = 250000;
 const CUP_CHAMPION_BONUS = 4000000;
 
-// Europapokal im Championsleague-Format: 8 Gruppen a 4 Teams, davon 4 aus
-// der Bundesliga (Top 4 der Vorsaison) und 28 europaeische Vereine.
-// Gruppenphase mit Hin- und Rueckspiel, danach K.o. ab dem Achtelfinale.
-const EUROPE_GROUP_COUNT = 8;
-const EUROPE_TEAMS_PER_GROUP = 4;
-const EUROPE_GROUP_NAMES = ["A","B","C","D","E","F","G","H"];
-const EUROPE_QUALIFY_PER_GROUP = 2;
+// ============================================
+// UEFA-Wettbewerbe (Format seit 2024/25)
+// ============================================
+// Champions League, Europa League und Conference League mit je 36 Teams in
+// einer Ligaphase. CL und EL: 8 Gegner aus 4 Toepfen, Conference League:
+// 6 Gegner aus 6 Toepfen. Platz 1-8 direkt ins Achtelfinale, 9-24 spielen
+// K.o.-Play-offs, ab 25 ist Schluss. K.o.-Runden mit Hin- und Rueckspiel,
+// das Finale auf neutralem Platz.
+const UEFA_COMPS = {
+  cl:  { key: "cl",  name: "Champions League",  short: "CL",  icon: "⭐", rounds: 8, pots: 4,
+         prize: { start: 2500000, win: 300000, draw: 100000, stages: [300000, 700000, 1000000, 1500000, 2000000], champion: 6000000 },
+         coeffBonus: 4, reputation: { stage: 1.5, title: 8 } },
+  el:  { key: "el",  name: "Europa League",     short: "EL",  icon: "🟠", rounds: 8, pots: 4,
+         prize: { start: 800000, win: 120000, draw: 40000, stages: [150000, 300000, 450000, 700000, 1000000], champion: 2500000 },
+         coeffBonus: 1, reputation: { stage: 1, title: 5 } },
+  ecl: { key: "ecl", name: "Conference League", short: "ECL", icon: "🟢", rounds: 6, pots: 6,
+         prize: { start: 500000, win: 80000, draw: 30000, stages: [100000, 200000, 300000, 450000, 700000], champion: 1500000 },
+         coeffBonus: 0, reputation: { stage: 0.7, title: 3 } }
+};
+const UEFA_COMP_ORDER = ["cl", "el", "ecl"];
+const UEFA_FIELD_SIZE = 36;
+const UEFA_DIRECT_R16 = 8;        // Platz 1-8 direkt ins Achtelfinale
+const UEFA_PLAYOFF_UNTIL = 24;    // Platz 9-24 in die K.o.-Play-offs
+const UEFA_KO_STAGES = ["K.o.-Play-offs", "Achtelfinale", "Viertelfinale", "Halbfinale", "Finale"];
+// Termine (fuer 34 Spieltage geplant, werden gestreckt): 8 Ligaphasen-
+// Spieltage, dann je zwei Termine fuer Play-offs, Achtel-, Viertel- und
+// Halbfinale, zuletzt das Finale.
+const UEFA_DATES = [2, 4, 6, 9, 11, 13, 15, 17, 19, 20, 23, 24, 26, 27, 28, 29, 33];
+const UEFA_LEAGUE_DATES = 8;
 
-const EUROPE_GROUP_MATCHDAYS = [2, 5, 7, 11, 13, 16];
-const EUROPE_KO_MATCHDAYS = [20, 24, 28, 32];
-const EUROPE_KO_LABELS = ["Achtelfinale", "Viertelfinale", "Halbfinale", "Finale"];
+// Startplaetze der fuenf Ligen: CL nach Tabelle (Frankreich drei), dazu
+// ein Platz fuer die zwei besten Laender der Vorjahreswertung. EL: naechster
+// Tabellenplatz plus Pokalsieger. Conference League: der Platz danach.
+const UEFA_CL_SLOTS = { de: 4, en: 4, es: 4, it: 4, fr: 3 };
+const UEFA_EXTRA_CL_COUNTRIES = 2;
 
-const EUROPE_GROUP_WIN_BONUS = 150000;
-const EUROPE_GROUP_DRAW_BONUS = 50000;
-const EUROPE_QUALIFY_BONUS = 800000;
-const EUROPE_ROUND_BONUS = 400000;
-const EUROPE_CHAMPION_BONUS = 6000000;
+// Koeffizienten: Sieg 2, Remis 1, je erreichter K.o.-Runde ab dem
+// Achtelfinale 1 Punkt, dazu ein Teilnahmebonus je Wettbewerb.
+const UEFA_COEFF_WIN = 2;
+const UEFA_COEFF_DRAW = 1;
+const UEFA_COEFF_YEARS = 5;
+// Fuenfjahreswertung zum Start (je Saison, aelteste zuerst), grob an der
+// echten UEFA-Wertung orientiert.
+const UEFA_COUNTRY_SEED = {
+  en: [21.6, 23.0, 23.0, 21.4, 22.6], it: [16.2, 21.4, 19.4, 21.0, 19.8], es: [18.9, 19.9, 16.6, 18.8, 19.5],
+  de: [18.7, 17.3, 19.4, 17.6, 16.4], fr: [16.6, 13.8, 13.1, 16.1, 14.2], PT: [11.6, 14.0, 13.6, 12.0, 13.9],
+  NL: [9.9, 15.8, 12.8, 13.0, 12.3], BE: [9.6, 11.6, 11.4, 12.2, 11.3], TR: [6.0, 8.6, 12.0, 9.0, 11.4],
+  CZ: [9.4, 9.5, 9.7, 13.1, 8.1], GR: [6.2, 9.3, 5.6, 14.6, 9.0], CH: [5.1, 9.2, 9.6, 6.5, 9.1],
+  AT: [8.2, 8.8, 5.3, 8.4, 9.5], NO: [6.0, 9.0, 7.8, 8.2, 11.0], DK: [9.6, 5.8, 9.4, 8.0, 7.2],
+  SCO: [9.5, 7.7, 5.3, 9.6, 8.1], PL: [5.9, 2.8, 12.9, 6.0, 9.5], HR: [7.4, 7.1, 5.6, 7.0, 6.5],
+  SE: [3.8, 5.5, 6.0, 5.0, 6.3], RS: [5.5, 5.5, 5.5, 5.4, 4.8], CY: [5.0, 6.1, 5.8, 5.6, 8.0],
+  IL: [5.8, 5.4, 6.1, 4.6, 5.3], UA: [4.6, 5.8, 5.0, 4.3, 5.1], HU: [4.0, 4.8, 6.0, 4.4, 5.6],
+  RO: [3.3, 4.6, 3.8, 5.4, 7.5], SI: [2.8, 4.8, 5.3, 6.0, 5.3], BG: [3.4, 4.3, 3.6, 4.8, 5.1],
+  SK: [3.5, 4.0, 4.4, 4.6, 4.0], AZ: [2.8, 3.3, 5.1, 5.0, 6.0], KZ: [3.1, 3.4, 3.7, 4.4, 4.0],
+  MD: [3.2, 4.5, 3.0, 2.0, 3.1], IE: [1.6, 2.6, 2.2, 3.5, 4.2], BA: [1.6, 2.0, 2.4, 2.8, 3.3],
+  FI: [2.8, 2.6, 2.3, 2.0, 2.4], IS: [1.0, 2.0, 1.7, 2.2, 2.3], XK: [1.0, 1.3, 1.5, 2.2, 2.1],
+  NIR: [1.0, 1.5, 1.6, 1.4, 1.5], WAL: [1.0, 1.0, 1.4, 1.2, 1.4]
+};
+const UEFA_COUNTRY_NAMES = {
+  PT: "Portugal", NL: "Niederlande", BE: "Belgien", TR: "Türkei", CZ: "Tschechien", GR: "Griechenland",
+  CH: "Schweiz", AT: "Österreich", NO: "Norwegen", DK: "Dänemark", SCO: "Schottland", PL: "Polen",
+  HR: "Kroatien", SE: "Schweden", RS: "Serbien", CY: "Zypern", IL: "Israel", UA: "Ukraine",
+  HU: "Ungarn", RO: "Rumänien", SI: "Slowenien", BG: "Bulgarien", SK: "Slowakei", AZ: "Aserbaidschan",
+  KZ: "Kasachstan", MD: "Moldau", IE: "Irland", BA: "Bosnien-Herzegowina", FI: "Finnland", IS: "Island",
+  XK: "Kosovo", NIR: "Nordirland", WAL: "Wales"
+};
+
+// Nationale Supercups (Meister gegen Pokalsieger) und der UEFA Supercup
+// (CL- gegen EL-Sieger) eroeffnen die Saison.
+const SUPERCUP_NAMES = { de: "DFL-Supercup", en: "Community Shield", es: "Supercopa de España",
+  it: "Supercoppa Italiana", fr: "Trophée des Champions" };
+const SUPERCUP_PRIZE = 500000;
+const UEFA_SUPERCUP_PRIZE = 1000000;
+
+// Vorstand: Europapokal-Ziel nach Rang im Teilnehmerfeld.
+const BOARD_EUROPE_GOAL_BONUS = 8;
+const BOARD_EUROPE_GOAL_MISS = 8;
+
+// Rotation: wer so oft in Folge begonnen hat, wird geschont, wenn ein
+// Ersatz hoechstens ROTATION_MAX_GAP Punkte schwaecher ist.
+const ROTATION_START_LIMIT = 3;
+const ROTATION_MAX_GAP = 4;
 
 // Europapokal-Teilnehmer aus Laendern ohne eigene Liga im Spiel. Die
-// Vereine der fuenf grossen Ligen kommen ueber ihre Tabellen hinein.
+// Vereine der fuenf grossen Ligen kommen ueber ihre Tabellen hinein; diese
+// fuellen die drei Wettbewerbe nach Staerke auf.
 const EURO_CLUBS = [
-  {name:"Benfica Lissabon", strength:81},
-  {name:"Sporting Lissabon", strength:81},
-  {name:"FC Porto", strength:80},
-  {name:"PSV Eindhoven", strength:79},
-  {name:"Ajax Amsterdam", strength:78},
-  {name:"Feyenoord Rotterdam", strength:77},
-  {name:"Club Brügge", strength:76},
-  {name:"Galatasaray Istanbul", strength:76},
-  {name:"Fenerbahçe Istanbul", strength:75},
-  {name:"RB Salzburg", strength:75},
-  {name:"Celtic Glasgow", strength:74},
-  {name:"Olympiakos Piräus", strength:73},
-  {name:"Schachtar Donezk", strength:73},
-  {name:"Slavia Prag", strength:72},
-  {name:"Roter Stern Belgrad", strength:72},
-  {name:"BSC Young Boys", strength:71}
+  {name:"Benfica Lissabon", strength:81, country:"PT"},
+  {name:"Sporting Lissabon", strength:81, country:"PT"},
+  {name:"FC Porto", strength:80, country:"PT"},
+  {name:"PSV Eindhoven", strength:79, country:"NL"},
+  {name:"Ajax Amsterdam", strength:77, country:"NL"},
+  {name:"Feyenoord Rotterdam", strength:77, country:"NL"},
+  {name:"Club Brügge", strength:76, country:"BE"},
+  {name:"Galatasaray Istanbul", strength:76, country:"TR"},
+  {name:"Fenerbahçe Istanbul", strength:75, country:"TR"},
+  {name:"SC Braga", strength:74, country:"PT"},
+  {name:"RB Salzburg", strength:74, country:"AT"},
+  {name:"Celtic Glasgow", strength:74, country:"SCO"},
+  {name:"AZ Alkmaar", strength:73, country:"NL"},
+  {name:"Union Saint-Gilloise", strength:73, country:"BE"},
+  {name:"Beşiktaş Istanbul", strength:73, country:"TR"},
+  {name:"Olympiakos Piräus", strength:73, country:"GR"},
+  {name:"Bodø/Glimt", strength:72, country:"NO"},
+  {name:"Glasgow Rangers", strength:72, country:"SCO"},
+  {name:"Schachtar Donezk", strength:72, country:"UA"},
+  {name:"Slavia Prag", strength:72, country:"CZ"},
+  {name:"Roter Stern Belgrad", strength:72, country:"RS"},
+  {name:"BSC Young Boys", strength:71, country:"CH"},
+  {name:"PAOK Thessaloniki", strength:71, country:"GR"},
+  {name:"Dinamo Zagreb", strength:71, country:"HR"},
+  {name:"FC Kopenhagen", strength:71, country:"DK"},
+  {name:"FC Midtjylland", strength:70, country:"DK"},
+  {name:"Sparta Prag", strength:70, country:"CZ"},
+  {name:"RSC Anderlecht", strength:70, country:"BE"},
+  {name:"KRC Genk", strength:70, country:"BE"},
+  {name:"SK Sturm Graz", strength:69, country:"AT"},
+  {name:"Trabzonspor", strength:69, country:"TR"},
+  {name:"FC Twente", strength:69, country:"NL"},
+  {name:"Panathinaikos Athen", strength:69, country:"GR"},
+  {name:"AEK Athen", strength:69, country:"GR"},
+  {name:"Ferencváros Budapest", strength:69, country:"HU"},
+  {name:"FC Basel", strength:69, country:"CH"},
+  {name:"Viktoria Pilsen", strength:68, country:"CZ"},
+  {name:"FC Utrecht", strength:68, country:"NL"},
+  {name:"KAA Gent", strength:68, country:"BE"},
+  {name:"Lech Posen", strength:67, country:"PL"},
+  {name:"Legia Warschau", strength:67, country:"PL"},
+  {name:"Partizan Belgrad", strength:67, country:"RS"},
+  {name:"Malmö FF", strength:67, country:"SE"},
+  {name:"Qarabağ Ağdam", strength:67, country:"AZ"},
+  {name:"Vitória Guimarães", strength:66, country:"PT"},
+  {name:"İstanbul Başakşehir", strength:66, country:"TR"},
+  {name:"Maccabi Tel Aviv", strength:66, country:"IL"},
+  {name:"Ludogorez Rasgrad", strength:66, country:"BG"},
+  {name:"FCSB Bukarest", strength:66, country:"RO"},
+  {name:"Rapid Wien", strength:66, country:"AT"},
+  {name:"Dynamo Kiew", strength:66, country:"UA"},
+  {name:"Hajduk Split", strength:65, country:"HR"},
+  {name:"Molde FK", strength:65, country:"NO"},
+  {name:"Raków Częstochowa", strength:65, country:"PL"},
+  {name:"Jagiellonia Białystok", strength:65, country:"PL"},
+  {name:"Brøndby IF", strength:65, country:"DK"},
+  {name:"Servette Genf", strength:64, country:"CH"},
+  {name:"FC Lugano", strength:64, country:"CH"},
+  {name:"LASK Linz", strength:64, country:"AT"},
+  {name:"Royal Antwerpen", strength:64, country:"BE"},
+  {name:"Pafos FC", strength:63, country:"CY"},
+  {name:"Heart of Midlothian", strength:63, country:"SCO"},
+  {name:"FC Famalicão", strength:63, country:"PT"},
+  {name:"Aberdeen FC", strength:62, country:"SCO"},
+  {name:"NK Celje", strength:62, country:"SI"},
+  {name:"APOEL Nikosia", strength:62, country:"CY"},
+  {name:"CFR Cluj", strength:62, country:"RO"},
+  {name:"Slovan Bratislava", strength:62, country:"SK"},
+  {name:"Maccabi Haifa", strength:62, country:"IL"},
+  {name:"Omonia Nikosia", strength:61, country:"CY"},
+  {name:"BK Häcken", strength:61, country:"SE"},
+  {name:"HNK Rijeka", strength:61, country:"HR"},
+  {name:"Olimpija Ljubljana", strength:60, country:"SI"},
+  {name:"FK Astana", strength:60, country:"KZ"},
+  {name:"Shamrock Rovers", strength:59, country:"IE"},
+  {name:"Sheriff Tiraspol", strength:59, country:"MD"},
+  {name:"Zrinjski Mostar", strength:58, country:"BA"},
+  {name:"HJK Helsinki", strength:58, country:"FI"},
+  {name:"Breiðablik", strength:56, country:"IS"},
+  {name:"FC Drita", strength:55, country:"XK"},
+  {name:"Larne FC", strength:54, country:"NIR"},
+  {name:"The New Saints", strength:54, country:"WAL"}
 ];
-// Wie viele Vereine je grosser Liga in den Europapokal kommen.
-const EUROPE_SLOTS_PER_TOP_LEAGUE = 4;
 
 const ACHIEVEMENTS = [
   { key:"firstWin", label:"🏆 Erster Sieg", desc:"Ersten Pflichtsieg eingefahren" },
@@ -388,7 +518,7 @@ const BOARD_PATIENCE_PER_RANK = 3;
 const BOARD_MAX_SWING = 25;
 const BOARD_WARN_THRESHOLD = 30;
 const BOARD_CUP_ROUND_CREDIT = 5;
-const BOARD_EUROPE_ROUND_CREDIT = 7;
+const BOARD_EUROPE_ROUND_CREDIT = 7;   // Vorstandsguthaben je gewonnener K.o.-Runde
 // Konto im Minus: Geduldsverlust je Spieltag, Zwangsverkauf nach so vielen Spieltagen
 const DEBT_PATIENCE_PER_MATCHDAY = 1;
 const DEBT_FORCED_SALE_AFTER = 6;

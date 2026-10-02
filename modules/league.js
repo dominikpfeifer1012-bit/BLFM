@@ -35,8 +35,6 @@ function scaleMatchday(md, gameState){
   return Math.max(1, Math.min(n, Math.round(md * n / TOTAL_MATCHDAYS)));
 }
 function getCupTriggerMatchdays(gameState){ return CUP_ROUND_TRIGGER_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
-function getEuropeGroupMatchdays(gameState){ return EUROPE_GROUP_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
-function getEuropeKoMatchdays(gameState){ return EUROPE_KO_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
 function getTransferWindows(gameState){
   return TRANSFER_WINDOWS.map(([a, b]) => [a === 1 ? 1 : scaleMatchday(a, gameState), scaleMatchday(b, gameState)]);
 }

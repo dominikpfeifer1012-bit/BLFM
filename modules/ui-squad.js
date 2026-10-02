@@ -273,8 +273,9 @@ function renderLineupControls(gameState, info){
         <select onchange="handleTrainingChange(this.value)">${trainingOptions}</select>
       </label>
       <button class="ghost" onclick="resetLineup()"${manualCount === 0 ? " disabled" : ""}>Alles automatisch</button>
+      <button class="ghost${gameState.autoRotate ? " on" : ""}" onclick="toggleAutoRotate()" title="Müde Stammspieler schonen, wenn ein Ersatz höchstens ${ROTATION_MAX_GAP} Punkte schwächer ist">🔄 Rotation: ${gameState.autoRotate ? "an" : "aus"}</button>
     </div>
-    <p class="muted" style="margin:0 0 10px;">${status}${warn}</p>
+    <p class="muted" style="margin:0 0 10px;">${status}${warn}${gameState.autoRotate ? ` · 🔄 schont Spieler ab ${ROTATION_START_LIMIT} Startelfeinsätzen in Folge` : ""}</p>
     <p class="muted" style="margin:0 0 10px; font-size:12px;">
       <b>${tactic.label}:</b> ${tactic.desc}<br>
       <b>${training.label}:</b> ${training.desc}

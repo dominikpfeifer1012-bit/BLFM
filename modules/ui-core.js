@@ -192,6 +192,8 @@ function renderAll(gameState){
   renderRecords(gameState);
   renderCupStatus(gameState);
   renderEuropeStatus(gameState);
+  renderUefaRanking(gameState);
+  renderHonours(gameState);
   renderFixtureList(gameState);
   renderAchievements(gameState);
   renderLog(gameState);

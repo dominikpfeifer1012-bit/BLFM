@@ -123,7 +123,7 @@ function acceptJobOffer(clubName){
   gameState.fixtures = generateFixtures(gameState.teams.map(t => t.name));
   gameState.shadowLeagues = createShadowLeagues(gameState);
   gameState.cup = createFreshCup(gameState);
-  gameState.europe = createFreshEurope(false);
+  startUefaSeasonForClub(gameState);
   gameState.marketRefreshedOnMatchday = -1;
   if(gameState.pool) advancePool(gameState);
 
@@ -272,15 +272,34 @@ function finishSeason(){
     teamRating(gameState.squad, 1), finalPosition, totalTeams, playedDivision);
   gameState.clubStature = advanceClubStature(statureBefore, statureTarget);
 
+  // Europapokal abschliessen, bevor sich Ligen und Vereine aendern.
+  if(typeof finishUefaSeason === "function") finishUefaSeason(gameState);
+  const uefaHolders = typeof getUefaHolders === "function" ? getUefaHolders(gameState) : null;
+
   const promoRelResult = processPromotionRelegation(gameState);
 
   gameState.seasonEnded = true;
   gameState.lastSeasonSummary = { finalPosition, totalTeams, bonus, season: gameState.season };
   gameState.lastTopFour = sorted.slice(0, 4).map(t => t.name);
   gameState.lastSeasonWasDivision1 = isTopDivision(playedDivision);
-  // Europapokal: die besten vier jeder grossen Liga der abgelaufenen Saison.
-  gameState.europeQualifiers = DIVISIONS.filter(d => d.europe).flatMap(d =>
-    (promoRelResult.standings[d.nr] || []).slice(0, EUROPE_SLOTS_PER_TOP_LEAGUE).map(t => t.name));
+  // Ehrentafel: Meister aller Ligen und alle Pokalsieger.
+  DIVISIONS.forEach(d => {
+    const meister = (promoRelResult.standings[d.nr] || [])[0];
+    if(meister) addHonour(gameState, "league-" + d.nr, d.label, meister.name);
+  });
+  COUNTRIES.forEach(l => {
+    const sieger = gameState.cupWinners && gameState.cupWinners[l.key];
+    if(sieger) addHonour(gameState, "cup-" + l.key, l.cup, sieger);
+  });
+  // Startplaetze fuer die naechste Europapokal-Saison.
+  gameState.lastTopTables = {};
+  COUNTRIES.forEach(l => {
+    const top = getCountryDivisions(l.key)[0];
+    gameState.lastTopTables[l.key] = (promoRelResult.standings[top.nr] || []).map(t => t.name);
+  });
+  gameState.lastCupWinners = Object.assign({}, gameState.cupWinners || {});
+  gameState.lastUefaHolders = uefaHolders;
+  gameState.uefaQualification = computeUefaQualification(gameState, gameState.lastTopTables, gameState.lastCupWinners, uefaHolders);
   // Meister der anderen Ligen fuer die Nachrichten.
   DIVISIONS.filter(d => d.nr !== playedDivision && d.tier === 1).forEach(d => {
     const meister = (promoRelResult.standings[d.nr] || [])[0];
@@ -293,7 +312,7 @@ function finishSeason(){
 
   gameState.seasonHistory = gameState.seasonHistory || [];
   const cup = gameState.cup || {};
-  const eu = gameState.europe || {};
+  const uefaErgebnis = typeof describeOwnUefaResult === "function" ? describeOwnUefaResult(gameState) : null;
 
   const saisonEintrag = {
     season: gameState.season, finalPosition, totalTeams, bonus,
@@ -302,11 +321,7 @@ function finishSeason(){
     cupResult: cup.champion === gameState.clubName ? "Sieger"
       : cup.eliminated ? describeCupExit(cup)
       : "—",
-    europeResult: !eu.qualified ? null
-      : eu.champion ? "Sieger"
-      : eu.exitLabel ? eu.exitLabel
-      : eu.phase === "group" ? "Gruppenphase"
-      : `Aus im ${EUROPE_KO_LABELS[Math.max(0, eu.knockoutRound - 1)] || "K.o."}`,
+    europeResult: uefaErgebnis,
     boardPatience: gameState.board ? Math.round(gameState.board.patience) : null,
     goalsFor: sorted[finalPosition - 1] ? sorted[finalPosition - 1].gf : null,
     goalsAgainst: sorted[finalPosition - 1] ? sorted[finalPosition - 1].ga : null,
@@ -373,7 +388,7 @@ function finishSeason(){
     position: finalPosition, target: ziel,
     champion: isTopDivision(playedDivision) && finalPosition === 1,
     cupWinner: cup.champion === gameState.clubName,
-    europeWinner: !!eu.champion,
+    europeWinner: !!(uefaErgebnis && uefaErgebnis.endsWith("Sieger")),
     promoted: promoRelResult.ownWasPromoted, relegated: promoRelResult.ownWasRelegated || promoRelResult.ownRelegatedToRegional
   });
   if(Math.abs(ruf.delta) >= 1){
@@ -434,9 +449,7 @@ function startNextSeason(){
   gameState.board = createFreshBoard(getBoardReferenceStrength(gameState), gameState.division,
     gameState.board ? gameState.board.patience : null);
 
-  const qualifiedForEurope = (gameState.europeQualifiers || (gameState.lastSeasonWasDivision1 ? gameState.lastTopFour : []) || [])
-    .includes(gameState.clubName);
-  gameState.europe = createFreshEurope(qualifiedForEurope, buildEuropeContext());
+  startUefaSeasonForClub(gameState);
 
   resetYouthSeason(gameState);
   resetMoraleForNewSeason(gameState.squad);
@@ -449,9 +462,6 @@ function startNextSeason(){
     ` (${poolWechsel.abgaenge} Karriereenden, ${poolWechsel.zugaenge} Neuzugänge im Bestand).`);
 
   addLogEntry(gameState, `🆕 Saison ${gameState.season}/${gameState.season+1} gestartet (${getDivisionLabel(gameState.division)})! Neuer ${getCupName(gameState)}-Wettbewerb beginnt.`, null, true);
-  if(qualifiedForEurope){
-    addLogEntry(gameState, `🌍 Als Top-${EUROPE_SLOTS_PER_TOP_LEAGUE}-Team der Vorsaison für den Europapokal qualifiziert!`);
-  }
 
   if(isTransferWindowOpen(1)){
     const end = getCurrentWindowEnd(1);
@@ -465,4 +475,19 @@ function startNextSeason(){
   renderAll(gameState);
   hideSeasonSummary();
   autoSave();
+}
+
+// Europapokal und Supercups einer neuen Saison anlegen (Saisonstart,
+// Vereinswechsel, neue Karriere).
+function startUefaSeasonForClub(gameState){
+  createUefaSeason(gameState, gameState.uefaQualification);
+  createSupercups(gameState);
+  playBackgroundSupercups(gameState);
+  advanceUefaBackground(gameState);
+  const uefa = gameState.uefa;
+  if(uefa && uefa.own){
+    const cfg = UEFA_COMPS[uefa.own];
+    addLogEntry(gameState, `${cfg.icon} Qualifiziert für die ${cfg.name}!`, "win", true);
+    if(typeof queueUefaDrawModal === "function") queueUefaDrawModal(gameState, uefa.own, -1);
+  }
 }

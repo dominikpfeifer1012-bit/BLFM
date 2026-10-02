@@ -27,7 +27,7 @@ python3 -m http.server 8000
 ```
 index.html                      Oberflaeche und Einstiegspunkt
 manifest.json                   Angaben fuer den Startbildschirm
-modules/                        39 Module, klassische Skripte ohne Bundler
+modules/                        40 Module, klassische Skripte ohne Bundler
   config.js                     Alle Konstanten, Laender und Ligadefinitionen
   clubs-intl.js                 Vereine in England, Spanien, Italien, Frankreich
   players.js  squad.js          Spieler, Attribute, Kader, Aufstellung
@@ -35,13 +35,14 @@ modules/                        39 Module, klassische Skripte ohne Bundler
   pool.js  transfermarkt.js     Weltbestand und Transfers
   match.js  match-events.js     Torformel, Spielverlauf, Noten, Elfmeter
   league.js  cup.js             Ligen, Auf- und Abstieg je Land, Pokale
-  europe.js  board.js           Europapokal, Vorstand
+  uefa.js  ui-uefa.js           CL, EL, Conference League, Wertung, Supercups
+  board.js                      Vorstand und Trainer-Ruf
   youth.js  facilities.js       Jugendkader, Investitionen
   press.js  records.js          Pressekonferenzen, Bestmarken
   ui-*.js                       Oberflaeche, nach Bereichen getrennt
   game-*.js                     Spielablauf, Zustand, Eingaben
   fonts.css                     Schriften lokal eingebettet
-tests/                          Elf Testsuiten fuer Node
+tests/                          Zwoelf Testsuiten fuer Node
 ```
 
 Die Module werden als klassische Skripte geladen, nicht als ES-Module. Das ist
@@ -65,7 +66,10 @@ Elf Ligen in fuenf Laendern (Deutschland mit drei Ligen, England, Spanien,
 Italien und Frankreich mit je zwei) mit den Auf- und Abstiegsregeln des
 jeweiligen Landes inklusive Relegation, Play-offs und Barrage. Dazu die
 nationalen Pokale (DFB-Pokal, FA Cup, Copa del Rey, Coppa Italia, Coupe de
-France), ein Europapokal mit den Top 4 aller fuenf Ligen, eine Ligen-Ansicht
+France), Champions League, Europa League und Conference League im Format
+mit Ligaphase (36 Teams), K.o.-Play-offs und Hin- und Rueckspiel,
+UEFA-Fuenfjahreswertung mit Zusatz-CL-Plaetzen, Supercups, Ehrentafel,
+Rotationshilfe, eine Ligen-Ansicht
 mit allen Tabellen und Vereinskadern, Weltbestand mit rund 3800 Spielern, vier Spielerattribute, Vertraege,
 Gehaelter, Vorstand mit Saisonziel und Entlassung, Jugendkader mit eigener
 Mannschaft, Moral, Trainingsschwerpunkte, taktische Konter, Pressekonferenzen,

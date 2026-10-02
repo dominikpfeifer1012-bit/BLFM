@@ -237,6 +237,12 @@ function getStartingXIInfo(squad, currentMatchday1Based){
     penalty: 0
   }));
 
+  // Rotation: muede Stammspieler (viele Einsaetze in Folge) bekommen einen
+  // Abschlag und machen Platz, wenn ein Ersatz kaum schwaecher ist — auch
+  // auf manuell gesetzten Positionen.
+  const rotation = typeof gameState !== "undefined" && gameState && gameState.autoRotate;
+  const muede = p => rotation && (p.consecutiveStarts || 0) >= ROTATION_START_LIMIT;
+
   // Phase 1: manuelle Vorgaben. Wer nicht spielen kann, faellt hier raus
   // und der Platz wird weiter unten automatisch nachbesetzt.
   slots.forEach(slot => {
@@ -245,6 +251,7 @@ function getStartingXIInfo(squad, currentMatchday1Based){
 
     const player = squad.find(p => p.id === wantedId);
     if(!player || usedIds.has(player.id)) return;
+    if(muede(player)) return;
 
     if(isUnavailable(player, currentMatchday1Based)){
       droppedManual.push({ slotKey: slot.slotKey, slotPos: slot.slotPos, name: player.name });
@@ -276,7 +283,8 @@ function getStartingXIInfo(squad, currentMatchday1Based){
       !usedIds.has(p.id) && !isUnavailable(p, currentMatchday1Based));
 
     const value = (player, slot) => getStrengthOnSlot(player, slot.slotPos)
-      + (player.pos === slot.slotPos ? AUTO_LINEUP_NATURAL_BONUS : 0);
+      + (player.pos === slot.slotPos ? AUTO_LINEUP_NATURAL_BONUS : 0)
+      - (muede(player) ? ROTATION_MAX_GAP : 0);
     const zuordnung = solveBestAssignment(openSlots, available, value);
 
     openSlots.forEach((slot, i) => {

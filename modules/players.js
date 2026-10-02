@@ -259,7 +259,7 @@ function generateSquadRaw(baseStrength){
 function generateSquad(baseStrength){
   let erzeugung = baseStrength - 3;
   let bester = null, besterAbstand = Infinity;
-  for(let versuch = 0; versuch < 5; versuch++){
+  for(let versuch = 0; versuch < 12; versuch++){
     const kader = generateSquadRaw(erzeugung);
     const abstand = teamRating(kader, 1) - baseStrength;
     if(Math.abs(abstand) < besterAbstand){ bester = kader; besterAbstand = Math.abs(abstand); }

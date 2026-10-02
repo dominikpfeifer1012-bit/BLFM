@@ -99,8 +99,8 @@ console.log("\n--- Start in jeder Liga ---");
   });
 
   check(`  Liga ${nr}: Europapokal-Zugang nur über Liga 1`, () => {
-    // In der ersten Saison ist niemand qualifiziert, egal wo er startet.
-    if(gs.europe.qualified) return "zu Saisonbeginn bereits qualifiziert";
+    // Zweit- und Drittligisten spielen nie im Europapokal.
+    if(K.DIVISIONS[nr-1].tier > 1 && gs.uefa.own) return "Unterklassiger im Europapokal";
     // Nur Liga 1 vermerkt, dass der Europapokal überhaupt erreichbar ist.
     if(gs.lastSeasonWasDivision1 !== (K.DIVISIONS[nr-1].tier === 1)) return `lastSeasonWasDivision1=${gs.lastSeasonWasDivision1}`;
     return win.K.DIVISIONS[nr-1].europe === (win.K.DIVISIONS[nr-1].tier === 1) ? true : "Ligakonfiguration falsch";
@@ -184,10 +184,11 @@ check("Der Bestand enthält Spieler aller Ligen", () => {
   return nachLiga.every((n,i)=>n>SOLL_GROESSEN[i]*8) ? true : nachLiga.join(", ");
 });
 
-check("Europapokal: Teilnehmer aus allen fünf Ländern", () => {
-  const q=gw.europeQualifiers||[];
-  const laender=new Set(q.map(n=>{ const d=w.getClubDivision(gw,n); return d ? K.DIVISIONS[d-1].country : null; }));
-  return q.length===20 && laender.size===5 ? true : `${q.length} Teilnehmer, ${laender.size} Länder`;
+check("Europapokal: Startplätze aus allen fünf Ländern", () => {
+  const q=gw.uefaQualification;
+  if(!q) return "keine Qualifikation";
+  const laender=new Set(q.cl.map(n=>{ const d=w.getClubDivision(gw,n); return d ? K.DIVISIONS[d-1].country : null; }));
+  return q.cl.length>=21 && laender.size===5 && q.ecl.length>=5 ? true : `CL ${q.cl.length}, ${laender.size} Länder, ECL ${q.ecl.length}`;
 });
 check("Reservekreise behalten ihre Größe", () => {
   const groessen=K.COUNTRIES.map(c=>(gw.reservePools&&gw.reservePools[c.key]||[]).length);

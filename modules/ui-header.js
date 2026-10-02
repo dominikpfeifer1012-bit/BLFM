@@ -108,9 +108,11 @@ function renderOpponentPreview(gameState){
   }
 
   const evt = getNextEvent(gameState);
-  if(evt.type === "cup" || evt.type === "europe"){
-    const wettbewerb = evt.type === "cup" ? `🏆 ${getCupName(gameState)}` : "🌍 Europapokal";
-    el.innerHTML = `Als Nächstes: <b>${wettbewerb} — ${evt.label}</b> · danach geht es weiter mit Spieltag ${evt.beforeMatchday}`;
+  if(evt.type === "cup" || evt.type === "europe" || evt.type === "supercup"){
+    const wettbewerb = evt.type === "cup" ? `🏆 ${getCupName(gameState)} — ${evt.label}` : evt.type === "supercup" ? `🏆 ${evt.label}` : `${UEFA_COMPS[evt.comp].icon} ${evt.label}`;
+    const f = evt.type === "europe" ? getOwnUefaNextFixture(gameState) : null;
+    const gegner = f ? ` gegen <b>${f.opponent}</b>${f.isHome == null ? " (neutral)" : f.isHome ? " (daheim)" : " (auswärts)"}` : "";
+    el.innerHTML = `Als Nächstes: <b>${wettbewerb}</b>${gegner} · danach geht es weiter mit Spieltag ${evt.beforeMatchday}`;
     return;
   }
 
@@ -144,14 +146,17 @@ function renderNextMatch(gameState){
   }
 
   const evt = getNextEvent(gameState);
-  if(evt.type === "cup" || evt.type === "europe"){
+  if(evt.type === "cup" || evt.type === "europe" || evt.type === "supercup"){
     const isCup = evt.type === "cup";
     if(dayEl) dayEl.textContent = `vor Spieltag ${evt.beforeMatchday}`;
+    const f = evt.type === "europe" ? getOwnUefaNextFixture(gameState) : null;
+    const sc = evt.type === "supercup" ? getPendingOwnSupercup(gameState) : null;
     const teamsLeft = isCup && gameState.cup
       ? `${gameState.cup.teamsRemaining.length} Mannschaften sind noch dabei.`
-      : "Der Gegner wird bei Anpfiff ausgelost.";
+      : f ? `Gegner: <b>${f.opponent}</b>${f.isHome == null ? " · neutraler Platz" : f.isHome ? " · Heimspiel" : " · Auswärtsspiel"}`
+      : sc ? `${sc.a} gegen ${sc.b} · neutraler Platz` : "Der Gegner wird bei Anpfiff ausgelost.";
     el.innerHTML = `
-      <p class="eyebrow">${isCup ? getCupName(gameState) : "Europapokal"}</p>
+      <p class="eyebrow">${isCup ? getCupName(gameState) : evt.type === "supercup" ? "Supercup" : UEFA_COMPS[evt.comp].name}</p>
       <h2 style="margin:2px 0 6px;">${evt.label}</h2>
       <p class="muted" style="margin:0 0 10px;">${teamsLeft}</p>
       <div class="statGrid">
@@ -235,13 +240,16 @@ function renderOverviewCompetitions(gameState){
     else if(cup.active) lines.push(`${getCupName(gameState)} · noch dabei · ${CUP_ROUND_LABELS[cup.round] || "nächste Runde"}`);
   }
 
-  const eu = gameState.europe;
-  if(eu && eu.qualified){
-    if(eu.champion) lines.push(`<span class="badge win">Europapokalsieger</span>`);
-    else if(eu.eliminated) lines.push(`Europapokal <span class="badge loss">ausgeschieden</span>`);
-    else if(eu.active) lines.push(eu.phase === "group"
-      ? `Europapokal · Gruppe ${eu.ownGroup} · Spieltag ${eu.groupMatchday}/${EUROPE_GROUP_MATCHDAYS.length}`
-      : `Europapokal · ${EUROPE_KO_LABELS[eu.knockoutRound] || "K.o.-Runde"}`);
+  const uefa = gameState.uefa;
+  if(uefa && uefa.own){
+    const comp = uefa.comps[uefa.own], cfg = UEFA_COMPS[uefa.own];
+    if(comp.winner === gameState.clubName) lines.push(`<span class="badge win">${cfg.icon} ${cfg.name}-Sieger</span>`);
+    else if(comp.ownOut) lines.push(`${cfg.icon} ${cfg.name} <span class="badge loss">ausgeschieden</span> · ${comp.ownExit}`);
+    else if(comp.phase === "league"){
+      const platz = getUefaLeagueTable(comp).findIndex(t => t.name === gameState.clubName) + 1;
+      lines.push(`${cfg.icon} ${cfg.name} · Ligaphase ${comp.round}/${cfg.rounds}${comp.round ? ` · Platz ${platz}` : ""}`);
+    } else lines.push(`${cfg.icon} ${cfg.name} · ${UEFA_KO_STAGES[comp.koStage] || "K.o.-Runde"}`);
+    if(uefa.goal) lines.push(`<span class="muted">Vorstandsziel: ${uefa.goal.label}</span>`);
   } else {
     lines.push(`<span class="muted">Europapokal: nicht qualifiziert</span>`);
   }

@@ -29,7 +29,12 @@ function getDivisionZones(nr, groesse){
   const idx = ligen.findIndex(x => x.nr === nr);
   const darueber = idx > 0 ? ligen[idx - 1] : null;
   const tiefer = idx < ligen.length - 1;
-  if(d.europe) for(let i = 0; i < EUROPE_SLOTS_PER_TOP_LEAGUE && i < groesse; i++) zonen[i] = "var(--info)";
+  if(d.europe && typeof getUefaSlotsForCountry === "function"){
+    // CL blau, EL orange, Conference League gruen-grau.
+    const s = getUefaSlotsForCountry(gameState, d.country || "de");
+    for(let i = 0; i < s.cl + s.el + s.ecl && i < groesse; i++)
+      zonen[i] = i < s.cl ? "var(--info)" : i < s.cl + s.el ? "#F08A24" : "#7FB77E";
+  }
   if(darueber && darueber.seam){
     const s = darueber.seam;
     for(let i = 0; i < s.directUp; i++) zonen[i] = "var(--win)";
@@ -139,7 +144,7 @@ function buildDivisionTable(gameState, nr){
 function showClubDetail(name){
   if(!name) return;
   if(name === gameState.clubName){ if(typeof switchTab === "function") switchTab("kader"); return; }
-  const club = findClubEverywhere(gameState, name);
+  const club = findClubEverywhere(gameState, name) || EURO_CLUBS.find(c => c.name === name);
   const nr = getClubDivision(gameState, name);
   const kader = getClubRoster(gameState.pool, name).sort((a, b) =>
     POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || b.strength - a.strength);
@@ -149,14 +154,16 @@ function showClubDetail(name){
   const trainer = typeof getCoachName === "function" ? getCoachName(gameState, name) : null;
 
   document.getElementById("clubModalContent").innerHTML = `
-    <p class="eyebrow">${nr ? `${getDivisionTag(nr)} · ${getDivisionLabel(nr)}` : "Ausland"}</p>
+    <p class="eyebrow">${nr ? `${getDivisionTag(nr)} · ${getDivisionLabel(nr)}` : getUefaCountryName(club && club.country ? club.country : "?")}</p>
     <h2 style="margin:2px 0 6px;">${name}</h2>
     ${trainer ? `<p class="muted" style="margin:0 0 10px;">Trainer: ${trainer}</p>` : ""}
     <div class="statGrid" style="margin-bottom:12px;">
       <div class="stat"><div class="k">Stärke</div><div class="v">${club ? Math.round(club.strength) : "–"}</div></div>
       <div class="stat"><div class="k">Platz</div><div class="v">${platz || "–"}</div>${tab.length ? `<div class="sub">von ${tab.length}</div>` : ""}</div>
-      <div class="stat"><div class="k">Spieler im Bestand</div><div class="v">${kader.length}</div></div>
+      <div class="stat"><div class="k">UEFA-Koeffizient</div><div class="v">${getClubCoefficient(gameState, name).toFixed(1)}</div></div>
     </div>
+    ${(() => { const titel = getClubTitles(gameState, name);
+      return titel.length ? `<p style="margin:-4px 0 12px; font-size:13px;">🏆 ${titel.map(t => `${t.count}× ${t.label}`).join(" · ")}</p>` : ""; })()}
     <div class="tableWrap" style="max-height:46vh; overflow-y:auto;"><table>
       <tr><th>Pos</th><th>Spieler</th><th class="n">Alter</th><th class="n">Stärke</th><th class="n hideMobile">Wert</th></tr>
       ${kader.map(p => `<tr class="rowLink" onclick="closeClubDetail(); showPoolPlayerDetail('${p.id}')">
@@ -208,43 +215,6 @@ function renderCupStatus(gameState){
   container.innerHTML = `<p>${statusLine}</p>${historyHtml}`;
 }
 
-function renderEuropeStatus(gameState){
-  const container = document.getElementById("europeStatus");
-  if(!container) return;
-  const eu = gameState.europe;
-  if(!eu){ container.innerHTML = ""; return; }
-
-  if(!eu.qualified){
-    container.innerHTML = `<p class="muted">Nicht qualifiziert — dafür ist Platz 1 bis ${EUROPE_SLOTS_PER_TOP_LEAGUE} in einer der fünf großen Ligen nötig.</p>`;
-    return;
-  }
-
-  let head;
-  if(eu.champion) head = `<span class="badge win">Europapokalsieger</span>`;
-  else if(eu.eliminated) head = `<span class="badge loss">Ausgeschieden</span>${eu.winnerName ? ` · Sieger: <b>${eu.winnerName}</b>` : ""}`;
-  else if(eu.phase === "group") head = `<span class="badge win">Gruppenphase</span> · Gruppe ${eu.ownGroup} · Spieltag ${eu.groupMatchday}/${EUROPE_GROUP_MATCHDAYS.length}`;
-  else head = `<span class="badge win">${EUROPE_KO_LABELS[eu.knockoutRound] || "K.o.-Runde"}</span> · ${eu.knockoutTeams.length} Teams übrig`;
-
-  let body = "";
-  const standing = eu.groups && eu.groups.length ? getOwnGroupStanding(gameState) : null;
-  if(standing){
-    body += `<p class="eyebrow" style="margin-top:12px;">Gruppe ${standing.groupName}</p>
-      <div class="tableWrap"><table><tr><th class="n">#</th><th>Verein</th><th class="n">Sp</th><th class="n">Tore</th><th class="n">Pkt</th></tr>` +
-      standing.table.map((t, i) => {
-        const cls = t.name === gameState.clubName ? ' class="highlight"' : "";
-        const qual = i < EUROPE_QUALIFY_PER_GROUP ? "" : ' style="opacity:.6;"';
-        return `<tr${cls}${qual}><td class="n">${i + 1}</td><td>${t.name}</td><td class="n">${t.played}</td><td class="n">${t.gf}:${t.ga}</td><td class="n"><b>${t.points}</b></td></tr>`;
-      }).join("") + `</table></div>`;
-  }
-
-  if(eu.history && eu.history.length > 0){
-    const last = eu.history[eu.history.length - 1];
-    body += `<p class="muted" style="margin-top:10px;">${last.round}: ${last.ownGoals}:${last.oppGoals} gegen ${last.opponent}${last.wasDraw ? ` (${last.suffix || "n.V."})` : ""}</p>`;
-  }
-
-  container.innerHTML = `<p style="margin:0;">${head}</p>${body}`;
-}
-
 // Spielplan mit allen Terminen der Saison, Pokaltermine eingeordnet.
 function renderFixtureList(gameState){
   const el = document.getElementById("fixtureList");
@@ -252,8 +222,16 @@ function renderFixtureList(gameState){
 
   const cupOn = {}, euroOn = {};
   getCupTriggerMatchdays(gameState).forEach((md, i) => { cupOn[md] = CUP_ROUND_LABELS[i] || `Runde ${i + 1}`; });
-  getEuropeGroupMatchdays(gameState).forEach((md, i) => { euroOn[md] = `Gruppenphase ${i + 1}`; });
-  getEuropeKoMatchdays(gameState).forEach((md, i) => { euroOn[md] = EUROPE_KO_LABELS[i] || `K.o. ${i + 1}`; });
+  const uefa = gameState.uefa;
+  if(uefa && uefa.own){
+    const cfg = UEFA_COMPS[uefa.own];
+    getUefaDates(gameState).forEach((md, i) => {
+      const titel = i < UEFA_LEAGUE_DATES ? (i < cfg.rounds ? `Ligaphase ${i + 1}` : null)
+        : i === UEFA_DATES.length - 1 ? "Finale"
+        : `${UEFA_KO_STAGES[Math.floor((i - UEFA_LEAGUE_DATES) / 2)]} ${(i - UEFA_LEAGUE_DATES) % 2 ? "(Rückspiel)" : "(Hinspiel)"}`;
+      if(titel) euroOn[md] = `${cfg.icon} ${cfg.short} · ${titel}`;
+    });
+  }
 
   const byDay = {};
   gameState.fixtures.forEach((f, idx) => {
@@ -261,12 +239,12 @@ function renderFixtureList(gameState){
     byDay[getFixtureMatchday(idx, gameState.teams.length)] = f;
   });
 
-  const qualified = gameState.europe && gameState.europe.qualified;
+  const qualified = !!(uefa && uefa.own);
   let html = `<tr><th class="n">ST</th><th>Wettbewerb</th><th>Gegner</th><th class="n">Ergebnis</th><th></th></tr>`;
 
   for(let d = 1; d <= getSeasonMatchdays(gameState); d++){
     if(cupOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🏆 ${getCupName(gameState)}</td><td colspan="3">${cupOn[d]}</td></tr>`;
-    if(qualified && euroOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🌍 Europapokal</td><td colspan="3">${euroOn[d]}</td></tr>`;
+    if(qualified && euroOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>Europapokal</td><td colspan="3">${euroOn[d]}</td></tr>`;
 
     const f = byDay[d];
     if(!f) continue;
