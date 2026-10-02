@@ -242,7 +242,7 @@ function genPlayer(baseStrength, pos, ageRange, allowScouting){
   });
 }
 
-function generateSquad(baseStrength){
+function generateSquadRaw(baseStrength){
   const squad = [];
   SQUAD_COMPOSITION.forEach(entry => {
     for(let i = 0; i < entry.count; i++){
@@ -250,6 +250,23 @@ function generateSquad(baseStrength){
     }
   });
   return squad;
+}
+
+// Die beste Elf aus einem breiten Kader liegt ueber dem Schnitt der Spieler.
+// Ohne Ausgleich startete der eigene Verein 3-4 Punkte staerker als derselbe
+// Verein in der KI-Simulation. Deshalb wird die Erzeugungsstaerke so
+// nachgefuehrt, dass die Teambewertung zur Vereinsstaerke passt.
+function generateSquad(baseStrength){
+  let erzeugung = baseStrength - 3;
+  let bester = null, besterAbstand = Infinity;
+  for(let versuch = 0; versuch < 5; versuch++){
+    const kader = generateSquadRaw(erzeugung);
+    const abstand = teamRating(kader, 1) - baseStrength;
+    if(Math.abs(abstand) < besterAbstand){ bester = kader; besterAbstand = Math.abs(abstand); }
+    if(Math.abs(abstand) <= 0.5) break;
+    erzeugung -= abstand;
+  }
+  return bester;
 }
 
 function priceToApproxStrength(price, age){

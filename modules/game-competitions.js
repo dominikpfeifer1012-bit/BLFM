@@ -11,7 +11,7 @@ function processCupResult(cupResult){
     const m = cupResult.ownMatch;
     const wonMatch = m.winner === gameState.clubName;
     const scoreText = m.wasDraw
-      ? `${m.home} ${m.homeGoals}:${m.awayGoals} ${m.away} (n.V./Elfmeterschießen: ${m.winner})`
+      ? `${m.home} ${m.homeGoals}:${m.awayGoals} ${m.away} (${knockoutSuffix(m)} · weiter: ${m.winner})`
       : `${m.home} ${m.homeGoals}:${m.awayGoals} ${m.away}`;
     addLogEntry(gameState, `🏆 DFB-Pokal ${roundLabel}: ${scoreText}`, wonMatch ? "win" : "loss", true);
     if(m.upset){
@@ -89,7 +89,7 @@ function processEuropeKnockoutResult(res){
   const m = res.ownMatch;
   if(m){
     const scoreText = m.wasDraw
-      ? `${gameState.clubName} ${m.ownGoals}:${m.oppGoals} ${m.opponent} (n.V./Elfmeterschießen: ${m.won ? "Sieg" : "Niederlage"})`
+      ? `${gameState.clubName} ${m.ownGoals}:${m.oppGoals} ${m.opponent} (${m.suffix || "n.V."}: ${m.won ? "weiter" : "ausgeschieden"})`
       : `${gameState.clubName} ${m.ownGoals}:${m.oppGoals} ${m.opponent}`;
     addLogEntry(gameState, `\u{1F30D} Europapokal ${res.roundLabel}: ${scoreText}`, m.won ? "win" : "loss", true);
 

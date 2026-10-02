@@ -121,7 +121,22 @@ const CONTRACT_RAISE_MAX = 0.6;   // Erinnerung an auslaufende Vertraege
 const CUP_INJURY_FACTOR = 0.8;   // etwas geringer als im Ligaspiel
 
 const YELLOW_CARD_CHANCE_STARTER = 0.12;
-const RED_CARD_CHANCE = 0.002;
+const RED_CARD_CHANCE = 0.0045;   // je Spieler und Spiel: rund jedes 20. Spiel ein Platzverweis pro Team
+// Wirkung eines Platzverweises ab seiner Minute: eigene Tore seltener,
+// Gegentore haeufiger. Eine Verletzung (Auswechslung) kostet etwas Angriff.
+const RED_CARD_ATTACK_FACTOR = 0.68;
+const RED_CARD_CONCEDE_FACTOR = 1.3;
+const INJURY_MATCH_FACTOR = 0.95;
+
+// Formkurve: Schnitt der letzten Spiele gegenueber ~1,4 Punkten.
+const FORM_WINDOW = 5;
+const FORM_NEUTRAL_POINTS = 1.4;
+const FORM_FACTOR = 1.2;           // Staerkepunkte je Punkt ueber/unter Schnitt
+const FORM_MAX_BONUS = 2;
+
+// K.o.-Spiele: Verlaengerung (30 Min., muede Beine) und Elfmeterschiessen.
+const EXTRA_TIME_SHARE = 0.28;
+const PENALTY_CONVERSION = 0.76;
 const YELLOW_CARDS_FOR_BAN = 5;
 const YELLOW_ACCUMULATION_BAN_MATCHES = 1;
 const RED_CARD_BAN_MATCHES = 2;
@@ -237,6 +252,18 @@ const SELL_FACTOR = 0.9;
 const MIN_SQUAD_SIZE = 18;
 const MATCHES_PER_MATCHDAY = 9;
 const TOTAL_MATCHDAYS = 34;
+
+// Eine gemeinsame Torformel fuer alle Spiele (eigene Liga, Schattenligen,
+// Pokal, Europapokal, Jugend). Kalibriert auf echte Werte: rund 3 Tore pro
+// Spiel, Heim/Remis/Auswaerts etwa 45/23/32, ein Favorit mit 12+ Punkten
+// Vorsprung gewinnt rund drei Viertel seiner Spiele.
+const MATCH_ENGINE = {
+  baseGoals: 1.40,       // Torerwartung bei gleich starken Teams auf neutralem Platz
+  homeAdvantage: 3,      // Heimvorteil in Staerkepunkten
+  scale: 28,             // 28 Staerkepunkte Unterschied = Faktor e auf die Tore
+  sharedGoals: 0.2,      // gemeinsamer Anteil beider Teams: etwas mehr Remis
+  minLambda: 0.15
+};
 
 const TRANSFER_WINDOWS = [
   [1, 5],
@@ -808,8 +835,7 @@ const FACILITIES = {
 // ============================================
 // Ligen
 // ============================================
-// 3. Liga 2026/27. Die echte Liga hat 20 Vereine; das Spiel rechnet mit 18 pro Liga,
-// deshalb fehlen vorerst die Aufsteiger SG Sonnenhof Grossaspach und Fortuna Koeln.
+// 3. Liga 2026/27 mit allen 20 Vereinen (38 Spieltage, vier Absteiger in die Regionalliga).
 const THIRD_DIVISION_CLUBS = [
   {name:"Fortuna Düsseldorf", strength:52},
   {name:"Rot-Weiss Essen", strength:51},
@@ -828,8 +854,34 @@ const THIRD_DIVISION_CLUBS = [
   {name:"TSG Hoffenheim II", strength:44},
   {name:"Würzburger Kickers", strength:44},
   {name:"SV Meppen", strength:43},
+  {name:"SG Sonnenhof Großaspach", strength:42},
+  {name:"SC Fortuna Köln", strength:42},
   {name:"TSV Havelse", strength:41}
 ];
+
+// Regionalliga: wird nicht ausgespielt. Aus diesem Kreis steigen jedes Jahr
+// vier Vereine in die 3. Liga auf (nach Staerke gewichtet ausgelost), die
+// vier Letzten der 3. Liga kommen dafuer hinzu.
+const REGIONAL_CLUBS = [
+  {name:"TSV 1860 München", strength:44},
+  {name:"FC Erzgebirge Aue", strength:43},
+  {name:"SSV Ulm 1846", strength:43},
+  {name:"SpVgg Unterhaching", strength:41},
+  {name:"SV Sandhausen", strength:41},
+  {name:"Kickers Offenbach", strength:41},
+  {name:"1. FC Schweinfurt 05", strength:39},
+  {name:"Hallescher FC", strength:40},
+  {name:"FC Carl Zeiss Jena", strength:40},
+  {name:"1. FC Lokomotive Leipzig", strength:40},
+  {name:"FC Bayern München II", strength:40},
+  {name:"Chemnitzer FC", strength:39},
+  {name:"Rot-Weiß Oberhausen", strength:39},
+  {name:"FC 08 Homburg", strength:38},
+  {name:"Wuppertaler SV", strength:37},
+  {name:"SC Freiburg II", strength:38}
+];
+const REGIONAL_PROMOTIONS = 4;          // Auf- bzw. Absteiger zwischen 3. Liga und Regionalliga
+const REGIONAL_RELEGATION_STRENGTH_LOSS = 2;
 
 // Ziele fuer die dritte Liga
 const BOARD_GOALS_DIV3 = [

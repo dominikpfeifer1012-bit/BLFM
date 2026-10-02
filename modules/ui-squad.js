@@ -482,6 +482,7 @@ function showPlayerDetail(playerId){
       ${stat("Marktwert", fmtMoney(player.value))}
       ${stat("Gehalt", fmtMoney(getPlayerSalary(player)), player.salaryFactor > 1.01 ? `pro Saison · ${Math.round((player.salaryFactor - 1) * 100)} % ausgehandelt` : "pro Saison")}
       ${stat("Tore", player.goalsSeason || 0, "diese Saison")}
+      ${stat("Notenschnitt", fmtGrade(getAverageGrade(player)), player.gradeCount ? `${player.gradeCount} Spiele${player.motmCount ? ` · ${player.motmCount}× Spieler des Spiels` : ""}` : "noch keine Note")}
       ${stat("Gelbe Karten", player.yellowCards || 0)}
       ${stat("In Folge", player.consecutiveStarts || 0, "in der Startelf")}
       ${stat("Vertrag", `${getContractYears(player)} J.`, isContractExpiring(player) ? "läuft aus" : "Restlaufzeit")}

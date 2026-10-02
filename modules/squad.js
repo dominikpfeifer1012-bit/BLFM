@@ -160,6 +160,9 @@ function healAllInjuries(squad){
 function resetSeasonalPlayerState(squad){
   squad.forEach(player => {
     player.goalsSeason = 0;
+    player.gradeSum = 0;
+    player.gradeCount = 0;
+    player.motmCount = 0;
     player.yellowCards = 0;
     player.suspendedUntilMatchday = 0;
     player.consecutiveStarts = 0;

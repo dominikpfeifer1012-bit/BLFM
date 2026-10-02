@@ -184,7 +184,7 @@ check("Restliche Saison läuft durch", () => {
 
 check("Vorstand hat bewertet", () => gs.board.history.length >= 2 ? true : gs.board.history.length);
 
-check("Saisonabschluss wird angeboten", () => /Nächste Saison/.test($("seasonSummaryHost").innerHTML)
+check("Saisonabschluss wird angeboten", () => /nächste Saison/i.test($("seasonSummaryHost").innerHTML)
   ? true : "kein Abschluss");
 
 check("Weiterklicken nach Saisonende bricht nicht", () => {
@@ -202,7 +202,7 @@ check("Nächste Saison startet sauber", () => {
 check("Kader bleibt über fünf Saisons spielfähig", () => {
   for(let s = 0; s < 5; s++){
     durchspielen(90);
-    gs.board.patience = 90;
+    gs.board.patience=90; gs.board.dismissed=false;
     win.startNextSeason();
     if(gs.squad.length < K.MIN_SQUAD_SIZE) return `Kader auf ${gs.squad.length}`;
     if(win.getStartingXIInfo(gs.squad, 1).xi.length !== 11) return "Startelf unvollständig";

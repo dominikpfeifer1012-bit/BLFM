@@ -48,7 +48,7 @@ function addNews(gameState, text, icon){
 
 // Krisenclubs trennen sich von ihrem Trainer — an den Bewertungsterminen.
 function checkCoachChanges(gameState){
-  if(!BOARD_CHECKPOINTS.includes(gameState.matchday)) return;
+  if(!getBoardCheckpoints(gameState).includes(gameState.matchday)) return;
   ensureCoaches(gameState);
   const tabellen = [gameState.teams, ...Object.values(gameState.shadowLeagues || {}).map(s => s.teams || [])];
   tabellen.forEach(teams => {
@@ -102,8 +102,14 @@ function computeSeasonAwards(gameState){
   const kader = gameState.squad || [];
   const awards = {};
   const wert = p => p.strength + (p.goalsSeason || 0) * 1.0 + Math.max(0, p.strength - (p.seasonStartStrength != null ? p.seasonStartStrength : p.strength)) * 1.5;
-  const bester = [...kader].sort((a, b) => wert(b) - wert(a))[0];
-  if(bester) awards.playerOfSeason = { name: bester.name, pos: bester.pos, info: `${Math.round(bester.strength)} · ${bester.goalsSeason || 0} Tore` };
+  // Mit genug Einsaetzen entscheidet der Notenschnitt, sonst die Leistungsdaten.
+  const benotet = kader.filter(p => (p.gradeCount || 0) >= 10)
+    .sort((a, b) => getAverageGrade(a) - getAverageGrade(b) || (b.motmCount || 0) - (a.motmCount || 0));
+  const bester = benotet[0] || [...kader].sort((a, b) => wert(b) - wert(a))[0];
+  if(bester) awards.playerOfSeason = { name: bester.name, pos: bester.pos,
+    info: bester.gradeCount >= 10
+      ? `Note ${fmtGrade(getAverageGrade(bester))} · ${bester.goalsSeason || 0} Tore${bester.motmCount ? ` · ${bester.motmCount}× bester Spieler` : ""}`
+      : `${Math.round(bester.strength)} · ${bester.goalsSeason || 0} Tore` };
 
   const zuwachs = p => p.seasonStartStrength != null ? p.strength - p.seasonStartStrength : 0;
   const talent = kader.filter(p => p.age <= 21 && zuwachs(p) >= 2).sort((a, b) => zuwachs(b) - zuwachs(a))[0];

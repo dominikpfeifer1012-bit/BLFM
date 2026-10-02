@@ -216,7 +216,7 @@ check("Fünf Saisons laufen mit Jugendkader durch", () => {
       win.handlePickYouthCandidate(1);
       win.finishYouthIntake();
     }
-    gs.board.patience=90;
+    gs.board.patience=90; gs.board.dismissed=false;
     win.startNextSeason();
     if(gs.youthSquad.length>K.YOUTH_SQUAD_MAX_SIZE) return "Jugendkader zu groß";
     if(gs.squad.length<K.MIN_SQUAD_SIZE) return `Profikader auf ${gs.squad.length}`;

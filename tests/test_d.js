@@ -9,7 +9,7 @@ const mods = [...fs.readFileSync("/home/claude/bl/index.html","utf8")
   .matchAll(/modules\/([a-z-]+\.js)/g)].map(m => m[1]);
 win.eval("try{localStorage.clear();}catch(e){}");
 win.eval(mods.map(f=>fs.readFileSync("/home/claude/bl/"+f,"utf8")).join("\n")
-  +"\nwindow.K={TOTAL_MATCHDAYS,NATIONALITY_BY_CODE,LOG_PAGE_SIZE,LOG_MAX_ENTRIES,POSITION_ORDER,DIVISION_COUNT:DIVISIONS.length};");
+  +"\nwindow.K={TOTAL_MATCHDAYS,NATIONALITY_BY_CODE,LOG_PAGE_SIZE,LOG_MAX_ENTRIES,POSITION_ORDER,DIVISION_COUNT:DIVISIONS.length,CLUB_COUNT:DIVISIONS.reduce((s,d)=>s+d.clubs.length,0)};");
 let fails=0;
 function check(l,fn){ try{ const r=fn(); const ok=r===true||r===undefined;
   console.log(`${ok?"OK  ":"FAIL"}  ${l}${ok?"":" -> "+r}`); if(!ok)fails++;
@@ -71,7 +71,8 @@ check("Für jede fremde Liga läuft eine Parallelsaison", () => {
   if(nummern.length !== erwartet) return `${nummern.length} statt ${erwartet}`;
   return nummern.every(nr => {
     const s = gs.shadowLeagues[nr];
-    return s && s.teams.length === 18 && s.fixtures.length === 306;
+    const n = win.getLeaguePool(gs, nr).length;
+    return s && s.teams.length === n && s.fixtures.length === n * (n - 1);
   }) ? true : "unvollständig angelegt";
 });
 
@@ -88,14 +89,19 @@ let n=0;
 while(n++<40 && gs.matchday<12){ win.runNextEvent();
   if($("liveOverlay").classList.contains("show")){ win.skipLiveMatch(); win.closeLiveMatch(); } }
 
+// Ligen unterschiedlicher Groesse laufen anteilig mit (38 neben 34 Spieltagen).
+const sollRunde = nr => {
+  const runden = win.getRoundsForTeams(gs.shadowLeagues[nr].teams.length);
+  return Math.round(gs.matchday * runden / win.getSeasonMatchdays(gs));
+};
 check("Alle spielen parallel mit", () =>
-  andereLigen().every(nr => gs.shadowLeagues[nr].matchday === gs.matchday)
+  andereLigen().every(nr => gs.shadowLeagues[nr].matchday === sollRunde(nr))
     ? true : "Spieltage laufen auseinander");
 
 check("Jedes Team hat gleich viele Spiele", () =>
   andereLigen().every(nr => {
     const g = gs.shadowLeagues[nr].teams.map(t => t.played);
-    return new Set(g).size === 1 && g[0] === gs.matchday;
+    return new Set(g).size === 1 && g[0] === sollRunde(nr);
   }) ? true : "Spielzahlen stimmen nicht");
 
 check("Die Tabellen sind rechnerisch stimmig", () =>
@@ -135,10 +141,11 @@ check("Über mehrere Saisons stabil", () => {
     let m=0;
     while(m++<90 && !gs.seasonEnded){ win.runNextEvent();
       if($("liveOverlay").classList.contains("show")){ win.skipLiveMatch(); win.closeLiveMatch(); } }
-    gs.board.patience=90;
+    gs.board.patience=90; gs.board.dismissed=false;
     win.startNextSeason();
     const alle = win.getAllLeagueClubs(gs);
-    if(alle.length !== 18 * win.K.DIVISION_COUNT) return `${alle.length} Vereine`;
+    const soll = win.K.CLUB_COUNT;
+    if(alle.length !== soll) return `${alle.length} statt ${soll} Vereine`;
     if(new Set(alle.map(c=>c.name)).size !== alle.length) return "Verein doppelt zugeordnet";
   }
   return true;

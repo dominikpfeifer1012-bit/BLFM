@@ -154,7 +154,7 @@ check("Eine Saison läuft mit wechselndem Fokus durch", () => {
 
 check("Der Fokus überlebt den Saisonwechsel", () => {
   win.handleTrainingChange("defense");
-  gs.board.patience=90;
+  gs.board.patience=90; gs.board.dismissed=false;
   win.startNextSeason();
   return gs.training==="defense" ? true : gs.training;
 });

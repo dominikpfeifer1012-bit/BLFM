@@ -45,8 +45,15 @@ function addBoardCredit(gameState, amount){
   gameState.board.credit = (gameState.board.credit || 0) + amount;
 }
 
+// Die letzte Bewertung faellt auf den letzten Spieltag der eigenen Liga
+// (34 oder 38), die ersten beiden bleiben nach der Hin- bzw. Rueckrunde fest.
+function getBoardCheckpoints(gameState){
+  const gs = gameState || (typeof window !== "undefined" ? window.gameState : null);
+  return [BOARD_CHECKPOINTS[0], BOARD_CHECKPOINTS[1], getSeasonMatchdays(gs)];
+}
+
 function isBoardCheckpoint(matchday){
-  return BOARD_CHECKPOINTS.includes(matchday);
+  return getBoardCheckpoints().includes(matchday);
 }
 
 function evaluateBoard(gameState){
@@ -119,7 +126,7 @@ function getBoardMood(board){
 }
 
 function getNextBoardCheckpoint(matchday){
-  return BOARD_CHECKPOINTS.find(cp => cp > matchday) || null;
+  return getBoardCheckpoints().find(cp => cp > matchday) || null;
 }
 
 
@@ -147,7 +154,10 @@ function generateJobOffers(gameState){
           .sort((a, b) => b.strength - a.strength)
           .slice(0, JOB_OFFER_COUNT * 2);
 
-  const auswahl = shuffleArray(pool.length > 0 ? pool : alle).slice(0, JOB_OFFER_COUNT);
+  // Wer schon beim schwaechsten Verein war, bekommt Angebote der schwaechsten
+  // Vereine — nicht zufaellige aus allen Ligen (vorher kamen dann HSV & Co.).
+  const rueckfall = [...alle].sort((a, b) => a.strength - b.strength).slice(0, JOB_OFFER_COUNT * 2);
+  const auswahl = shuffleArray(pool.length > 0 ? pool : rueckfall).slice(0, JOB_OFFER_COUNT);
 
   return auswahl.map(c => ({
     name: c.name,

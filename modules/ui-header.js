@@ -9,10 +9,11 @@ function renderHeader(gameState){
   if(crest) crest.textContent = gameState.clubName.replace(/^\d+\.\s*/, "").charAt(0);
 
   document.getElementById("clubHeader").textContent = gameState.clubName;
-  const tag = Math.min(gameState.matchday + 1, TOTAL_MATCHDAYS);
+  const spieltage = getSeasonMatchdays(gameState);
+  const tag = Math.min(gameState.matchday + 1, spieltage);
   document.getElementById("statusLine").innerHTML =
-    `<span class="hideMobile">${getManagerLabel(gameState)} · Saison <span class="num">${gameState.season}/${gameState.season + 1}</span> · Spieltag <span class="num">${tag}</span> von <span class="num">${TOTAL_MATCHDAYS}</span></span>` +
-    `<span class="onlyMobile">Saison ${String(gameState.season).slice(2)}/${String(gameState.season + 1).slice(2)} · Spieltag ${tag}/${TOTAL_MATCHDAYS}</span>`;
+    `<span class="hideMobile">${getManagerLabel(gameState)} · Saison <span class="num">${gameState.season}/${gameState.season + 1}</span> · Spieltag <span class="num">${tag}</span> von <span class="num">${spieltage}</span></span>` +
+    `<span class="onlyMobile">Saison ${String(gameState.season).slice(2)}/${String(gameState.season + 1).slice(2)} · Spieltag ${tag}/${spieltage}</span>`;
 
   const chips = document.getElementById("headerChips");
   if(chips){
@@ -68,7 +69,7 @@ function getOwnResults(gameState){
     if(!f.played || f.homeGoals == null) return;   // Altstände ohne Tore überspringen
     if(f.home !== gameState.clubName && f.away !== gameState.clubName) return;
     results.push({
-      matchday: Math.floor(idx / MATCHES_PER_MATCHDAY) + 1,
+      matchday: getFixtureMatchday(idx, gameState.teams.length),
       result: getResultForClub(gameState.clubName, f.home, f.away, f.homeGoals, f.awayGoals),
       opponent: f.home === gameState.clubName ? f.away : f.home,
       isHome: f.home === gameState.clubName,
@@ -86,7 +87,7 @@ function renderFormBand(gameState){
   getOwnResults(gameState).forEach(r => { byDay[r.matchday] = r; });
 
   let html = "";
-  for(let d = 1; d <= TOTAL_MATCHDAYS; d++){
+  for(let d = 1; d <= getSeasonMatchdays(gameState); d++){
     const r = byDay[d];
     const isNow = !gameState.seasonEnded && d === gameState.matchday + 1;
     const title = r
@@ -175,6 +176,8 @@ function renderNextMatch(gameState){
         <h2 style="margin:2px 0 6px;">${info.opponentName}</h2>
         ${getCoachName(gameState, info.opponentName) ? `<p class="muted" style="margin:-2px 0 6px; font-size:12px;">Trainer: ${getCoachName(gameState, info.opponentName)}</p>` : ""}
         <span class="matchupTag ${cls}">${label}</span>
+        ${info.opponentForm ? `<span class="matchupTag neutral" title="Formkurve der letzten Spiele">${info.opponentForm}</span>` : ""}
+        ${info.ownForm ? `<p class="muted" style="margin:6px 0 0; font-size:12px;">Wir: ${info.ownForm}</p>` : ""}
       </div>
       <div class="statGrid" style="flex:1; min-width:190px;">
         ${statBox("Eigene Stärke", Math.round(info.ownStrength), null, true)}

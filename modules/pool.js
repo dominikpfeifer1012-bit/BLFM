@@ -217,6 +217,36 @@ function signPlayerFromPool(gameState, playerId){
   };
 }
 
+// Vereine wechseln zwischen den Ligen und der Regionalliga. Spieler von
+// Vereinen, die die Ligen verlassen haben, werden vereinslos; Aufsteiger aus
+// der Regionalliga bekommen einen spielfaehigen Stamm.
+function syncPoolWithLeagues(gameState){
+  if(!gameState.pool || !gameState.pool.players) return;
+  const ligen = new Set(getAllLeagueClubs(gameState).map(c => c.name));
+  const ausland = new Set(EURO_CLUBS.map(c => c.name));
+  gameState.pool.players.forEach(p => {
+    if(p.clubName && !ligen.has(p.clubName) && !ausland.has(p.clubName)){
+      p.clubName = null; p.clubTier = "frei";
+    }
+  });
+  gameState.leaguePools.forEach((pool, idx) => pool.forEach(club => {
+    if(club.name === gameState.clubName) return;
+    const vorhanden = gameState.pool.players.filter(p => p.clubName === club.name).length;
+    // Nur neu hinzugekommene Vereine (Regionalliga-Aufsteiger) auffuellen;
+    // den normalen Schwund gleicht der Jugend-Zustrom aus.
+    if(vorhanden >= 8) return;
+    poolPositionsForClub(POOL_PLAYERS_PER_CLUB).slice(vorhanden).forEach(pos => {
+      const ziel = club.strength + randInt(-POOL_STRENGTH_SPREAD, POOL_STRENGTH_SPREAD);
+      const neu = genPlayer(Math.max(40, Math.min(94, ziel)), pos, [19, 31], true);
+      capPoolPlayer(neu, club.strength);
+      neu.clubName = club.name;
+      neu.clubTier = "div" + (idx + 1);
+      if(typeof ensureMorale === "function") ensureMorale(neu);
+      gameState.pool.players.push(neu);
+    });
+  }));
+}
+
 // Bestandsspieler, die noch beim eigenen Verein gefuehrt werden (alte
 // Spielstaende, Vereinswechsel), wechseln zu einem passenden anderen Verein.
 function detachOwnClubFromPool(gameState){
@@ -277,6 +307,7 @@ function advancePool(gameState){
   const pool = gameState.pool;
   if(!pool) return { abgaenge: 0, zugaenge: 0 };
   detachOwnClubFromPool(gameState);
+  syncPoolWithLeagues(gameState);
 
   const bleibt = [];
   let abgaenge = 0;

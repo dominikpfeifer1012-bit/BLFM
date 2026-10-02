@@ -261,6 +261,7 @@ function confirmLoadGame(accepted){
 
 function maybeOpenPressConference(){
   if(gameState.board && gameState.board.dismissed) return;
+  if(typeof isBatchRunning === "function" && isBatchRunning()) return;
   const situation = pickPressSituation(gameState);
   if(!situation) return;
   queueModal(() => showPressConference(situation));

@@ -101,7 +101,7 @@ function renderCupStatus(gameState){
     const lastRound = cup.history[cup.history.length - 1];
     const ownMatch = lastRound.matches.find(m => m.home === gameState.clubName || m.away === gameState.clubName);
     if(ownMatch){
-      historyHtml = `<p class="breakdownLine">Letztes Spiel: ${ownMatch.home} ${ownMatch.homeGoals}:${ownMatch.awayGoals} ${ownMatch.away}${ownMatch.wasDraw ? " (n.V./Elfm.)" : ""}</p>`;
+      historyHtml = `<p class="breakdownLine">Letztes Spiel: ${ownMatch.home} ${ownMatch.homeGoals}:${ownMatch.awayGoals} ${ownMatch.away}${ownMatch.wasDraw ? ` (${knockoutSuffix(ownMatch)})` : ""}</p>`;
     }
   }
 
@@ -139,7 +139,7 @@ function renderEuropeStatus(gameState){
 
   if(eu.history && eu.history.length > 0){
     const last = eu.history[eu.history.length - 1];
-    body += `<p class="muted" style="margin-top:10px;">${last.round}: ${last.ownGoals}:${last.oppGoals} gegen ${last.opponent}${last.wasDraw ? " (n.V./Elfm.)" : ""}</p>`;
+    body += `<p class="muted" style="margin-top:10px;">${last.round}: ${last.ownGoals}:${last.oppGoals} gegen ${last.opponent}${last.wasDraw ? ` (${last.suffix || "n.V."})` : ""}</p>`;
   }
 
   container.innerHTML = `<p style="margin:0;">${head}</p>${body}`;
@@ -158,13 +158,13 @@ function renderFixtureList(gameState){
   const byDay = {};
   gameState.fixtures.forEach((f, idx) => {
     if(f.home !== gameState.clubName && f.away !== gameState.clubName) return;
-    byDay[Math.floor(idx / MATCHES_PER_MATCHDAY) + 1] = f;
+    byDay[getFixtureMatchday(idx, gameState.teams.length)] = f;
   });
 
   const qualified = gameState.europe && gameState.europe.qualified;
   let html = `<tr><th class="n">ST</th><th>Wettbewerb</th><th>Gegner</th><th class="n">Ergebnis</th><th></th></tr>`;
 
-  for(let d = 1; d <= TOTAL_MATCHDAYS; d++){
+  for(let d = 1; d <= getSeasonMatchdays(gameState); d++){
     if(cupOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🏆 DFB-Pokal</td><td colspan="3">${cupOn[d]}</td></tr>`;
     if(qualified && euroOn[d]) html += `<tr class="dim"><td class="n">${d}</td><td>🌍 Europapokal</td><td colspan="3">${euroOn[d]}</td></tr>`;
 
@@ -257,11 +257,13 @@ function showDismissalModal(result){
       </div>`).join("")}` : "";
 
   el.innerHTML = `
-    <p class="eyebrow">Der Vorstand hat entschieden</p>
-    <h2 style="margin:4px 0 14px;">Du wurdest entlassen</h2>
+    <p class="eyebrow">${result.regional ? "Abstieg in die Regionalliga" : "Der Vorstand hat entschieden"}</p>
+    <h2 style="margin:4px 0 14px;">${result.regional ? "Der Verein trennt sich von dir" : "Du wurdest entlassen"}</h2>
     <p class="muted" style="margin:0 0 16px;">
-      Nach Spieltag ${result.matchday} steht ${gameState.clubName} auf Platz ${result.position}.
-      Erwartet wurde: <b>${board.goalLabel}</b> (mindestens Platz ${board.targetPosition}).
+      ${result.regional
+        ? `${gameState.clubName} ist als ${result.position}. aus der 3. Liga abgestiegen. Die Regionalliga wird im Spiel nicht ausgespielt — deine Karriere geht bei einem anderen Verein weiter.`
+        : `Nach Spieltag ${result.matchday} steht ${gameState.clubName} auf Platz ${result.position}.
+      Erwartet wurde: <b>${board.goalLabel}</b> (mindestens Platz ${board.targetPosition}).`}
     </p>
     <div class="statGrid" style="margin-bottom:4px;">
       <div class="stat"><div class="k">Saisons im Amt</div><div class="v gold">${saisons + 1}</div></div>

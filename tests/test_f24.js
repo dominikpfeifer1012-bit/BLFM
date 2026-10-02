@@ -166,7 +166,7 @@ check("Drei Saisons lassen sich durchspielen", () => {
   gs.pressConferences=false;
   for(let s=0;s<3;s++){
     saisonSpielen();
-    gs.board.patience=90;
+    gs.board.patience=90; gs.board.dismissed=false;
     win.startNextSeason();
   }
   return gs.seasonHistory.length===3 ? true : `${gs.seasonHistory.length} Saisons`;

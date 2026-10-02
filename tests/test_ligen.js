@@ -26,8 +26,10 @@ const K=basis.K;
 
 console.log("--- Ligadefinition ---");
 check("Drei Ligen sind definiert", () => K.DIVISIONS.length===3 ? true : K.DIVISIONS.length);
-check("Jede hat 18 Vereine", () =>
-  K.DIVISIONS.every(d=>d.clubs.length===18) ? true : K.DIVISIONS.map(d=>d.clubs.length).join(","));
+// Bundesliga und 2. Liga mit 18, die 3. Liga wie in echt mit 20 Vereinen.
+const SOLL_GROESSEN=[18,18,20];
+check("Ligagrößen 18, 18 und 20", () =>
+  K.DIVISIONS.every((d,i)=>d.clubs.length===SOLL_GROESSEN[i]) ? true : K.DIVISIONS.map(d=>d.clubs.length).join(","));
 check("Keine Vereinsnamen doppelt", () => {
   const alle=K.DIVISIONS.flatMap(d=>d.clubs.map(c=>c.name));
   return new Set(alle).size===alle.length ? true : "Dubletten";
@@ -46,9 +48,9 @@ check("Die Auswahl ist nach Liga gruppiert", () => {
   return gruppen.length===3 && gruppen.every((g,i)=>g.label===K.DIVISIONS[i].label)
     ? true : `${gruppen.length} Gruppen`;
 });
-check("Alle 54 Vereine stehen zur Wahl", () => {
+check("Alle 56 Vereine stehen zur Wahl", () => {
   const n=$b("clubSelect").querySelectorAll("option").length;
-  return n===54 ? true : `${n} Optionen`;
+  return n===56 ? true : `${n} Optionen`;
 });
 
 console.log("\n--- Start in jeder Liga ---");
@@ -62,9 +64,10 @@ console.log("\n--- Start in jeder Liga ---");
 
   check(`Start in Liga ${nr} (${verein})`, () => {
     if(gs.division!==nr) return `division=${gs.division}`;
-    if(gs.teams.length!==18) return `${gs.teams.length} Gegner`;
+    if(gs.teams.length!==SOLL_GROESSEN[nr-1]) return `${gs.teams.length} Gegner`;
     if(!gs.teams.some(t=>t.name===verein)) return "eigener Verein fehlt in der Tabelle";
-    if(gs.fixtures.length!==306) return `${gs.fixtures.length} Spiele`;
+    const n=SOLL_GROESSEN[nr-1];
+    if(gs.fixtures.length!==n*(n-1)) return `${gs.fixtures.length} Spiele`;
     return true;
   });
 
@@ -96,7 +99,8 @@ console.log("\n--- Start in jeder Liga ---");
       win.runNextEvent();
       if($("liveOverlay").classList.contains("show")){ win.skipLiveMatch(); win.closeLiveMatch(); }
     }
-    return gs.matchday===K.TOTAL_MATCHDAYS ? true : `nur ${gs.matchday} Spieltage`;
+    const soll=win.getSeasonMatchdays(gs);
+    return gs.matchday===soll ? true : `${gs.matchday} statt ${soll} Spieltage`;
   });
 
   check(`  Liga ${nr}: keine Laufzeitfehler`, () =>
@@ -109,8 +113,8 @@ const $w=id=>w.document.getElementById(id);
 $w("clubSelect").value="Hertha BSC"; w.startCareer();
 const gw=w.gameState; gw.liveMatches=false; gw.pressConferences=false;
 
-check("Vor der Saison: 18 Vereine je Liga", () =>
-  [1,2,3].every(nr=>w.getLeaguePool(gw,nr).length===18) ? true : "Verteilung falsch");
+check("Vor der Saison: 18, 18 und 20 Vereine", () =>
+  [1,2,3].every(nr=>w.getLeaguePool(gw,nr).length===SOLL_GROESSEN[nr-1]) ? true : "Verteilung falsch");
 
 check("Nach einer Saison stimmt die Verteilung noch", () => {
   let n=0;
@@ -119,9 +123,9 @@ check("Nach einer Saison stimmt die Verteilung noch", () => {
     if($w("liveOverlay").classList.contains("show")){ w.skipLiveMatch(); w.closeLiveMatch(); }
   }
   const groessen=[1,2,3].map(nr=>w.getLeaguePool(gw,nr).length);
-  if(groessen.some(g=>g!==18)) return groessen.join(",");
+  if(groessen.some((g,i)=>g!==SOLL_GROESSEN[i])) return groessen.join(",");
   const alle=w.getAllLeagueClubs(gw).map(c=>c.name);
-  return new Set(alle).size===54 ? true : `${new Set(alle).size} eindeutige Vereine`;
+  return new Set(alle).size===56 ? true : `${new Set(alle).size} eindeutige Vereine`;
 });
 
 check("Zwischen jedem Ligapaar wird auf- und abgestiegen", () => {
@@ -131,7 +135,7 @@ check("Zwischen jedem Ligapaar wird auf- und abgestiegen", () => {
 
 check("Über fünf Saisons bleibt die Struktur stabil", () => {
   for(let s=0;s<5;s++){
-    gw.board.patience=90;
+    gw.board.patience=90; gw.board.dismissed=false;
     w.startNextSeason();
     if(gw.pendingYouthCandidates) w.finishYouthIntake();
     let n=0;
@@ -140,9 +144,9 @@ check("Über fünf Saisons bleibt die Struktur stabil", () => {
       if($w("liveOverlay").classList.contains("show")){ w.skipLiveMatch(); w.closeLiveMatch(); }
     }
     const groessen=[1,2,3].map(nr=>w.getLeaguePool(gw,nr).length);
-    if(groessen.some(g=>g!==18)) return `Saison ${s+1}: ${groessen.join(",")}`;
+    if(groessen.some((g,i)=>g!==SOLL_GROESSEN[i])) return `Saison ${s+1}: ${groessen.join(",")}`;
     const alle=w.getAllLeagueClubs(gw).map(c=>c.name);
-    if(new Set(alle).size!==54) return `Saison ${s+1}: ${new Set(alle).size} Vereine`;
+    if(new Set(alle).size!==56) return `Saison ${s+1}: ${new Set(alle).size} Vereine`;
     if(gw.division<1||gw.division>3) return `eigene Liga ${gw.division}`;
   }
   return true;

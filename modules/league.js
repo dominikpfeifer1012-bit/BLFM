@@ -2,11 +2,42 @@
 // LEAGUE.JS - Auf- und Abstieg zwischen 1. und 2. Bundesliga
 // ============================================
 
-function simulateGenericMatch(strengthA, strengthB){
-  const diff = strengthA - strengthB;
-  const lambdaA = Math.max(0.3, 1.3 + diff / 25);
-  const lambdaB = Math.max(0.3, 1.2 - diff / 25);
-  return { goalsA: poisson(lambdaA), goalsB: poisson(lambdaB) };
+// ---------- Ligagroesse ----------
+// Die Ligen sind nicht mehr alle gleich gross: die 3. Liga hat wie in echt
+// 20 Vereine und damit 38 Spieltage. Alles, was frueher mit festen 9 Spielen
+// pro Spieltag und 34 Spieltagen rechnete, fragt jetzt hier nach.
+function getRoundSize(teamCount){
+  return Math.max(1, Math.floor((teamCount || 18) / 2));
+}
+
+function getRoundsForTeams(teamCount){
+  return 2 * ((teamCount || 18) - 1);
+}
+
+// Spieltage der eigenen Liga in dieser Saison.
+function getSeasonMatchdays(gameState){
+  const gs = gameState || (typeof window !== "undefined" ? window.gameState : null);
+  const n = gs && gs.teams && gs.teams.length ? gs.teams.length : 18;
+  return getRoundsForTeams(n);
+}
+
+// Spiele eines Spieltags (0-basiert) aus einem Spielplan.
+function getRoundFixtures(fixtures, teamCount, day){
+  const proRunde = getRoundSize(teamCount);
+  return fixtures.filter((f, idx) => Math.floor(idx / proRunde) === day);
+}
+
+function getFixtureMatchday(idx, teamCount){
+  return Math.floor(idx / getRoundSize(teamCount)) + 1;
+}
+
+// Spiel zweier Vereine ohne eigenen Kader. A hat Heimrecht, ausser neutral.
+// Gleiche Formel wie die eigenen Spiele (getBaseLambdas/rollScore).
+function simulateGenericMatch(strengthA, strengthB, neutral){
+  const l = getBaseLambdas({ attack: strengthA, defence: strengthA },
+    { attack: strengthB, defence: strengthB }, neutral);
+  const r = rollScore(l.home, l.away);
+  return { goalsA: r.homeGoals, goalsB: r.awayGoals };
 }
 
 function simulateShadowSeason(clubPool){
@@ -27,11 +58,10 @@ function simulateShadowSeason(clubPool){
 }
 
 function resolvePlayoff(teamA, teamB){
-  const { goalsA, goalsB } = simulateGenericMatch(teamA.strength, teamB.strength);
+  const { goalsA, goalsB } = simulateGenericMatch(teamA.strength, teamB.strength, true);
   if(goalsA === goalsB){
-    const diff = teamA.strength - teamB.strength;
-    const winProb = Math.max(0.15, Math.min(0.85, 0.5 + diff / 200));
-    return Math.random() < winProb ? teamA : teamB;
+    const e = penaltyShootout(teamA.strength, teamB.strength);
+    return e.home > e.away ? teamA : teamB;
   }
   return goalsA > goalsB ? teamA : teamB;
 }
@@ -219,17 +249,39 @@ function processPromotionRelegation(gameState){
     });
   }
 
+  // Unterste Liga gegen die Regionalliga: die letzten vier steigen ab,
+  // vier Vereine aus dem Regionalliga-Kreis kommen hinzu.
+  const regional = { down: [], up: [] };
+  const untersteTab = standings[anzahl];
+  if(untersteTab && untersteTab.length > REGIONAL_PROMOTIONS + 4){
+    ensureRegionalClubs(gameState);
+    untersteTab.slice(-REGIONAL_PROMOTIONS).forEach(t => {
+      neueZuordnung.set(t.name, 0);
+      regional.down.push(t.name);
+    });
+    regional.up = pickRegionalPromotions(gameState, REGIONAL_PROMOTIONS);
+  }
+
   // Neue Ligapools aufbauen.
   const neuePools = Array.from({ length: anzahl }, () => []);
   alleVereine.forEach((club, name) => {
-    const nr = neueZuordnung.get(name) || getClubDivision(gameState, name) || anzahl;
+    const ziel = neueZuordnung.get(name);
+    if(ziel === 0){
+      // In die Regionalliga: Verein verlaesst die Ligen, schwaecht sich etwas ab.
+      club.strength = Math.max(AI_STRENGTH_FLOOR, Math.round((club.strength - REGIONAL_RELEGATION_STRENGTH_LOSS) * 10) / 10);
+      gameState.regionalClubs.push(club);
+      return;
+    }
+    const nr = ziel || getClubDivision(gameState, name) || anzahl;
     neuePools[nr - 1].push(club);
   });
+  regional.up.forEach(club => neuePools[anzahl - 1].push(club));
   gameState.leaguePools = neuePools;
   gameState.leagueOnePool = neuePools[0];   // Rueckwaertskompatibel
   gameState.leagueTwoPool = neuePools[1];
 
-  const neueEigene = neueZuordnung.get(gameState.clubName) || playedDivision;
+  const inRegionalliga = neueZuordnung.get(gameState.clubName) === 0;
+  const neueEigene = inRegionalliga ? playedDivision : (neueZuordnung.get(gameState.clubName) || playedDivision);
   gameState.division = neueEigene;
 
   // Staerkedrift mit den tatsaechlich gespielten Tabellen.
@@ -260,12 +312,41 @@ function processPromotionRelegation(gameState){
     playoffLoserName: eigene.playoffLoserName,
     ownWasPromoted: neueEigene < playedDivision,
     ownWasRelegated: neueEigene > playedDivision,
+    ownRelegatedToRegional: inRegionalliga,
+    regionalDown: regional.down,
+    regionalUp: regional.up.map(c => c.name),
     ownDivisionNow: neueEigene,
     movements: bewegungen,
     driftChanges
   };
 }
 
+
+// ---------- Regionalliga ----------
+
+function ensureRegionalClubs(gameState){
+  if(!Array.isArray(gameState.regionalClubs)){
+    const inLigen = new Set(getAllLeagueClubs(gameState).map(c => c.name));
+    gameState.regionalClubs = clonePool(REGIONAL_CLUBS).filter(c => !inLigen.has(c.name));
+  }
+  return gameState.regionalClubs;
+}
+
+// Aufsteiger aus der Regionalliga: nach Staerke gewichtet, ohne Zuruecklegen.
+function pickRegionalPromotions(gameState, anzahl){
+  const kreis = ensureRegionalClubs(gameState);
+  const gewaehlt = [];
+  for(let i = 0; i < anzahl && kreis.length > 0; i++){
+    const gewichte = kreis.map(c => Math.pow(Math.max(1, c.strength - 30), 2));
+    let wurf = Math.random() * gewichte.reduce((s, g) => s + g, 0);
+    let idx = 0;
+    for(; idx < kreis.length - 1; idx++){ wurf -= gewichte[idx]; if(wurf <= 0) break; }
+    const club = kreis.splice(idx, 1)[0];
+    if(club.baseStrength == null) club.baseStrength = club.strength;
+    gewaehlt.push(club);
+  }
+  return gewaehlt;
+}
 
 // ============================================
 // Die andere Liga laeuft parallel mit
@@ -308,32 +389,44 @@ function simulateShadowMatchday(gameState){
   const shadows = gameState.shadowLeagues;
   if(!shadows) return null;
 
+  // Ligen unterschiedlicher Groesse laufen synchron: eine Liga mit 38
+  // Spieltagen spielt neben einer mit 34 gelegentlich zwei Runden, damit
+  // beide zum Saisonende fertig sind (und umgekehrt mal keine).
+  const eigeneSpieltage = getSeasonMatchdays(gameState);
   let gespielt = 0;
   Object.keys(shadows).forEach(nr => {
     const shadow = shadows[nr];
-    const runde = shadow.fixtures.filter(
-      (f, idx) => Math.floor(idx / MATCHES_PER_MATCHDAY) === shadow.matchday && !f.played);
-    if(runde.length === 0) return;
-
-    runde.forEach(f => {
-      const home = shadow.teams.find(t => t.name === f.home);
-      const away = shadow.teams.find(t => t.name === f.away);
-      const { goalsA, goalsB } = simulateGenericMatch(home.strength + 3, away.strength);
-      updateStandings(shadow.teams, f.home, f.away, goalsA, goalsB);
-      f.played = true; f.homeGoals = goalsA; f.awayGoals = goalsB;
-
-      // Auch hier bekommen die Tore Schuetzen, damit ein spaeterer Wechsel in
-      // diese Liga keine leeren Statistiken hinterlaesst.
-      if(typeof assignPoolScorers === "function"){
-        assignPoolScorers(gameState, f.home, goalsA);
-        assignPoolScorers(gameState, f.away, goalsB);
-      }
-    });
-    shadow.matchday++;
-    gespielt += runde.length;
+    const runden = getRoundsForTeams(shadow.teams.length);
+    const ziel = Math.min(runden, Math.round(gameState.matchday * runden / eigeneSpieltage));
+    while(shadow.matchday < ziel){
+      gespielt += playShadowRound(gameState, shadow);
+    }
   });
 
   return gespielt > 0 ? { matches: gespielt } : null;
+}
+
+// Eine Runde einer Parallelliga.
+function playShadowRound(gameState, shadow){
+  const runde = getRoundFixtures(shadow.fixtures, shadow.teams.length, shadow.matchday).filter(f => !f.played);
+  if(runde.length === 0){ shadow.matchday++; return 0; }
+
+  runde.forEach(f => {
+    const home = shadow.teams.find(t => t.name === f.home);
+    const away = shadow.teams.find(t => t.name === f.away);
+    const { goalsA, goalsB } = simulateGenericMatch(home.strength, away.strength);
+    updateStandings(shadow.teams, f.home, f.away, goalsA, goalsB);
+    f.played = true; f.homeGoals = goalsA; f.awayGoals = goalsB;
+
+    // Auch hier bekommen die Tore Schuetzen, damit ein spaeterer Wechsel in
+    // diese Liga keine leeren Statistiken hinterlaesst.
+    if(typeof assignPoolScorers === "function"){
+      assignPoolScorers(gameState, f.home, goalsA);
+      assignPoolScorers(gameState, f.away, goalsB);
+    }
+  });
+  shadow.matchday++;
+  return runde.length;
 }
 
 // Welche Ligen laufen neben der eigenen? Nach Nummer sortiert.
