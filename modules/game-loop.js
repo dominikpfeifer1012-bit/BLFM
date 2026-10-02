@@ -398,7 +398,7 @@ function handleDebt(){
 
   const idx = gameState.squad.reduce((best, p, i, arr) => p.value > arr[best].value ? i : best, 0);
   const spieler = gameState.squad[idx];
-  const erloes = calculateSellValue(spieler.value);
+  const erloes = getSellPrice(spieler);
   gameState.squad.splice(idx, 1);
   pruneLineup(gameState);
   const club = findNewClubFor(gameState, spieler);

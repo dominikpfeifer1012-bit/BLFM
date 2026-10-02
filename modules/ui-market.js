@@ -159,7 +159,7 @@ function renderMarket(gameState){
     const idx = gameState.squad.indexOf(p);
     html += `<tr><td><b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b></td><td>${getFlag(p)} ${p.name}</td>
       <td class="n">${Math.round(p.strength)}</td><td class="n">${p.age}</td>
-      <td class="n">${fmtMoney(p.value)}</td><td class="n">${fmtMoney(calculateSellValue(p.value))}</td>
+      <td class="n">${fmtMoney(p.value)}</td><td class="n">${fmtMoney(getSellPrice(p))}</td>
       <td><button onclick="handleSellClick(this, ${idx})"${tw.open ? "" : " disabled"}>Verkaufen</button></td></tr>`;
   });
   html += `</table></div>`;

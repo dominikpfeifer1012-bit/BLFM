@@ -504,7 +504,7 @@ function showPlayerDetail(playerId){
       ${player.id !== (getCaptain(gameState) || {}).id ? `<button class="ghost" onclick="handleSetCaptain('${player.id}')">©️ Zum Kapitän</button>` : `<span class="badge" style="background:var(--gold); color:#10202C; align-self:center;">Kapitän</span>`}
       <button class="ghost" id="profileSellBtn" onclick="handleProfileSell('${player.id}')"${sellBlock ? " disabled" : ""}
         title="${sellBlock || ""}">
-        Verkaufen · ${fmtMoney(calculateSellValue(player.value))}
+        Verkaufen · ${fmtMoney(getSellPrice(player))}
       </button>
       ${player.age <= YOUTH_SQUAD_MAX_AGE
         ? `<button class="ghost" onclick="handleDemoteToYouth('${player.id}')">⬇ In die Jugend</button>` : ""}

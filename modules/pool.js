@@ -70,7 +70,7 @@ function createWorldPool(gameState){
 
   // Vereinslose Spieler: kosten keine Abloese, nur Handgeld.
   for(let i = 0; i < POOL_FREE_AGENT_COUNT; i++){
-    const player = genPlayer(randInt(48, 74), randChoice(POSITION_ORDER), [18, 35], true);
+    const player = genPlayer(randInt(46, 66), randChoice(POSITION_ORDER), [22, 35], true);
     player.clubName = null;
     player.clubTier = "frei";
     players.push(player);
@@ -198,6 +198,9 @@ function signPlayerFromPool(gameState, playerId){
   const player = getPoolPlayer(pool, playerId);
   if(!player) return { success: false, message: "Dieser Spieler ist nicht mehr verfügbar." };
   if(!player.transferListed) return { success: false, message: `${player.name} steht diese Saison nicht zur Verfügung.` };
+  if(gameState.squad.length >= MAX_SQUAD_SIZE){
+    return { success: false, message: `Kader voll (${MAX_SQUAD_SIZE} Spieler).` };
+  }
   if(!isWillingToJoin(gameState, player)){
     return { success: false,
       message: `${player.name} hat kein Interesse an einem Wechsel.` };
@@ -219,6 +222,8 @@ function signPlayerFromPool(gameState, playerId){
   delete player.transferListed;
   player.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
   player.joinedSeason = gameState.season;
+  player.purchaseFee = fee;
+  if(!herkunft) player.salaryFactor = Math.max(player.salaryFactor || 1, FREE_AGENT_SALARY_FACTOR);
   player.seasonStartStrength = player.strength;
   gameState.squad.push(player);
 
@@ -280,8 +285,8 @@ function detachOwnClubFromPool(gameState){
 
 // Beim Verkauf kehrt der Spieler in den Pool zurueck — bei einem Verein,
 // der zu seiner Staerke passt.
-function findNewClubFor(gameState, player){
-  const kandidaten = buildPoolClubList(gameState)
+function findNewClubFor(gameState, player, clubs){
+  const kandidaten = (clubs || buildPoolClubList(gameState))
     .filter(c => c.name !== gameState.clubName)
     .map(c => ({ club: c, abstand: Math.abs(c.strength - player.strength) }))
     .sort((a, b) => a.abstand - b.abstand)
@@ -299,7 +304,7 @@ function sellPlayerToPool(gameState, squadIndex){
     return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
 
-  const erloes = calculateSellValue(player.value);
+  const erloes = getSellPrice(player);
   gameState.budget = addToBudget(gameState.budget, erloes);
   gameState.squad.splice(squadIndex, 1);
   pruneLineup(gameState);
@@ -327,6 +332,7 @@ function advancePool(gameState){
 
   const bleibt = [];
   let abgaenge = 0;
+  const clubs = buildPoolClubList(gameState);
 
   pool.players.forEach(p => {
     p.age += 1;
@@ -345,11 +351,22 @@ function advancePool(gameState){
     applyAttributeChange(p, rate);
     refreshPlayerValue(p);
 
-    if(p.contractYears <= 0) resolveExpiredPoolContract(gameState, p);
+    if(!p.clubName){
+      // Ohne Verein: Chance auf einen neuen Club, sonst Abbau ohne Spielpraxis.
+      const club = Math.random() < POOL_FREE_AGENT_SIGN_CHANCE ? findNewClubFor(gameState, p, clubs) : null;
+      if(club){
+        p.clubName = club.name; p.clubTier = club.tier;
+        p.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
+      } else {
+        applyAttributeChange(p, -randFloat(0, POOL_FREE_AGENT_DECLINE));
+        refreshPlayerValue(p);
+        p.contractYears = 1;
+      }
+    } else if(p.contractYears <= 0) resolveExpiredPoolContract(gameState, p, clubs);
     bleibt.push(p);
   });
+  placeSurplusFreeAgents(gameState, bleibt, clubs);
 
-  const clubs = buildPoolClubList(gameState);
   const soll = clubs.reduce((sum, c) => sum + (c.size || POOL_PLAYERS_PER_CLUB), 0) + POOL_FREE_AGENT_COUNT;
   // Zugaenge verteilen sich nach Bestandsgroesse der Vereine.
   const gewichtet = [];
@@ -401,6 +418,18 @@ function advancePool(gameState){
   return { abgaenge, zugaenge };
 }
 
+// Zu viele Vereinslose: die Staerksten kommen bei einem Verein unter.
+function placeSurplusFreeAgents(gameState, spieler, clubs){
+  const frei = spieler.filter(p => !p.clubName).sort((a, b) => b.strength - a.strength);
+  const ueber = frei.length - POOL_FREE_AGENT_MAX;
+  for(let i = 0; i < ueber; i++){
+    const club = findNewClubFor(gameState, frei[i], clubs);
+    if(!club) break;
+    frei[i].clubName = club.name; frei[i].clubTier = club.tier;
+    frei[i].contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
+  }
+}
+
 // Ein Nachwuchsspieler fuer den Bestand: jung, noch schwach, mit Luft nach oben.
 function createPoolProspect(club){
   const ziel = club.strength - POOL_INTAKE_BELOW_CLUB
@@ -416,7 +445,7 @@ function createPoolProspect(club){
 
 // Ohne diese Behandlung wuerde nach wenigen Saisons der gesamte Bestand
 // vereinslos sein: Vertraege liefen ab und wurden nie erneuert.
-function resolveExpiredPoolContract(gameState, player){
+function resolveExpiredPoolContract(gameState, player, clubs){
   const wurf = Math.random();
 
   if(wurf < POOL_RENEW_CHANCE && player.clubName){
@@ -425,7 +454,7 @@ function resolveExpiredPoolContract(gameState, player){
   }
 
   if(wurf < POOL_RENEW_CHANCE + POOL_TRANSFER_CHANCE){
-    const club = findNewClubFor(gameState, player);
+    const club = findNewClubFor(gameState, player, clubs);
     if(club){
       player.clubName = club.name;
       player.clubTier = club.tier;

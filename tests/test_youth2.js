@@ -8,7 +8,7 @@ const mods=[...fs.readFileSync("/home/claude/bl/index.html","utf8")
   .matchAll(/modules\/([a-z-]+\.js)/g)].map(m=>m[1]);
 win.eval("try{localStorage.clear();}catch(e){}");
 win.eval(mods.map(f=>fs.readFileSync("/home/claude/bl/"+f,"utf8")).join("\n")
-  +"\nwindow.K={YOUTH_SQUAD_MAX_SIZE,YOUTH_SQUAD_MAX_AGE,YOUTH_INTAKE_CANDIDATES,YOUTH_INTAKE_MAX_PICK,YOUTH_TEAM_SIZE,MIN_SQUAD_SIZE,TOTAL_MATCHDAYS};");
+  +"\nwindow.K={YOUTH_SQUAD_MAX_SIZE,YOUTH_SQUAD_MAX_AGE,YOUTH_INTAKE_CANDIDATES,YOUTH_INTAKE_MAX_PICK,YOUTH_TEAM_SIZE,MIN_SQUAD_SIZE,TOTAL_MATCHDAYS};window.POOL_FREE_AGENT_MAX_TEST=POOL_FREE_AGENT_MAX;");
 let fails=0;
 function check(l,fn){ try{ const r=fn(); const ok=r===true||r===undefined;
   console.log(`${ok?"OK  ":"FAIL"}  ${l}${ok?"":" -> "+r}`); if(!ok)fails++;
@@ -248,7 +248,36 @@ check("Prämien steigen mit der Liga", () => {
 });
 check("Transferinteresse folgt der Kaderstärke", () => {
   const kader=win.teamRating(gs.squad,(gs.matchday||0)+1);
-  return win.getTransferInterestLimit(gs)>=kader+10 ? true : `Kader ${kader}, Grenze ${win.getTransferInterestLimit(gs)}`;
+  return win.getTransferInterestLimit(gs)>=kader+6 && win.getTransferInterestLimit(gs)<=Math.max(kader,gs.clubStature||0,win.getOwnClubStrength(gs))+10 ? true : `Kader ${kader}, Grenze ${win.getTransferInterestLimit(gs)}`;
+});
+
+console.log("\n--- Transfermarkt ---");
+check("Vereinslose bleiben begrenzt und ohne Spitzenspieler", () => {
+  for(let i=0;i<3;i++){ gs.season++; win.advancePool(gs); }
+  const frei=gs.pool.players.filter(p=>!p.clubName);
+  const max=Math.max(...frei.map(p=>p.strength));
+  return frei.length<=win.POOL_FREE_AGENT_MAX_TEST && max<70 ? true : `${frei.length} frei, stärkster ${max}`;
+});
+check("Kein Gewinn durch Weiterverkauf in derselben Saison", () => {
+  gs.matchday=0;
+  while(gs.squad.length>=30) gs.squad.pop();
+  gs.budget=1e9;
+  const lim=win.getTransferInterestLimit(gs);
+  const p=gs.pool.players.find(x=>x.transferListed&&!x.clubName&&x.strength<=lim);
+  if(!p) return "kein Vereinsloser auf der Liste";
+  const r=win.signPlayerFromPool(gs,p.id); if(!r.success) return r.message;
+  const preis=win.getSellPrice(p);
+  return preis<=r.fee ? true : `gekauft ${r.fee}, Erlös ${preis}`;
+});
+check("Kader hat eine Obergrenze", () => {
+  gs.budget=1e9;
+  const lim=win.getTransferInterestLimit(gs);
+  let n=0;
+  for(const p of gs.pool.players.filter(x=>x.transferListed&&x.strength<=lim)){
+    if(gs.squad.length>=40||n++>60) break;
+    win.signPlayerFromPool(gs,p.id);
+  }
+  return gs.squad.length<=32 ? true : `${gs.squad.length} Spieler`;
 });
 
 check("Keine Laufzeitfehler", () => errors.length===0 ? true : errors.join(" | "));

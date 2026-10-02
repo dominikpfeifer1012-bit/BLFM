@@ -238,6 +238,13 @@ function applyLoadedState(state){
         if(nr) p.clubTier = "div" + nr;
       });
       syncPoolWithLeagues(gameState);
+      // Aeltere Staende: zu viele Vereinslose und eine zu lange Transferliste.
+      const freie = gameState.pool.players.filter(p => !p.clubName).length;
+      if(freie > POOL_FREE_AGENT_MAX) placeSurplusFreeAgents(gameState, gameState.pool.players, buildPoolClubList(gameState));
+      const gelistet = gameState.pool.players.filter(p => p.transferListed).length;
+      if(freie > POOL_FREE_AGENT_MAX || gelistet > gameState.pool.players.length * TRANSFER_LIST_SHARE * 1.5){
+        drawTransferList(gameState.pool);
+      }
     }
     // Fehlende Parallelligen anlegen und auf den aktuellen Spieltag bringen.
     for(let nr = 1; nr <= gameState.leaguePools.length; nr++){
