@@ -80,6 +80,17 @@ function calculateSellValue(playerValue){
   return Math.round(playerValue * SELL_FACTOR);
 }
 
+// Erloes fuer einen eigenen Spieler. Wer in dieser Saison geholt wurde,
+// bringt hoechstens zurueck, was er gekostet hat.
+function getSellPrice(player){
+  const wert = calculateSellValue(player.value);
+  const gs = typeof gameState !== "undefined" ? gameState : null;
+  if(gs && player.joinedSeason === gs.season && typeof player.purchaseFee === "number"){
+    return Math.min(wert, player.purchaseFee);
+  }
+  return wert;
+}
+
 function fmtMoney(value){
   if(value >= 1000000) return (value / 1000000).toFixed(2) + " Mio. €";
   return (value / 1000).toFixed(0) + " Tsd. €";

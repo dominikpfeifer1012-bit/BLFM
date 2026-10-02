@@ -613,6 +613,11 @@ const POOL_PLAYERS_PER_CLUB = 18;
 const POOL_PLAYERS_PER_CLUB_SMALL = 13;   // zweite Ligen im Ausland
 const POOL_FOREIGN_CLUB_COUNT = 14;     // zusaetzliche Vereine aus dem Ausland
 const POOL_FREE_AGENT_COUNT = 40;
+// Vereinslose bleiben nicht lange ohne Verein: zum Jahreswechsel findet ein
+// Teil einen neuen Club, die Besten zuerst. Ohne Spielpraxis bauen sie ab.
+const POOL_FREE_AGENT_MAX = 60;
+const POOL_FREE_AGENT_SIGN_CHANCE = 0.5;
+const POOL_FREE_AGENT_DECLINE = 1.5;
 // genPlayer streut intern bereits um +-10. Ein grosser Zusatzwert hier wuerde
 // das verdoppeln und einem Mittelklasseverein Weltklassespieler bescheren.
 const POOL_STRENGTH_SPREAD = 3;
@@ -640,7 +645,7 @@ const POOL_MAX_SIZE_DRIFT = 40;          // erlaubte Schwankung der Bestandsgroe
 // Nur ein Teil des Pools ist pro Saison zu haben. Das ersetzt die alte
 // Begrenzung auf eine Marktaktualisierung pro Spieltag: das Angebot ist
 // endlich, also darf frei gesucht und gefiltert werden.
-const TRANSFER_LIST_SHARE = 0.30;
+const TRANSFER_LIST_SHARE = 0.15;
 const TRANSFER_LIST_MIN = 60;
 // Mindestanteil junger Spieler auf der Liste. Ohne diese Vorgabe bestand das
 // Angebot fast nur aus Routiniers mit auslaufendem Vertrag.
@@ -649,16 +654,16 @@ const TRANSFER_LIST_YOUNG_MAX_AGE = 22;
 
 // Aufschlag auf den Marktwert: ein Verein gibt seinen Spieler nicht zum
 // Buchwert her. Vertragsende senkt den Aufschlag deutlich.
-
-// Aufschlag auf den Marktwert: ein Verein gibt seinen Spieler nicht zum
-// Buchwert her. Vertragsende senkt den Aufschlag deutlich.
 const TRANSFER_FEE_PREMIUM = 0.35;
 const TRANSFER_FEE_EXPIRING_PREMIUM = 0.05;
-const FREE_AGENT_SIGNING_FEE = 0.10;     // Handgeld statt Abloese
+const FREE_AGENT_SIGNING_FEE = 0.25;     // Handgeld statt Abloese
+const FREE_AGENT_SALARY_FACTOR = 1.2;    // Vereinslose verlangen mehr Gehalt
+// Obergrenze fuer den Profikader (ohne Jugend und Leihen).
+const MAX_SQUAD_SIZE = 32;
 // Wechselbereitschaft: Ein Spieler kommt nur, wenn er den Verein nicht um
 // mehr als diesen Wert ueberragt. Sonst holt ein Abstiegskandidat fuer ein
 // paar Millionen Weltklasse, weil der Marktwert vom Kaeufer unabhaengig ist.
-const TRANSFER_MAX_ABOVE_CLUB = 10;
+const TRANSFER_MAX_ABOVE_CLUB = 6;
 
 // Automatische Aufstellung: kleiner Vorzug fuer die gelernte Position, damit
 // niemand fuer ein bis zwei Punkte auf einen fremden Platz rutscht.

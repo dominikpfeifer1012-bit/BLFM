@@ -150,7 +150,7 @@ function sellPlayerFromSquad(gameState, squadIndex){
     return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
 
-  const sellValue = calculateSellValue(player.value);
+  const sellValue = getSellPrice(player);
   gameState.budget = addToBudget(gameState.budget, sellValue);
   gameState.squad.splice(squadIndex, 1);
   pruneLineup(gameState);
