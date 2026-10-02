@@ -43,7 +43,7 @@ function sortSquadForDisplay(squad){
     } else if(key === "value"){
       cmp = a.value - b.value;
     } else if(key === "salary"){
-      cmp = calculatePlayerSalary(a.strength, a.age) - calculatePlayerSalary(b.strength, b.age);
+      cmp = getPlayerSalary(a) - getPlayerSalary(b);
     } else if(key === "contract"){
       cmp = getContractYears(a) - getContractYears(b);
     } else if(key === "goals"){
@@ -70,6 +70,7 @@ function handleSquadSort(key){
 }
 
 function renderSquad(gameState){
+  const kapitaenId = (getCaptain(gameState) || {}).id;
   const currentDay = gameState.matchday + 1;
   const sortedSquad = sortSquadForDisplay(gameState.squad);
   const info = getStartingXIInfo(gameState.squad, currentDay);
@@ -143,10 +144,11 @@ function renderSquad(gameState){
     else if(diff < -0.3) trend = ' <span style="color:#e63946;">▼</span>';
 
     const icon = POSITION_ICONS[p.pos] || "";
-    const youthTag = p.isYouthProduct ? ' <span title="Eigengewächs aus der Jugend">🌱</span>' : "";
+    const youthTag = (p.isYouthProduct ? ' <span title="Eigengewächs aus der Jugend">🌱</span>' : "")
+      + (p.id === kapitaenId ? ' <span class="badge" style="background:var(--gold); color:#10202C;" title="Kapitän">C</span>' : "");
     const flag = getFlag(p) ? `<span title="${getNationality(p).name}">${getFlag(p)}</span> ` : "";
     const ageStyle = p.age >= RETIREMENT_MIN_AGE ? ' style="color:#fca311;" title="Karriereende möglich"' : "";
-    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b>${icon} ${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(calculatePlayerSalary(p.strength, p.age))}</td><td class="n"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft am Saisonende aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
+    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b>${icon} ${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(getPlayerSalary(p))}</td><td class="n"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft am Saisonende aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
   });
 
   document.getElementById("squadTable").innerHTML = html;
@@ -478,7 +480,7 @@ function showPlayerDetail(playerId){
 
     <div class="statGrid">
       ${stat("Marktwert", fmtMoney(player.value))}
-      ${stat("Gehalt", fmtMoney(calculatePlayerSalary(player.strength, player.age)), "pro Saison")}
+      ${stat("Gehalt", fmtMoney(getPlayerSalary(player)), player.salaryFactor > 1.01 ? `pro Saison · ${Math.round((player.salaryFactor - 1) * 100)} % ausgehandelt` : "pro Saison")}
       ${stat("Tore", player.goalsSeason || 0, "diese Saison")}
       ${stat("Gelbe Karten", player.yellowCards || 0)}
       ${stat("In Folge", player.consecutiveStarts || 0, "in der Startelf")}
@@ -497,17 +499,18 @@ function showPlayerDetail(playerId){
             : "Noch nicht so weit: zu weit unter dem Niveau der Mannschaft oder schwächer als jeder Profi auf dieser Position."}</p>
       </div>` : `
     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="ghost" onclick="handleRenewContract('${player.id}')">
-        Um ${CONTRACT_RENEWAL_YEARS} Jahre verlängern · ${fmtMoney(getRenewalFee(player))}
-      </button>
+      ${player.id !== (getCaptain(gameState) || {}).id ? `<button class="ghost" onclick="handleSetCaptain('${player.id}')">©️ Zum Kapitän</button>` : `<span class="badge" style="background:var(--gold); color:#10202C; align-self:center;">Kapitän</span>`}
       <button class="ghost" id="profileSellBtn" onclick="handleProfileSell('${player.id}')"${sellBlock ? " disabled" : ""}
         title="${sellBlock || ""}">
         Verkaufen · ${fmtMoney(calculateSellValue(player.value))}
       </button>
       ${player.age <= YOUTH_SQUAD_MAX_AGE
         ? `<button class="ghost" onclick="handleDemoteToYouth('${player.id}')">⬇ In die Jugend</button>` : ""}
+      ${player.age <= LOAN_MAX_AGE
+        ? `<button class="ghost" onclick="handleLoanOut('${player.id}')"${canLoanOut(gameState, player) ? ` disabled title="${canLoanOut(gameState, player)}"` : ""}>🔁 Verleihen</button>` : ""}
     </div>
-    ${sellBlock ? `<p class="muted" style="margin:8px 0 0;">${sellBlock}</p>` : ""}`}
+    ${sellBlock ? `<p class="muted" style="margin:8px 0 0;">${sellBlock}</p>` : ""}
+    ${renderRenewalBlock(player)}`}
 
     <p style="margin:16px 0 0;"><span class="badge ${statusClass}">${statusLine}</span></p>
     ${tags.length ? `<div class="profTags">${tags.join("")}</div>` : ""}
@@ -651,7 +654,11 @@ function renderYouthSquad(gameState){
   const kopf = `<div class="statGrid" style="margin-bottom:12px;">
     ${statBox("Jugendkader", `${kader.length}/${YOUTH_SQUAD_MAX_SIZE}`, "zählt nicht zum Profikader")}
     ${statBox("Gehalt", fmtMoney(getYouthSquadSalary(gameState)), "pro Saison")}
-  </div>`;
+  </div>
+  <label class="muted" style="display:flex; gap:8px; align-items:center; margin:0 0 12px; font-size:13px;">
+    <input type="checkbox" onchange="gameState.youthAutoPromote = this.checked; showToast(this.checked ? 'Bei Personalnot rücken Talente automatisch nach.' : 'Talente bleiben in der Jugend; bei Personalnot kommen Vereinslose.', 'info');"${gameState.youthAutoPromote ? " checked" : ""}>
+    Bei Personalnot Talente automatisch in den Profikader ziehen
+  </label>`;
 
   if(kader.length === 0){
     el.innerHTML = kopf + `<p class="muted">Noch keine Talente unter Vertrag. Am Saisonende
@@ -706,7 +713,7 @@ function renderYouthIntakeModal(){
         ${p.__gewaehlt || aus ? "" : `onclick="handlePickYouthCandidate(${i})"`}>
         <span style="flex:1;">
           <b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b> ${getFlag(p)} ${p.name}${p.isTalent ? " ✨" : ""}
-          <br><span class="muted" style="font-size:11px;">${p.age} Jahre · Gehalt ${fmtMoney(Math.round(calculatePlayerSalary(p.strength, p.age) * YOUTH_SALARY_FACTOR))}</span>
+          <br><span class="muted" style="font-size:11px;">${p.age} Jahre · Gehalt ${fmtMoney(Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR))}</span>
         </span>
         <span style="text-align:right;">
           <span class="lineupValue">${Math.round(p.strength)}</span>
@@ -750,7 +757,21 @@ function renderContractPanel(gameState){
         <span class="contractName"><b>${p.pos}</b> ${p.name}${xi.has(p.id) ? ' <span class="badge win">Startelf</span>' : ""}
           <span class="muted"> · ${Math.round(p.strength)} · ${p.age} J.</span></span>
         ${zuAlt ? '<span class="muted" style="font-size:12px;">beendet Karriere</span>'
-          : `<button class="ghost" onclick="handleRenewContract('${p.id}')">Verlängern · ${fmtMoney(getRenewalFee(p))}</button>`}
+          : `<button class="ghost" onclick="showPlayerDetail('${p.id}')">Verhandeln</button>`}
       </div>`;
     }).join("");
+}
+
+// Verhandlungsblock im Profil: Laufzeit waehlen, Handgeld und Gehalt sehen.
+function renderRenewalBlock(player){
+  const terms = getRenewalTerms(gameState, player);
+  if(terms.refused){
+    return `<div class="renewBox"><p class="eyebrow">Vertrag</p><p class="muted" style="margin:4px 0 0;">${terms.reason}</p></div>`;
+  }
+  return `<div class="renewBox"><p class="eyebrow">Vertrag verlängern · Forderung: Gehalt +${Math.round(terms.aufschlag * 100)} %</p>
+    <div class="renewOptions">${terms.optionen.map(o => {
+      const plus = Math.round((o.faktor - 1) * 100);
+      return `<button class="ghost" onclick="handleRenewContract('${player.id}', ${o.jahre})"${o.handgeld > gameState.budget ? " disabled" : ""}>
+        +${o.jahre} J. · ${fmtMoney(o.handgeld)}<span class="renewSub">Gehalt ${plus > 0 ? "+" + plus + " %" : "gleich"}</span></button>`;
+    }).join("")}</div></div>`;
 }

@@ -123,14 +123,15 @@ function renderMarket(gameState){
       const vereinsText = p.clubName
         ? `${p.clubName}${isContractExpiring(p) ? ' <span class="tagIcon" title="Vertrag läuft aus">📝</span>' : ""}`
         : `<span style="color:var(--win);">ablösefrei</span>`;
-      const rest = Math.max(0, Math.round(p.maxStrength - p.strength));
+      const pot = getPotentialView(gameState, p);
+      const rest = pot.high;
 
       html += `<tr class="rowLink" onclick="showPoolPlayerDetail('${p.id}')">
         <td><b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b></td>
         <td>${getFlag(p)} ${p.name}${p.isScoutingFind ? ' <span title="Scouting-Fund">🔍</span>' : ""}</td>
         <td style="font-size:12px;">${vereinsText}</td>
         <td class="n">${Math.round(p.strength)}</td>
-        <td class="n" style="color:${rest > 8 ? "var(--win)" : "var(--ink-faint)"};">+${rest}</td>
+        <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}" title="${pot.exact ? "beobachtet" : "Schätzung der Scouting-Abteilung"}">${pot.text}</td>
         <td class="n">${p.age}</td>
         <td>${topAttributeTags(p)}</td>
         <td class="n"${bezahlbar ? "" : ' style="color:var(--loss);"'}>${fmtMoney(fee)}</td>
@@ -204,13 +205,14 @@ function showPoolPlayerDetail(playerId){
     <div style="margin:6px 0 16px;">
       ${ATTRIBUTES.map(a => {
         const wert = player.attributes ? player.attributes[a] : 0;
-        const cap = player.maxAttributes ? player.maxAttributes[a] : wert;
+        const pot = getPotentialView(gameState, player);
+        const cap = pot.exact && player.maxAttributes ? player.maxAttributes[a] : wert;
         const wichtig = ((POSITION_WEIGHTS[player.pos] || {})[a] || 0) >= 0.30;
         return `<div style="display:flex; align-items:center; gap:9px; margin-bottom:6px;">
           <span style="width:15px;">${ATTRIBUTE_ICONS[a]}</span>
           <span style="flex:0 0 74px; font-size:12px; color:${wichtig ? "var(--gold)" : "var(--ink-dim)"};">${ATTRIBUTE_LABELS[a]}</span>
           <span class="bar" style="flex:1;"><i class="ghost" style="width:${cap}%;"></i><i style="width:${wert}%; position:relative;"></i></span>
-          <span class="num" style="width:52px; text-align:right; font-size:12px;">${Math.round(wert)}<span style="color:var(--ink-faint);">/${Math.round(cap)}</span></span>
+          <span class="num" style="width:52px; text-align:right; font-size:12px;">${Math.round(wert)}${pot.exact ? `<span style="color:var(--ink-faint);">/${Math.round(cap)}</span>` : ""}</span>
         </div>`;
       }).join("")}
     </div>
@@ -218,11 +220,15 @@ function showPoolPlayerDetail(playerId){
     <div class="statGrid">
       ${stat("Ablöse", fmtMoney(fee), player.clubName ? "inkl. Aufschlag" : "Handgeld")}
       ${stat("Gehalt", fmtMoney(calculatePlayerSalary(player.strength, player.age)), "pro Saison")}
-      ${stat("Potenzial", `+${Math.max(0, Math.round(player.maxStrength - player.strength))}`, `bis ${Math.round(player.maxStrength)}`)}
+      ${(() => { const pv = getPotentialView(gameState, player);
+        return stat("Potenzial", pv.text, pv.exact ? `bis ${Math.round(player.maxStrength)}` : "Schätzung"); })()}
       ${stat("Vertrag", `${getContractYears(player)} J.`, isContractExpiring(player) ? "läuft aus" : "")}
     </div>
 
     ${player.isScoutingFind ? '<div class="profTags"><span class="profTag gold">🔍 Scouting-Fund</span></div>' : ""}
+    ${getPotentialView(gameState, player).exact ? "" : `<div style="margin-top:10px;">
+      <button class="ghost" onclick="handleScoutPlayer('${player.id}')"${getScoutingCost(gameState) > gameState.budget ? " disabled" : ""}>🔍 Beobachten lassen · ${fmtMoney(getScoutingCost(gameState))}</button>
+      <span class="muted" style="font-size:12px; margin-left:6px;">deckt das genaue Potenzial auf</span></div>`}
 
     <div style="margin-top:14px;">
       <button onclick="handleSignPlayer('${player.id}')"${tw.open && bezahlbar && interesse ? "" : " disabled"}>
@@ -254,4 +260,10 @@ function handleSellClick(btnEl, squadIndex){
       btnEl.style.color = "";
     }
   }, 3000);
+}
+
+function handleScoutPlayer(playerId){
+  const r = scoutPlayer(gameState, playerId);
+  showToast(r.message, r.success ? "success" : "error");
+  if(r.success){ addLogEntry(gameState, r.message); showPoolPlayerDetail(playerId); renderMarket(gameState); renderHeader(gameState); }
 }

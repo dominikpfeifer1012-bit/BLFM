@@ -34,9 +34,9 @@ function handleTacticChange(key){
   refreshSquadViews();
 }
 
-function handleRenewContract(playerId){
+function handleRenewContract(playerId, jahre){
   const spieler = (gameState.squad || []).find(p => p.id === playerId);
-  const result = renewContract(gameState, playerId);
+  const result = renewContract(gameState, playerId, jahre);
   if(result.success && spieler) applyRenewalMoraleBoost(spieler);
   showToast(result.message, result.success ? "success" : "error");
   if(result.success){
@@ -220,6 +220,7 @@ function applyLoadedState(state){
     if(!gameState.europe || !gameState.europe.phase) gameState.europe = createFreshEurope(false);
 
     registerExistingNames(gameState.squad);
+    registerExistingNames((gameState.loans || []).map(l => l.player));
 
     // Spielstaende ohne Weltpool bekommen einen frisch erzeugten.
     if(!gameState.pool || !Array.isArray(gameState.pool.players)){
@@ -232,6 +233,7 @@ function applyLoadedState(state){
       });
       detachOwnClubFromPool(gameState);
     }
+    if(typeof ensureCoaches === "function") ensureCoaches(gameState);
 
     (gameState.squad || []).forEach(p => {
       if(p.goalsSeason == null) p.goalsSeason = 0;

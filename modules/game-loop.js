@@ -24,20 +24,27 @@ function handleSimulateMatchday(){
   setTimeout(() => {
     // Ohne finally bliebe der Knopf nach einem Fehler dauerhaft gesperrt.
     holdModals();
+    let aufgeschoben = false;
     try {
-      runNextEvent();
-      autoSave();
+      aufgeschoben = runNextEvent() === "deferred";
     } catch(e) {
       console.error("Simulation fehlgeschlagen:", e);
       showToast("Die Simulation ist fehlgeschlagen. Details stehen in der Browser-Konsole.", "error");
     } finally {
-      releaseModals();
-      if(btn){
-        btn.disabled = false;
-        btn.textContent = getNextEventLabel();
-      }
+      // Beim Halbzeit-Eingriff schliesst completeDeferredMatchday den Spieltag ab.
+      if(!aufgeschoben) completeDeferredMatchday();
     }
   }, 550);
+}
+
+function completeDeferredMatchday(){
+  autoSave();
+  releaseModals();
+  const btn = document.getElementById("simulateBtn");
+  if(btn){
+    btn.disabled = false;
+    btn.textContent = getNextEventLabel();
+  }
 }
 
 // Pokalrunden liegen zwischen den Ligaspieltagen und werden einzeln
@@ -138,6 +145,8 @@ function runNextEvent(){
     return;
   }
 
+  // Live-Modus: erst die erste Halbzeit zeigen, der Rest folgt nach der Pause.
+  if(typeof startHalftimeMatch === "function" && startHalftimeMatch()) return "deferred";
   runMatchdaySimulation();
 }
 
@@ -162,13 +171,13 @@ function applyMatchLoad(wettbewerb){
   return { injuries };
 }
 
-function runMatchdaySimulation(){
+function runMatchdaySimulation(override){
   // Die Jugend spielt VOR der Entwicklung, damit ihre Einsaetze in der
   // Entwicklung des Spieltags beruecksichtigt werden.
   const youthResult = gameState.youth ? simulateYouthMatchday(gameState) : null;
   gameState.pendingYouthAppearances = youthResult ? youthResult.appearances : new Set();
 
-  const result = simulateMatchday(gameState);
+  const result = simulateMatchday(gameState, override);
   gameState.pendingYouthAppearances = null;
 
   // Die andere Liga spielt denselben Spieltag mit.
@@ -185,13 +194,20 @@ function runMatchdaySimulation(){
 
   let ownEvt = null, ownBonus = 0;
 
+  // Ohne Wahl gilt der Festbetrag; der Sponsor zahlt dann vor dem ersten Spiel.
+  if(!ensureSeasonFinance(gameState).sponsor){
+    const auto = chooseSponsor(gameState, "fix", true);
+    if(auto.success) addLogEntry(gameState, auto.message);
+  }
+
   const revenueFactor = getOwnRevenueFactor();
   // Das Stadion hebt nur die Kommerzeinnahmen, nicht das Preisgeld.
   const baseRevenue = Math.round(getMatchdayRevenue(revenueFactor) * getStadiumRevenueBonus(gameState));
   gameState.budget = addToBudget(gameState.budget, baseRevenue);
 
   result.events.forEach((evt, idx) => {
-    const bonus = getMatchBonus(evt.result, evt.ownStrength, evt.opponentStrength);
+    const bonus = getMatchBonus(evt.result, evt.ownStrength, evt.opponentStrength)
+      + (evt.result === "win" ? getSponsorWinBonus(gameState) : 0);
     gameState.budget = addToBudget(gameState.budget, bonus);
     const bonusText = bonus > 0 ? ` (+${fmtMoney(bonus)} Prämie)` : "";
     const scorerText = (evt.scorers && evt.scorers.length > 0) ? ` (⚽ ${evt.scorers.join(", ")})` : "";
@@ -212,15 +228,22 @@ function runMatchdaySimulation(){
   });
 
   const salaryCost = getMatchdaySalaryCost(gameState.squad, gameState.youthSquad);
+  const upkeep = getFacilityUpkeep(gameState);
   const budgetBeforeSalary = gameState.budget;
-  gameState.budget -= salaryCost;
-  addLogEntry(gameState, `💰 Einnahmen: +${fmtMoney(baseRevenue + ownBonus)} · 💸 Gehälter: -${fmtMoney(salaryCost)} · Kontostand ${fmtMoney(gameState.budget)}`);
+  gameState.budget -= salaryCost + upkeep;
+  addLogEntry(gameState, `💰 Einnahmen: +${fmtMoney(baseRevenue + ownBonus)} · 💸 Gehälter: -${fmtMoney(salaryCost)}${upkeep ? ` · 🏗 Unterhalt: -${fmtMoney(upkeep)}` : ""} · Kontostand ${fmtMoney(gameState.budget)}`);
   if(budgetBeforeSalary >= 0 && gameState.budget < 0){
     addLogEntry(gameState, "⚠️ Das Konto ist im Minus. Transfers sind erst wieder möglich, wenn es ausgeglichen ist.", "loss", false);
     showToast("⚠️ Konto im Minus — verkaufe Spieler oder senke die Gehaltslast.", "error");
   }
   handleDebt();
   remindExpiringContracts();
+  const neuesAngebot = updateIncomingOffers(gameState);
+  if(neuesAngebot){
+    const text = `📨 ${neuesAngebot.club} bietet ${fmtMoney(neuesAngebot.fee)} für ${neuesAngebot.playerName} — Antwort im Transfers-Tab.`;
+    addLogEntry(gameState, text);
+    showToast(text, "info");
+  }
 
   if(result.injuries && result.injuries.length > 0){
     result.injuries.forEach(inj => {
@@ -263,6 +286,8 @@ function runMatchdaySimulation(){
 
   checkYouthStarAchievement();
   runBoardCheckpoint();
+  checkCoachChanges(gameState);
+  simulateAiTransfers(gameState);
   maybeOpenPressConference();
   announceTransferWindowChange();
 
@@ -272,10 +297,12 @@ function runMatchdaySimulation(){
 
   renderAll(gameState);
 
-  if(ownEvt){
+  if(ownEvt && override && typeof continueSecondHalf === "function"){
+    continueSecondHalf(ownEvt, result, `Einnahmen ${fmtMoney(ownBonus + baseRevenue)} · Gehälter ${fmtMoney(salaryCost)}`);
+  } else if(ownEvt){
     presentMatch({
       clubName: gameState.clubName,
-      label: `Bundesliga · Spieltag ${ownEvt.matchday}`,
+      label: `${getDivisionLabel(gameState.division)} · Spieltag ${ownEvt.matchday}`,
       home: ownEvt.home, away: ownEvt.away,
       homeGoals: ownEvt.homeGoals, awayGoals: ownEvt.awayGoals,
       timeline: buildMatchTimeline({

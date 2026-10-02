@@ -67,6 +67,8 @@ function evaluateBoard(gameState){
   const ligaAnteil = Math.max(-BOARD_MAX_SWING, Math.min(BOARD_MAX_SWING,
     Math.max(rankDelta * BOARD_PATIENCE_PER_RANK, rankDelta >= 0 ? BOARD_GOAL_MET_BONUS : -Infinity)));
   let swing = Math.max(-BOARD_MAX_SWING, Math.min(BOARD_MAX_SWING, ligaAnteil + credit));
+  // Schwierigkeit: wie hart Rueckschlaege den Vorstand treffen
+  if(swing < 0 && typeof getDifficulty === "function") swing = Math.round(swing * getDifficulty(gameState).patienceLoss);
 
   // Der Bonus soll spuerbar bleiben, auch wenn der Ligaanteil am Anschlag ist.
   if(credit > 0 && swing <= ligaAnteil) swing = Math.min(BOARD_MAX_SWING, ligaAnteil + Math.round(credit / 2));
@@ -153,5 +155,51 @@ function generateJobOffers(gameState){
     division: c.division,
     goal: getSeasonGoal(c.strength, c.division),
     budget: calculateStartingBudget(c.strength)
+  }));
+}
+
+// ---------- Trainer-Ruf und Angebote bei Erfolg ----------
+// Bisher kamen Jobangebote nur nach einer Entlassung, und zwar immer von
+// schwaecheren Vereinen. Jetzt waechst mit dem Erfolg der Ruf, und nach
+// guten Saisons melden sich groessere Vereine.
+
+function getReputation(gameState){
+  return gameState.reputation != null ? gameState.reputation : REPUTATION_START;
+}
+
+function changeReputation(gameState, delta){
+  gameState.reputation = Math.max(0, Math.min(100, Math.round((getReputation(gameState) + delta) * 10) / 10));
+  return gameState.reputation;
+}
+
+function getReputationLabel(wert){
+  return wert >= 85 ? "Weltklasse" : wert >= 70 ? "Gefragt" : wert >= 55 ? "Anerkannt"
+       : wert >= 40 ? "Solide" : wert >= 25 ? "Umstritten" : "Angeschlagen";
+}
+
+// Saisonbilanz in Ruf umrechnen: Abschneiden gegenueber dem Ziel, Titel, Auf- und Abstieg.
+function updateReputationForSeason(gameState, info){
+  let delta = (info.target - info.position) * REPUTATION_PER_RANK;
+  if(info.champion) delta += 8;
+  if(info.cupWinner) delta += 5;
+  if(info.europeWinner) delta += 7;
+  if(info.promoted) delta += 5;
+  if(info.relegated) delta -= 7;
+  return { delta, neu: changeReputation(gameState, Math.max(-12, Math.min(18, delta))) };
+}
+
+function generateSuccessOffers(gameState, position, target){
+  if(position > target) return [];
+  const ruf = getReputation(gameState);
+  const chance = Math.min(0.9, 0.2 + (target - position) * 0.12 + (ruf - 40) / 100);
+  if(Math.random() > chance) return [];
+  const eigene = gameState.clubStature != null ? gameState.clubStature : getOwnClubStrength(gameState);
+  const obergrenze = eigene + 4 + ruf / 6;
+  ensureLeaguePools(gameState);
+  const alle = gameState.leaguePools.flatMap((pool, idx) => pool.map(c => ({ name: c.name, strength: c.strength, division: idx + 1 })))
+    .filter(c => c.name !== gameState.clubName && c.strength >= eigene + 3 && c.strength <= obergrenze);
+  return shuffleArray(alle).slice(0, randInt(1, 3)).map(c => ({
+    name: c.name, strength: c.strength, division: c.division,
+    goal: getSeasonGoal(c.strength, c.division), budget: calculateStartingBudget(c.strength)
   }));
 }

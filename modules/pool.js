@@ -157,7 +157,7 @@ function sortPoolResults(list, key, dir){
     else if(key === "pos") cmp = POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos);
     else if(key === "age") cmp = a.age - b.age;
     else if(key === "fee") cmp = getTransferFee(a) - getTransferFee(b);
-    else if(key === "potential") cmp = (a.maxStrength - a.strength) - (b.maxStrength - b.strength);
+    else if(key === "potential") cmp = getPotentialView(gameState, a).mid - getPotentialView(gameState, b).mid;
     else cmp = a.strength - b.strength;
     return cmp * mult;
   });
@@ -169,7 +169,8 @@ function sortPoolResults(list, key, dir){
 // sonst liesse sich die Grenze durch Einkaeufe Schritt fuer Schritt anheben.
 function getTransferInterestLimit(gameState){
   const staerke = Math.max(getOwnClubStrength(gameState), gameState.clubStature || 0);
-  return Math.round(staerke + TRANSFER_MAX_ABOVE_CLUB);
+  const bonus = typeof getDifficulty === "function" ? getDifficulty(gameState).transferBonus : 0;
+  return Math.round(staerke + TRANSFER_MAX_ABOVE_CLUB + bonus);
 }
 
 function isWillingToJoin(gameState, player){
@@ -204,6 +205,8 @@ function signPlayerFromPool(gameState, playerId){
   delete player.clubTier;
   delete player.transferListed;
   player.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
+  player.joinedSeason = gameState.season;
+  player.seasonStartStrength = player.strength;
   gameState.squad.push(player);
 
   return {
@@ -455,4 +458,44 @@ function getLeagueTopScorers(gameState, limit){
   });
 
   return eintraege.sort((a, b) => b.goals - a.goals).slice(0, limit || 10);
+}
+
+// ---------- Scouting: Potenzial nur als Spanne ----------
+// Fremde Spieler zeigen ihr Potenzial nicht mehr exakt, sondern als Spanne.
+// Eine ausgebaute Scouting-Abteilung macht sie enger, gezieltes Beobachten
+// deckt sie auf. Die Lage innerhalb der Spanne ist pro Spieler fest, damit
+// sie sich nicht bei jedem Neuzeichnen verschiebt.
+function isPlayerScouted(gameState, player){
+  return !!(gameState.scouted && gameState.scouted[player.id]);
+}
+
+function getPotentialView(gameState, player){
+  const exakt = Math.max(0, Math.round(player.maxStrength - player.strength));
+  const stufe = typeof getFacilityLevel === "function" ? getFacilityLevel(gameState, "scouting") : 0;
+  const breite = Math.max(0, SCOUT_RANGE_BASE - stufe * SCOUT_RANGE_PER_LEVEL);
+  if(isPlayerScouted(gameState, player) || breite === 0){
+    return { exact: true, low: exakt, high: exakt, mid: exakt, text: `+${exakt}` };
+  }
+  let h = 0;
+  for(let i = 0; i < player.id.length; i++) h = (h * 31 + player.id.charCodeAt(i)) % 9973;
+  const unten = h % (breite + 1);
+  const low = Math.max(0, exakt - unten), high = exakt + (breite - unten);
+  return { exact: false, low, high, mid: (low + high) / 2, text: `+${low}–${high}` };
+}
+
+function getScoutingCost(gameState){
+  const s = typeof getFinanceScale === "function" ? getFinanceScale(gameState) : 1;
+  return Math.round(SCOUT_COST_BASE * s / 10000) * 10000;
+}
+
+function scoutPlayer(gameState, playerId){
+  const p = getPoolPlayer(gameState.pool, playerId);
+  if(!p) return { success: false, message: "Spieler nicht gefunden." };
+  if(isPlayerScouted(gameState, p)) return { success: false, message: "Bereits beobachtet." };
+  const kosten = getScoutingCost(gameState);
+  if(kosten > gameState.budget) return { success: false, message: `Beobachtung kostet ${fmtMoney(kosten)} — nicht bezahlbar.` };
+  gameState.budget -= kosten;
+  gameState.scouted = gameState.scouted || {};
+  gameState.scouted[p.id] = true;
+  return { success: true, message: `🔍 ${p.name} beobachtet (${fmtMoney(kosten)}): Potenzial +${Math.max(0, Math.round(p.maxStrength - p.strength))}.` };
 }

@@ -66,6 +66,27 @@ Mannschaft, Moral, Trainingsschwerpunkte, taktische Konter, Pressekonferenzen,
 Investitionen in Stadion und Infrastruktur, Live-Simulation, Statistiken ueber
 mehrere Saisons.
 
+## Eigene Kaderdatei (echte Spieler und Trainer)
+
+Das Spiel liefert keine echten Spielernamen mit. Wer mit echten Kadern spielen
+möchte, lädt im Startbildschirm unter „Eigene Kaderdatei“ eine JSON-Datei. Sie
+bleibt nur im eigenen Browser und gilt für neue Karrieren. Über „Vorlage
+herunterladen“ gibt es eine Datei mit allen Vereinen zum Ausfüllen:
+
+```json
+{ "version": 1,
+  "clubs": {
+    "FC Bayern München": {
+      "coach": "Name des Trainers",
+      "strength": 92,
+      "players": [ { "name": "Vorname Nachname", "pos": "ST", "age": 27, "strength": 90, "nat": "DE" } ]
+    } } }
+```
+
+Positionen: TW, RV, IV, LV, DM, ZM, LM, RM, OM, ST. Fehlende Positionen werden
+mit erzeugten Spielern aufgefüllt. Bitte eine solche Datei nicht öffentlich ins
+Repository legen.
+
 ## Hinweise
 
 Spielstaende liegen im Speicher des jeweiligen Browsers. Ein Stand vom Handy

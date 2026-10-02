@@ -30,6 +30,11 @@
   --mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
 }
 *{box-sizing:border-box;}
+/* Seite immer mindestens bildschirmhoch: Bei kurzen Tabs (z. B. Verlauf)
+   setzte iOS im Startbildschirm-Modus die feste Tab-Leiste sonst ein Stueck
+   zu hoch an, weil das Dokument kuerzer als das Display war. */
+html{ min-height:100%; background:var(--bg); }
+body{ min-height:100vh; min-height:100dvh; }
 body{ font-family:var(--body); background:var(--bg); color:var(--ink); margin:0; padding:0 0 48px; font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased; }
 .wrap{ max-width:1240px; margin:0 auto; padding:0 18px; }
 
@@ -240,6 +245,32 @@ tr.dim:hover td{ opacity:1; }
 .toast.error{ border-left-color:var(--loss); }
 @keyframes toastIn{ from{opacity:0; transform:translateX(12px);} to{opacity:1; transform:none;} }
 
+.offerRow{ display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:9px 0; border-top:1px solid var(--line); font-size:13px; }
+.offerRow:first-child{ border-top:none; }
+.offerText{ flex:1 1 260px; min-width:0; }
+.offerButtons{ display:flex; gap:6px; flex-wrap:wrap; }
+.offerButtons button{ padding:6px 10px; font-size:12px; }
+.renewBox{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.renewOptions{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.renewOptions button{ display:flex; flex-direction:column; align-items:flex-start; padding:7px 10px; font-size:12px; text-transform:none; letter-spacing:0; }
+.renewSub{ font-family:var(--body); font-size:11px; color:var(--ink-faint); font-weight:400; }
+.choiceGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:6px; }
+.choiceBtn{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; text-transform:none; letter-spacing:0; padding:10px 12px; }
+.choiceTitle{ font-family:var(--display); text-transform:uppercase; letter-spacing:.05em; font-size:14px; color:var(--ink); }
+.choiceSub{ font-family:var(--body); font-size:12px; font-weight:400; color:var(--ink-dim); }
+.halftimeBox{ width:100%; }
+.halftimeButtons{ display:flex; gap:6px; flex-wrap:wrap; }
+.halftimeButtons button{ flex:1 1 110px; }
+.newsRow{ display:flex; gap:8px; padding:6px 0; border-top:1px solid var(--line); }
+.newsRow:first-child{ border-top:none; }
+.newsIcon{ flex:none; }
+.teamOfSeason{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:14px; }
+.teamTag{ font-size:12px; padding:3px 8px; border-radius:99px; border:1px solid var(--line); color:var(--ink-dim); }
+.teamTag.own{ border-color:var(--gold-deep); color:var(--gold); }
+.customData{ margin-top:18px; border-top:1px solid var(--line); padding-top:12px; font-size:13px; }
+.customData summary{ cursor:pointer; color:var(--ink-dim); font-family:var(--display); text-transform:uppercase; letter-spacing:.08em; font-size:12px; }
+#setup .fileBtn,.fileBtn{ display:inline-block; padding:9px 16px; border:1px solid var(--line); border-radius:var(--r-sm); cursor:pointer; font-family:var(--display);
+  text-transform:uppercase; letter-spacing:.06em; font-weight:600; font-size:14px; color:var(--ink-dim) !important; margin:0 !important; }
 .contractRow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-top:1px solid var(--line); font-size:13px; }
 .contractRow button{ padding:5px 10px; font-size:12px; white-space:nowrap; }
 .contractName{ min-width:0; }
@@ -319,7 +350,25 @@ tr.dim:hover td{ opacity:1; }
     <input id="managerName" placeholder="Dein Name" value="Dominik Pfeifer"></div>
   <div class="field"><label for="clubSelect">Verein</label>
     <select id="clubSelect"></select></div>
+  <div class="field"><label for="difficultySelect">Schwierigkeit</label>
+    <select id="difficultySelect">
+      <option value="leicht">Leicht — mehr Budget, geduldiger Vorstand, Spieler wechseln leichter</option>
+      <option value="normal" selected>Normal</option>
+      <option value="schwer">Schwer — weniger Budget, ungeduldiger Vorstand, Stars zieren sich</option>
+    </select></div>
   <button onclick="startCareer()">Karriere starten</button>
+  <details class="customData">
+    <summary>Eigene Kaderdatei (echte Spieler und Trainer)</summary>
+    <p class="muted" id="customDataStatus" style="margin:8px 0;"></p>
+    <p class="muted" style="font-size:12px; margin:0 0 10px;">Die Datei bleibt nur in diesem Browser. Sie gilt für neue Karrieren.
+      Vereine ohne Spieler in der Datei behalten erfundene Kader.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <label class="ghost fileBtn">Datei laden
+        <input type="file" accept="application/json,.json" style="display:none;" onchange="handleCustomDataFile(this)"></label>
+      <button class="ghost" onclick="handleCustomTemplateDownload()">Vorlage herunterladen</button>
+      <button class="ghost" onclick="handleCustomDataClear()">Entfernen</button>
+    </div>
+  </details>
 </div>
 
 <div id="stickyBar" style="display:none;">
@@ -352,6 +401,10 @@ tr.dim:hover td{ opacity:1; }
   <main id="game" style="display:none;">
 
     <section class="tabPanel" id="tab-uebersicht">
+      <div class="card" style="margin-bottom:16px; display:none;">
+        <div class="cardHead"><h3>Saisonvorbereitung</h3><span class="eyebrow">einmal pro Saison</span></div>
+        <div id="preseasonPanel"></div>
+      </div>
       <div class="grid g23">
         <div class="grid" style="gap:16px;">
           <div class="card">
@@ -379,6 +432,10 @@ tr.dim:hover td{ opacity:1; }
           <div class="card">
             <div class="cardHead"><h3>Wettbewerbe</h3></div>
             <div id="overviewCompetitions"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Liga-News</h3><span class="eyebrow">andere Vereine</span></div>
+            <div id="newsPanel" style="font-size:13px;"></div>
           </div>
           <div class="card">
             <div class="cardHead"><h3>Letzte Ereignisse</h3></div>
@@ -416,6 +473,10 @@ tr.dim:hover td{ opacity:1; }
             <div class="cardHead"><h3>Auslaufende Verträge</h3><span class="eyebrow">Ende der Saison</span></div>
             <div id="contractPanel"></div>
           </div>
+          <div class="card">
+            <div class="cardHead"><h3>Verliehene Spieler</h3><span class="eyebrow">Rückkehr zum Saisonende</span></div>
+            <div id="loanPanel"></div>
+          </div>
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
@@ -434,6 +495,10 @@ tr.dim:hover td{ opacity:1; }
     </section>
 
     <section class="tabPanel" id="tab-transfers">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="cardHead"><h3>Angebote für deine Spieler</h3><span class="eyebrow">andere Vereine</span></div>
+        <div id="offerPanel"></div>
+      </div>
       <div class="card" id="transferMarket">
         <div class="cardHead"><h3>Transfermarkt</h3>
           <span class="eyebrow">Zeile anklicken für das Profil</span></div>
@@ -619,13 +684,17 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/budget.js"></script>
 <script src="modules/transfermarkt.js"></script>
 <script src="modules/pool.js"></script>
+<script src="modules/offers.js"></script>
 <script src="modules/youth.js"></script>
 <script src="modules/match.js"></script>
 <script src="modules/league.js"></script>
 <script src="modules/board.js"></script>
 <script src="modules/facilities.js"></script>
+<script src="modules/finance.js"></script>
 <script src="modules/press.js"></script>
 <script src="modules/records.js"></script>
+<script src="modules/league-life.js"></script>
+<script src="modules/custom-data.js"></script>
 <script src="modules/cup.js"></script>
 <script src="modules/europe.js"></script>
 <script src="modules/ui-core.js"></script>
@@ -635,6 +704,7 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/ui-competitions.js"></script>
 <script src="modules/ui-stats.js"></script>
 <script src="modules/ui-match.js"></script>
+<script src="modules/halftime.js"></script>
 <script src="modules/ui-save.js"></script>
 <script src="modules/save.js"></script>
 <script src="modules/game-state.js"></script>

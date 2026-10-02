@@ -42,7 +42,7 @@ function switchTab(id){
   // Den geoeffneten Bereich neu zeichnen. Ohne das war der Transfermarkt
   // leer, wenn man den Tab direkt anklickt statt ueber einen Knopf zu gehen.
   if(typeof gameState === "undefined" || !gameState || !gameState.squad) return;
-  if(id === "transfers" && typeof renderMarket === "function") renderMarket(gameState);
+  if(id === "transfers" && typeof renderMarket === "function"){ renderMarket(gameState); renderOfferPanel(gameState); }
   if(id === "kader" && typeof renderSquad === "function") renderSquad(gameState);
   if(id === "wettbewerbe" && typeof renderFixtureList === "function") renderFixtureList(gameState);
   if(id === "uebersicht"){
@@ -177,8 +177,12 @@ function renderAll(gameState){
   renderShadowTable(gameState);
   renderSquad(gameState);
   renderContractPanel(gameState);
+  renderLoanPanel(gameState);
   renderSquadStats(gameState);
   renderMarket(gameState);
+  renderOfferPanel(gameState);
+  renderPreseasonPanel(gameState);
+  renderNewsPanel(gameState);
   renderSeasonStats(gameState);
   renderSquadAnalysis(gameState);
   renderNationBreakdown(gameState);
@@ -206,8 +210,21 @@ function renderSeasonSummary(gameState){
         <div class="stat"><div class="k">Endplatzierung</div><div class="v gold">${summary.finalPosition}</div><div class="sub">von ${summary.totalTeams}</div></div>
         <div class="stat"><div class="k">Saisonbonus</div><div class="v">${fmtMoney(summary.bonus)}</div></div>
       </div>
-      <button onclick="startNextSeason()">Nächste Saison starten</button>
+      ${renderAwards(gameState.lastAwards)}
+      ${renderSuccessOffers(gameState)}
+      <button onclick="startNextSeason()">${(gameState.successOffers || []).length ? "Bleiben und nächste Saison starten" : "Nächste Saison starten"}</button>
     </div>`;
+}
+
+function renderSuccessOffers(gameState){
+  const angebote = gameState.successOffers || [];
+  if(angebote.length === 0) return "";
+  return `<p class="eyebrow">Anfragen anderer Vereine · Trainer-Ruf ${Math.round(getReputation(gameState))} (${getReputationLabel(getReputation(gameState))})</p>
+    <div class="choiceGrid" style="margin-bottom:14px;">${angebote.map(o => `
+      <button class="ghost choiceBtn" onclick="acceptJobOffer('${o.name.replace(/'/g, "\\'")}')">
+        <span class="choiceTitle">${o.name} · ${getDivisionConfig(o.division).short}</span>
+        <span class="choiceSub">Stärke ${Math.round(o.strength)} · Ziel: ${o.goal.label} · Budget ${fmtMoney(o.budget)}</span>
+        <span class="choiceSub">Wechseln</span></button>`).join("")}</div>`;
 }
 
 function hideSeasonSummary(){

@@ -78,13 +78,16 @@ function getTeamSides(gameState, teamName){
     // ueber die langsame Entwicklung der Attribute.
     const training = typeof getActiveTraining === "function" ? getActiveTraining() : null;
     const effekt = (training && training.match) || { att: 0, def: 0 };
-    return { attack: ad.attack + effekt.att, defence: ad.defence + effekt.def };
+    const lager = typeof getCampBoost === "function" ? getCampBoost(gameState) : 0;
+    return { attack: ad.attack + effekt.att + lager, defence: ad.defence + effekt.def + lager };
   }
   const strength = getTeamStrength(gameState, teamName);
   return { attack: strength, defence: strength };
 }
 
-function simulateMatch(gameState, home, away){
+// Torerwartung beider Teams. Getrennt vom Wuerfeln, damit sich ein Spiel
+// auch halbzeitweise berechnen laesst (Taktikwechsel zur Pause).
+function getMatchLambdas(gameState, home, away){
   const h = getTeamSides(gameState, home);
   const a = getTeamSides(gameState, away);
   const homeAttack = h.attack + 3, homeDefence = h.defence + 3;
@@ -110,9 +113,14 @@ function simulateMatch(gameState, home, away){
   lambdaHome = Math.max(0.25, lambdaHome + konter.own);
   lambdaAway = Math.max(0.25, lambdaAway + konter.opp);
 
+  return { home: lambdaHome, away: lambdaAway };
+}
+
+function simulateMatch(gameState, home, away){
+  const l = getMatchLambdas(gameState, home, away);
   return {
-    homeGoals: poisson(lambdaHome),
-    awayGoals: poisson(lambdaAway)
+    homeGoals: poisson(l.home),
+    awayGoals: poisson(l.away)
   };
 }
 
@@ -210,7 +218,26 @@ function assignScorers(startingXI, goalCount){
   return scorers;
 }
 
-function simulateMatchday(gameState){
+// override: vorab ausgespieltes eigenes Spiel (Halbzeit-Eingriff im Live-
+// Modus) mit Toren und den Spieler-IDs der Torschuetzen.
+// Vorab bestimmte Torschuetzen gutschreiben (Halbzeit-Eingriff).
+function creditScorersById(spieler, ids){
+  return ids.map(id => {
+    const p = spieler.find(x => x.id === id);
+    if(!p) return null;
+    p.goalsSeason = (p.goalsSeason || 0) + 1;
+    return p.name;
+  }).filter(Boolean);
+}
+
+// Gewichteter Torschuetze aus einer Spielerliste (ohne Zaehlung).
+function pickScorer(spieler){
+  const gewichtet = [];
+  (spieler || []).forEach(p => { for(let i = 0; i < (SCORER_WEIGHTS[p.pos] != null ? SCORER_WEIGHTS[p.pos] : 1); i++) gewichtet.push(p); });
+  return gewichtet.length ? randChoice(gewichtet) : null;
+}
+
+function simulateMatchday(gameState, override){
   const day = gameState.matchday;
   const roundFixtures = gameState.fixtures.filter(
     (f, idx) => Math.floor(idx / MATCHES_PER_MATCHDAY) === day && !f.played
@@ -225,7 +252,8 @@ function simulateMatchday(gameState){
   let cards = [];
 
   roundFixtures.forEach(f => {
-    const { homeGoals, awayGoals } = simulateMatch(gameState, f.home, f.away);
+    const vorgegeben = override && override.home === f.home && override.away === f.away;
+    const { homeGoals, awayGoals } = vorgegeben ? override : simulateMatch(gameState, f.home, f.away);
     updateStandings(gameState.teams, f.home, f.away, homeGoals, awayGoals);
     f.played = true;
     // Ergebnis am Spiel festhalten: Grundlage fuer Formkurve und Spielplanansicht.
@@ -235,7 +263,9 @@ function simulateMatchday(gameState){
     // Tore der KI-Vereine ihren Spielern zuordnen — Grundlage fuer die
     // ligaweite Torschuetzenliste.
     let gegnerTorschuetzen = [];
-    if(typeof assignPoolScorers === "function"){
+    if(vorgegeben){
+      gegnerTorschuetzen = creditScorersById(gameState.pool ? gameState.pool.players : [], override.oppScorerIds || []);
+    } else if(typeof assignPoolScorers === "function"){
       if(f.home !== gameState.clubName){
         const namen = assignPoolScorers(gameState, f.home, homeGoals);
         if(f.away === gameState.clubName) gegnerTorschuetzen = namen;
@@ -254,7 +284,9 @@ function simulateMatchday(gameState){
       const startingInfo = getStartingXIInfo(gameState.squad, day + 1);
       const ownStrength = teamRating(gameState.squad, day + 1);
       const opponentStrength = getTeamStrength(gameState, opponentName);
-      const scorers = assignScorers(startingInfo.xi, ownGoals);
+      const scorers = vorgegeben
+        ? creditScorersById(gameState.squad, override.ownScorerIds || [])
+        : assignScorers(startingInfo.xi, ownGoals);
 
       events.push({
         matchday: day + 1,

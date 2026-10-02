@@ -97,14 +97,21 @@ function calculatePlayerSalary(strength, age){
   return Math.max(SALARY_MIN, Math.round(raw / SALARY_ROUND_TO) * SALARY_ROUND_TO);
 }
 
+// Gehalt eines Spielers im eigenen Kader: Grundgehalt nach Staerke und Alter,
+// multipliziert mit dem, was bei der letzten Vertragsverlaengerung
+// ausgehandelt wurde.
+function getPlayerSalary(p){
+  return Math.round(calculatePlayerSalary(p.strength, p.age) * (p.salaryFactor || 1));
+}
+
 function getSquadSalaryTotal(squad){
-  return squad.reduce((sum, p) => sum + calculatePlayerSalary(p.strength, p.age), 0);
+  return squad.reduce((sum, p) => sum + getPlayerSalary(p), 0);
 }
 
 function getMatchdaySalaryCost(squad, youthSquad){
   const jugend = typeof getYouthSquadSalary === "function" && youthSquad
     ? youthSquad.reduce((sum, p) =>
-        sum + Math.round(calculatePlayerSalary(p.strength, p.age) * YOUTH_SALARY_FACTOR), 0)
+        sum + Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR), 0)
     : 0;
   return Math.round((getSquadSalaryTotal(squad) + jugend) / TOTAL_MATCHDAYS);
 }

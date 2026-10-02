@@ -2,46 +2,48 @@
 // CONFIG.JS - Zentrale Konstanten und Einstellungen
 // ============================================
 
+// Bundesliga 2026/27. Staerken nach Abschlusstabelle 2025/26, Kaderwert und Groesse.
 const CLUBS = [
   {name:"FC Bayern München", strength:92},
-  {name:"Bayer Leverkusen", strength:87},
-  {name:"RB Leipzig", strength:85},
-  {name:"Borussia Dortmund", strength:84},
-  {name:"VfB Stuttgart", strength:78},
+  {name:"Borussia Dortmund", strength:85},
+  {name:"Bayer Leverkusen", strength:84},
+  {name:"RB Leipzig", strength:84},
+  {name:"VfB Stuttgart", strength:80},
+  {name:"TSG Hoffenheim", strength:78},
   {name:"Eintracht Frankfurt", strength:77},
   {name:"SC Freiburg", strength:75},
-  {name:"1. FC Union Berlin", strength:74},
-  {name:"Werder Bremen", strength:72},
-  {name:"VfL Wolfsburg", strength:73},
-  {name:"1. FSV Mainz 05", strength:70},
-  {name:"Borussia Mönchengladbach", strength:71},
-  {name:"TSG Hoffenheim", strength:69},
-  {name:"FC Augsburg", strength:66},
-  {name:"1. FC Heidenheim", strength:64},
-  {name:"FC St. Pauli", strength:62},
-  {name:"Holstein Kiel", strength:61},
-  {name:"FC Schalke 04", strength:68}
+  {name:"Borussia Mönchengladbach", strength:72},
+  {name:"1. FC Union Berlin", strength:71},
+  {name:"1. FSV Mainz 05", strength:71},
+  {name:"FC Augsburg", strength:70},
+  {name:"Werder Bremen", strength:70},
+  {name:"Hamburger SV", strength:69},
+  {name:"FC Schalke 04", strength:68},
+  {name:"1. FC Köln", strength:68},
+  {name:"SC Paderborn 07", strength:64},
+  {name:"SV Elversberg", strength:64}
 ];
 
+// 2. Bundesliga 2026/27 (Absteiger Wolfsburg, St. Pauli, Heidenheim; Aufsteiger Osnabrueck, Cottbus).
 const SECOND_DIVISION_CLUBS = [
-  {name:"Hamburger SV", strength:66},
-  {name:"1. FC Köln", strength:65},
-  {name:"Hertha BSC", strength:63},
-  {name:"Fortuna Düsseldorf", strength:62},
-  {name:"1. FC Kaiserslautern", strength:60},
-  {name:"Karlsruher SC", strength:60},
-  {name:"Hannover 96", strength:59},
-  {name:"SC Paderborn 07", strength:59},
-  {name:"1. FC Nürnberg", strength:58},
-  {name:"SV Elversberg", strength:57},
+  {name:"VfL Wolfsburg", strength:67},
+  {name:"Hannover 96", strength:64},
+  {name:"FC St. Pauli", strength:63},
+  {name:"1. FC Heidenheim", strength:62},
+  {name:"SV Darmstadt 98", strength:61},
+  {name:"1. FC Kaiserslautern", strength:61},
+  {name:"Hertha BSC", strength:61},
+  {name:"VfL Bochum", strength:60},
+  {name:"1. FC Nürnberg", strength:59},
+  {name:"Karlsruher SC", strength:58},
+  {name:"Holstein Kiel", strength:58},
+  {name:"Dynamo Dresden", strength:57},
+  {name:"Arminia Bielefeld", strength:57},
   {name:"1. FC Magdeburg", strength:57},
-  {name:"SpVgg Greuther Fürth", strength:56},
-  {name:"SV Darmstadt 98", strength:56},
-  {name:"Eintracht Braunschweig", strength:54},
-  {name:"Hansa Rostock", strength:53},
-  {name:"Preußen Münster", strength:52},
-  {name:"SSV Ulm 1846", strength:52},
-  {name:"SSV Jahn Regensburg", strength:51}
+  {name:"VfL Osnabrück", strength:56},
+  {name:"Energie Cottbus", strength:55},
+  {name:"Eintracht Braunschweig", strength:55},
+  {name:"SpVgg Greuther Fürth", strength:54}
 ];
 
 const SQUAD_COMPOSITION = [
@@ -111,7 +113,9 @@ const CONTRACT_MAX_YEARS = 5;
 const CONTRACT_YOUTH_YEARS = 3;
 const CONTRACT_RENEWAL_YEARS = 3;
 const CONTRACT_RENEWAL_FEE_FACTOR = 0.12;   // Anteil des Marktwerts als Handgeld
-const CONTRACT_REMINDER_MATCHDAYS = [26, 32];   // Erinnerung an auslaufende Vertraege
+const CONTRACT_REMINDER_MATCHDAYS = [26, 32];
+const CONTRACT_RAISE_BASE = 0.05;    // Grundaufschlag beim Verlaengern
+const CONTRACT_RAISE_MAX = 0.6;   // Erinnerung an auslaufende Vertraege
 
 // --- Belastung durch Pokalspiele ---
 const CUP_INJURY_FACTOR = 0.8;   // etwas geringer als im Ligaspiel
@@ -156,20 +160,20 @@ const EUROPE_ROUND_BONUS = 400000;
 const EUROPE_CHAMPION_BONUS = 6000000;
 
 const EURO_CLUBS = [
-  {name:"Real Madrid", strength:93},
-  {name:"Manchester City", strength:92},
-  {name:"FC Barcelona", strength:90},
+  {name:"Real Madrid", strength:92},
+  {name:"Manchester City", strength:90},
+  {name:"FC Barcelona", strength:91},
   {name:"FC Liverpool", strength:90},
-  {name:"Paris Saint-Germain", strength:89},
+  {name:"Paris Saint-Germain", strength:91},
   {name:"Inter Mailand", strength:88},
-  {name:"FC Arsenal", strength:88},
+  {name:"FC Arsenal", strength:90},
   {name:"Atlético Madrid", strength:86},
   {name:"FC Chelsea", strength:85},
   {name:"Juventus Turin", strength:85},
   {name:"SSC Neapel", strength:84},
   {name:"Atalanta Bergamo", strength:83},
   {name:"AC Mailand", strength:83},
-  {name:"Manchester United", strength:82},
+  {name:"Manchester United", strength:80},
   {name:"Benfica Lissabon", strength:81},
   {name:"Sporting Lissabon", strength:81},
   {name:"FC Porto", strength:80},
@@ -444,6 +448,7 @@ const FAMILIARITY_FACTOR = 0.45;
 
 // --- Live-Simulation ---
 const MATCH_MINUTES = 90;
+const HALFTIME_FIRST_SHARE = 0.44;      // Anteil der Torerwartung in Halbzeit 1 (spaete Tore sind haeufiger)
 const LIVE_TICK_MS = 55;              // Zeit je Spielminute
 const LIVE_EVENT_PAUSE_MS = 950;      // Pause bei einem Ereignis
 // Tore fallen im echten Fussball haeufiger in der zweiten Halbzeit.
@@ -508,6 +513,61 @@ const TRANSFER_MAX_ABOVE_CLUB = 10;
 // Automatische Aufstellung: kleiner Vorzug fuer die gelernte Position, damit
 // niemand fuer ein bis zwei Punkte auf einen fremden Platz rutscht.
 const AUTO_LINEUP_NATURAL_BONUS = 1.5;
+
+// Scouting: Breite der Potenzialspanne fremder Spieler
+const SCOUT_RANGE_BASE = 12;
+const SCOUT_RANGE_PER_LEVEL = 2;        // je Ausbaustufe der Scouting-Abteilung
+const SCOUT_COST_BASE = 60000;          // gezielte Beobachtung, skaliert mit dem Verein
+
+// Leihen
+const LOAN_MAX_AGE = 23;
+const LOAN_GAIN_MIN = 3;
+const LOAN_GAIN_MAX = 7;
+
+// Schwierigkeitsgrade
+const DIFFICULTIES = {
+  leicht: { label: "Leicht", budget: 1.4,  patience: 85, patienceLoss: 0.7, transferBonus: 4 },
+  normal: { label: "Normal", budget: 1.0,  patience: 75, patienceLoss: 1.0, transferBonus: 0 },
+  schwer: { label: "Schwer", budget: 0.75, patience: 60, patienceLoss: 1.3, transferBonus: -4 }
+};
+
+// Liga-Leben: Nachrichten, Trainerwechsel, Transfers anderer Vereine
+const NEWS_MAX = 40;
+const COACH_FIRE_CHANCE = 0.3;
+const AI_TRANSFERS_PER_WINDOW = 4;
+const TEAM_OF_SEASON_SLOTS = [
+  { label: "TW", pos: ["TW"] }, { label: "RV", pos: ["RV"] }, { label: "IV", pos: ["IV"] }, { label: "IV", pos: ["IV"] },
+  { label: "LV", pos: ["LV"] }, { label: "RM", pos: ["RM"] }, { label: "ZM", pos: ["ZM", "DM", "OM"] },
+  { label: "ZM", pos: ["ZM", "DM", "OM"] }, { label: "LM", pos: ["LM"] }, { label: "ST", pos: ["ST"] }, { label: "ST", pos: ["ST", "OM"] }
+];
+
+// Kapitaen
+const CAPTAIN_MORALE_PULL = 0.6;       // je Spieltag, bei sehr guter/schlechter Laune des Kapitaens
+const CAPTAIN_APPOINTED_MORALE = 6;
+const CAPTAIN_DEPOSED_MORALE = 8;
+
+// Trainer-Ruf (0-100)
+const REPUTATION_START = 40;
+const REPUTATION_PER_RANK = 1.5;
+
+// Finanzen: Sponsoren, Trainingslager, Unterhalt
+const SPONSOR_BASE = 1800000;               // pro Saison, mal (0,2 + Einnahmefaktor)
+const FACILITY_UPKEEP_PER_LEVEL = 8000;     // pro Ausbaustufe und Spieltag (skaliert)
+const CAMP_TIERS = [
+  { key: "basis",   label: "Heimtrainingslager", icon: "🏠", costBase: 250000,  morale: 5,  boost: 0,   matchdays: 0 },
+  { key: "ausland", label: "Auslandslager",      icon: "✈️", costBase: 700000,  morale: 8,  boost: 1.5, matchdays: 8 },
+  { key: "premium", label: "Premium-Camp",       icon: "🌴", costBase: 1600000, morale: 12, boost: 2.5, matchdays: 12 }
+];
+
+// Angebote anderer Vereine fuer eigene Spieler (nur im Transferfenster)
+const OFFER_CHANCE_PER_MATCHDAY = 0.55;
+const OFFER_MAX_ACTIVE = 3;
+const OFFER_FEE_MIN = 0.85;          // Anteil des Marktwerts
+const OFFER_FEE_MAX = 1.45;
+const OFFER_BUYER_MAX_BELOW = 6;     // Kaeufer hoechstens so viel schwaecher als der Spieler
+const OFFER_COUNTER_RAISE = 0.20;    // Nachforderung beim Nachverhandeln
+const OFFER_DISAPPOINT_RATIO = 1.2;  // ab diesem Angebot ist eine Absage enttaeuschend
+const OFFER_REJECT_MORALE = 14;
 
 // Notverpflichtungen bei zu kleinem Kader: hoechstens so stark wie der Verein.
 const REFILL_MAX_ABOVE_CLUB = 0;
@@ -748,28 +808,27 @@ const FACILITIES = {
 // ============================================
 // Ligen
 // ============================================
-// Die 3. Liga wechselt jaehrlich stark in ihrer Zusammensetzung. Die Namen
-// sind typische Vertreter, die Staerken sind Schaetzungen — beides laesst
-// sich hier jederzeit anpassen.
+// 3. Liga 2026/27. Die echte Liga hat 20 Vereine; das Spiel rechnet mit 18 pro Liga,
+// deshalb fehlen vorerst die Aufsteiger SG Sonnenhof Grossaspach und Fortuna Koeln.
 const THIRD_DIVISION_CLUBS = [
-  {name:"TSV 1860 München", strength:51},
-  {name:"Dynamo Dresden", strength:50},
-  {name:"Rot-Weiss Essen", strength:49},
-  {name:"1. FC Saarbrücken", strength:49},
-  {name:"Energie Cottbus", strength:48},
-  {name:"SV Waldhof Mannheim", strength:48},
-  {name:"VfL Osnabrück", strength:47},
-  {name:"Arminia Bielefeld", strength:47},
-  {name:"FC Erzgebirge Aue", strength:46},
-  {name:"SpVgg Unterhaching", strength:45},
-  {name:"VfB Stuttgart II", strength:45},
-  {name:"Hallescher FC", strength:44},
-  {name:"SC Verl", strength:44},
-  {name:"FC Viktoria Köln", strength:43},
-  {name:"SV Sandhausen", strength:43},
-  {name:"Alemannia Aachen", strength:42},
-  {name:"TSV Havelse", strength:41},
-  {name:"FC Ingolstadt 04", strength:41}
+  {name:"Fortuna Düsseldorf", strength:52},
+  {name:"Rot-Weiss Essen", strength:51},
+  {name:"MSV Duisburg", strength:51},
+  {name:"Preußen Münster", strength:50},
+  {name:"Hansa Rostock", strength:50},
+  {name:"SC Verl", strength:49},
+  {name:"Alemannia Aachen", strength:49},
+  {name:"SV Wehen Wiesbaden", strength:48},
+  {name:"SV Waldhof Mannheim", strength:47},
+  {name:"FC Viktoria Köln", strength:46},
+  {name:"FC Ingolstadt 04", strength:46},
+  {name:"SSV Jahn Regensburg", strength:46},
+  {name:"1. FC Saarbrücken", strength:46},
+  {name:"VfB Stuttgart II", strength:44},
+  {name:"TSG Hoffenheim II", strength:44},
+  {name:"Würzburger Kickers", strength:44},
+  {name:"SV Meppen", strength:43},
+  {name:"TSV Havelse", strength:41}
 ];
 
 // Ziele fuer die dritte Liga
