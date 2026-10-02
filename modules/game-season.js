@@ -87,7 +87,8 @@ function acceptJobOffer(clubName){
   gameState.clubName = clubName;
   gameState.division = division;
   gameState.clubStature = club.strength;
-  gameState.squad = takeCustomRosterOnJobChange(gameState, clubName, club.strength) || generateSquad(club.strength);
+  gameState.squad = takeCustomRosterOnJobChange(gameState, clubName, club.strength)
+    || withHomeNationality(getCountryConfig(getDivisionCountry(division)).nat, () => generateSquad(club.strength));
   ensureSquadMorale(gameState.squad);
   gameState.budget = Math.round(calculateStartingBudget(club.strength) * getDifficulty(gameState).budget / 50000) * 50000;
   gameState.captainId = null;
@@ -106,7 +107,7 @@ function acceptJobOffer(clubName){
   gameState.loans = [];
   gameState.currentWinStreak = 0;
   gameState.lastTopFour = [];
-  gameState.lastSeasonWasDivision1 = division === 1;
+  gameState.lastSeasonWasDivision1 = isTopDivision(division);
   gameState.seasonEnded = false;
   gameState.lastSeasonSummary = null;
   gameState.ratingHistory = [];
@@ -241,7 +242,13 @@ function finishSeason(){
   gameState.lastAwards = computeSeasonAwards(gameState);
   const tabelle = getSortedStandings(gameState.teams);
   if(tabelle[0]) addNews(gameState, `${tabelle[0].name} ist Meister der ${getDivisionLabel(playedDivision)} ${gameState.season}/${String(gameState.season + 1).slice(2)}.`, "🏆");
-  if(gameState.cup && gameState.cup.champion) addNews(gameState, `${gameState.cup.champion} gewinnt den DFB-Pokal.`, "🏆");
+  if(gameState.cup && gameState.cup.champion) addNews(gameState, `${gameState.cup.champion} gewinnt den ${getCupName(gameState)}.`, "🏆");
+  // Die Pokale der anderen Laender werden im Hintergrund ausgespielt.
+  gameState.cupWinners = { [getOwnCountry(gameState)]: gameState.cup ? gameState.cup.champion : null };
+  COUNTRIES.filter(l => l.key !== getOwnCountry(gameState)).forEach(l => {
+    const sieger = simulateForeignCup(gameState, l.key);
+    if(sieger){ gameState.cupWinners[l.key] = sieger; addNews(gameState, `${sieger} gewinnt den ${l.cup}.`, "🏆"); }
+  });
 
   // Leihspieler kehren vor dem Altern und den Vertragslaeufen zurueck.
   returnLoans(gameState).forEach(r => addLogEntry(gameState,
@@ -270,7 +277,15 @@ function finishSeason(){
   gameState.seasonEnded = true;
   gameState.lastSeasonSummary = { finalPosition, totalTeams, bonus, season: gameState.season };
   gameState.lastTopFour = sorted.slice(0, 4).map(t => t.name);
-  gameState.lastSeasonWasDivision1 = playedDivision === 1;
+  gameState.lastSeasonWasDivision1 = isTopDivision(playedDivision);
+  // Europapokal: die besten vier jeder grossen Liga der abgelaufenen Saison.
+  gameState.europeQualifiers = DIVISIONS.filter(d => d.europe).flatMap(d =>
+    (promoRelResult.standings[d.nr] || []).slice(0, EUROPE_SLOTS_PER_TOP_LEAGUE).map(t => t.name));
+  // Meister der anderen Ligen fuer die Nachrichten.
+  DIVISIONS.filter(d => d.nr !== playedDivision && d.tier === 1).forEach(d => {
+    const meister = (promoRelResult.standings[d.nr] || [])[0];
+    if(meister) addNews(gameState, `${meister.name} ist Meister der ${d.label}.`, getCountryBadge(d.country));
+  });
 
   let movement = "stayed";
   if(promoRelResult.ownWasPromoted) movement = "promoted";
@@ -325,9 +340,10 @@ function finishSeason(){
   }
 
   const neueLiga = getDivisionLabel(promoRelResult.ownDivisionNow);
+  const reserveName = promoRelResult.reserveLabel || "Regionalliga";
   if(promoRelResult.ownRelegatedToRegional){
-    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die Regionalliga ab — der Verein trennt sich von dir.`, "loss", true);
-    showToast(`⬇️ Abstieg in die Regionalliga! ${gameState.clubName} trennt sich von dir.`, "error");
+    addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die ${reserveName} ab — der Verein trennt sich von dir.`, "loss", true);
+    showToast(`⬇️ Abstieg in die ${reserveName}! ${gameState.clubName} trennt sich von dir.`, "error");
   } else if(promoRelResult.ownWasRelegated){
     addLogEntry(gameState, `⬇️ ${gameState.clubName} steigt in die ${neueLiga} ab!`, "loss", true);
     showToast(`⬇️ Abstieg! ${gameState.clubName} spielt nächste Saison ${neueLiga}.`, "error");
@@ -337,22 +353,25 @@ function finishSeason(){
     unlockAchievement("promotion");
   }
   if(promoRelResult.regionalDown && promoRelResult.regionalDown.length){
-    addLogEntry(gameState, `🔻 In die Regionalliga: ${promoRelResult.regionalDown.join(", ")} · 🔺 Aus der Regionalliga: ${promoRelResult.regionalUp.join(", ")}`);
-    addNews(gameState, `Regionalliga-Aufsteiger in die 3. Liga: ${promoRelResult.regionalUp.join(", ")}.`, "🔺");
+    addLogEntry(gameState, `🔻 In die ${reserveName}: ${promoRelResult.regionalDown.join(", ")} · 🔺 Aus der ${reserveName}: ${promoRelResult.regionalUp.join(", ")}`);
+    addNews(gameState, `Aufsteiger aus der ${reserveName}: ${promoRelResult.regionalUp.join(", ")}.`, "🔺");
   }
 
   logStrengthDrift(promoRelResult.driftChanges);
 
-  addLogEntry(gameState, `📋 Aufsteiger: ${promoRelResult.promotedNames.join(", ")}, Relegationssieger ${promoRelResult.playoffWinnerName} · Absteiger: ${promoRelResult.relegatedNames.join(", ")}, Relegationsverlierer ${promoRelResult.playoffLoserName}`);
+  if(promoRelResult.promotedNames.length || promoRelResult.relegatedNames.length){
+    addLogEntry(gameState, `📋 Aufsteiger: ${promoRelResult.promotedNames.join(", ")} · Absteiger: ${promoRelResult.relegatedNames.join(", ")}`
+      + (promoRelResult.playoffWinnerName ? ` · ${promoRelResult.playoffLabel || "Relegation"}: ${promoRelResult.playoffWinnerName} setzt sich durch` : ""));
+  }
 
-  if(playedDivision === 1 && finalPosition === 1) unlockAchievement("champion");
-  if(playedDivision === 1 && finalPosition <= 4) unlockAchievement("topFour");
+  if(isTopDivision(playedDivision) && finalPosition === 1) unlockAchievement("champion");
+  if(isTopDivision(playedDivision) && finalPosition <= 4) unlockAchievement("topFour");
 
   // Trainer-Ruf und Anfragen groesserer Vereine
   const ziel = gameState.board ? gameState.board.targetPosition : finalPosition;
   const ruf = updateReputationForSeason(gameState, {
     position: finalPosition, target: ziel,
-    champion: playedDivision === 1 && finalPosition === 1,
+    champion: isTopDivision(playedDivision) && finalPosition === 1,
     cupWinner: cup.champion === gameState.clubName,
     europeWinner: !!eu.champion,
     promoted: promoRelResult.ownWasPromoted, relegated: promoRelResult.ownWasRelegated || promoRelResult.ownRelegatedToRegional
@@ -370,11 +389,11 @@ function finishSeason(){
     // Mit dem Verein geht es nicht weiter: wie eine Entlassung, mit Angeboten.
     gameState.successOffers = [];
     gameState.pendingYouthCandidates = null;
-    if(gameState.board){ gameState.board.dismissed = true; gameState.board.dismissedRegional = true; }
+    if(gameState.board){ gameState.board.dismissed = true; gameState.board.dismissedRegional = true; gameState.board.reserveLabel = reserveName; }
     changeReputation(gameState, -6);
     renderSeasonSummary(gameState);
     renderSeasonHistory(gameState);
-    queueModal(() => showDismissalModal({ matchday: getSeasonMatchdays(gameState), position: finalPosition, regional: true }));
+    queueModal(() => showDismissalModal({ matchday: getSeasonMatchdays(gameState), position: finalPosition, regional: true, reserveLabel: reserveName }));
     return;
   }
 
@@ -396,7 +415,7 @@ function logStrengthDrift(changes){
 function startNextSeason(){
   if(gameState.board && gameState.board.dismissed){
     showToast("Mit diesem Verein geht es nicht weiter. Nimm ein Angebot an oder starte neu.", "error");
-    if(typeof showDismissalModal === "function") showDismissalModal({ matchday: gameState.matchday, position: getOwnTeamRow(gameState).position, regional: !!gameState.board.dismissedRegional });
+    if(typeof showDismissalModal === "function") showDismissalModal({ matchday: gameState.matchday, position: getOwnTeamRow(gameState).position, regional: !!gameState.board.dismissedRegional, reserveLabel: gameState.board.reserveLabel });
     return;
   }
   gameState.season += 1;
@@ -415,7 +434,8 @@ function startNextSeason(){
   gameState.board = createFreshBoard(getBoardReferenceStrength(gameState), gameState.division,
     gameState.board ? gameState.board.patience : null);
 
-  const qualifiedForEurope = gameState.lastSeasonWasDivision1 && (gameState.lastTopFour || []).includes(gameState.clubName);
+  const qualifiedForEurope = (gameState.europeQualifiers || (gameState.lastSeasonWasDivision1 ? gameState.lastTopFour : []) || [])
+    .includes(gameState.clubName);
   gameState.europe = createFreshEurope(qualifiedForEurope, buildEuropeContext());
 
   resetYouthSeason(gameState);
@@ -428,9 +448,9 @@ function startNextSeason(){
     `🌍 Transfermarkt: ${getPoolStats(gameState.pool).gelistet} Spieler stehen diese Saison zur Verfügung` +
     ` (${poolWechsel.abgaenge} Karriereenden, ${poolWechsel.zugaenge} Neuzugänge im Bestand).`);
 
-  addLogEntry(gameState, `🆕 Saison ${gameState.season}/${gameState.season+1} gestartet (${getDivisionLabel(gameState.division)})! Neuer DFB-Pokal-Wettbewerb beginnt.`, null, true);
+  addLogEntry(gameState, `🆕 Saison ${gameState.season}/${gameState.season+1} gestartet (${getDivisionLabel(gameState.division)})! Neuer ${getCupName(gameState)}-Wettbewerb beginnt.`, null, true);
   if(qualifiedForEurope){
-    addLogEntry(gameState, `🌍 Als Top-4-Team der Vorsaison für den Europapokal qualifiziert!`);
+    addLogEntry(gameState, `🌍 Als Top-${EUROPE_SLOTS_PER_TOP_LEAGUE}-Team der Vorsaison für den Europapokal qualifiziert!`);
   }
 
   if(isTransferWindowOpen(1)){

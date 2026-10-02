@@ -232,7 +232,19 @@ function applyLoadedState(state){
         if(p.contractYears == null) p.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
       });
       detachOwnClubFromPool(gameState);
+      // Neue Ligen (aeltere Spielstaende): Bestand anpassen und auffuellen.
+      gameState.pool.players.forEach(p => {
+        const nr = p.clubName ? getClubDivision(gameState, p.clubName) : null;
+        if(nr) p.clubTier = "div" + nr;
+      });
+      syncPoolWithLeagues(gameState);
     }
+    // Fehlende Parallelligen anlegen und auf den aktuellen Spieltag bringen.
+    for(let nr = 1; nr <= gameState.leaguePools.length; nr++){
+      if(nr === gameState.division || gameState.shadowLeagues[nr]) continue;
+      gameState.shadowLeagues[nr] = createShadowLeague(getLeaguePool(gameState, nr));
+    }
+    simulateShadowMatchday(gameState);
     if(typeof ensureCoaches === "function") ensureCoaches(gameState);
 
     (gameState.squad || []).forEach(p => {

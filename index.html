@@ -242,6 +242,12 @@ tr.dim:hover td{ opacity:1; }
 .gradeChip.g4{ color:var(--draw); }
 .gradeChip.g5,.gradeChip.g6{ color:var(--loss); }
 .confList{ display:grid; gap:3px; }
+.chipBar{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
+.chipBtn{ background:var(--panel-2); color:var(--ink-dim); border:1px solid var(--line); padding:4px 9px; font-size:12px;
+  text-transform:none; letter-spacing:0; border-radius:99px; }
+.chipBtn.on{ background:var(--gold); color:#10202C; border-color:var(--gold); }
+.clubLink{ cursor:pointer; }
+.clubLink:hover{ color:var(--gold); text-decoration:underline; }
 .confRow{ display:grid; grid-template-columns:1fr auto 1fr; gap:8px; font-size:12.5px; padding:4px 8px;
   background:var(--bg-deep); border-radius:var(--r-sm); }
 .confRow span:first-child{ text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -528,10 +534,10 @@ tr.dim:hover td{ opacity:1; }
         </div>
         <div class="grid" style="gap:16px;">
           <div class="card">
-            <div class="cardHead"><h3>Andere Liga</h3><span class="eyebrow" id="shadowTableLabel"></span></div>
-            <div class="tableWrap" style="max-height:420px; overflow-y:auto;"><table id="shadowTable"></table></div>
+            <div class="cardHead"><h3>Ligen</h3><span class="eyebrow" id="shadowTableLabel"></span></div>
+            <div style="max-height:620px; overflow-y:auto;" id="shadowTable"></div>
           </div>
-          <div class="card"><div class="cardHead"><h3>DFB-Pokal</h3></div><div id="cupStatus"></div></div>
+          <div class="card"><div class="cardHead"><h3 id="cupTitle">Pokal</h3></div><div id="cupStatus"></div></div>
           <div class="card"><div class="cardHead"><h3>Europapokal</h3></div><div id="europeStatus"></div></div>
         </div>
       </div>
@@ -600,6 +606,13 @@ tr.dim:hover td{ opacity:1; }
     </section>
 
   </main>
+</div>
+
+<div id="clubOverlay" class="modalOverlay">
+  <div class="modalBox">
+    <span class="modalClose" onclick="closeClubDetail()">✕</span>
+    <div id="clubModalContent"></div>
+  </div>
 </div>
 
 <div id="fastForwardOverlay" class="modalOverlay">
@@ -698,6 +711,7 @@ tr.dim:hover td{ opacity:1; }
   </div>
 </div>
 
+<script src="modules/clubs-intl.js"></script>
 <script src="modules/config.js"></script>
 <script src="modules/names.js"></script>
 <script src="modules/players.js"></script>

@@ -22,20 +22,20 @@ function getOwnClubStrength(gameState){
 }
 
 function isTransferWindowOpen(currentMatchday1Based){
-  return TRANSFER_WINDOWS.some(([start, end]) =>
+  return getTransferWindows().some(([start, end]) =>
     currentMatchday1Based >= start && currentMatchday1Based <= end
   );
 }
 
 function getNextWindowStart(currentMatchday1Based){
-  for(const [start, end] of TRANSFER_WINDOWS){
+  for(const [start, end] of getTransferWindows()){
     if(currentMatchday1Based < start) return start;
   }
   return null;
 }
 
 function getCurrentWindowEnd(currentMatchday1Based){
-  const win = TRANSFER_WINDOWS.find(([start, end]) =>
+  const win = getTransferWindows().find(([start, end]) =>
     currentMatchday1Based >= start && currentMatchday1Based <= end
   );
   return win ? win[1] : null;

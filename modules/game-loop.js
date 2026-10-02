@@ -57,7 +57,7 @@ function getNextEvent(gameState){
   const upcomingDay = gameState.matchday + 1;
 
   const cup = gameState.cup;
-  if(cup && cup.active && CUP_ROUND_TRIGGER_MATCHDAYS[cup.round] === upcomingDay){
+  if(cup && cup.active && getCupTriggerMatchdays(gameState)[cup.round] === upcomingDay){
     return { type: "cup", label: CUP_ROUND_LABELS[cup.round] || `Runde ${cup.round + 1}`, beforeMatchday: upcomingDay };
   }
 
@@ -71,7 +71,7 @@ function getNextEvent(gameState){
 
 function getNextEventLabel(){
   const evt = getNextEvent(gameState);
-  if(evt.type === "cup") return `DFB-Pokal: ${evt.label} spielen`;
+  if(evt.type === "cup") return `${getCountryConfig(getOwnCountry(gameState)).cupShort}: ${evt.label} spielen`;
   if(evt.type === "europe") return `Europapokal: ${evt.label} spielen`;
   if(evt.type === "seasonEnd") return "Saison beendet";
   return `Spieltag ${evt.matchday} simulieren`;
@@ -92,13 +92,13 @@ function runNextEvent(){
     const cupResult = simulateCupRound(gameState);
     if(cupResult){
       processCupResult(cupResult);
-      const load = cupResult.ownMatch ? applyMatchLoad("DFB-Pokal") : null;
+      const load = cupResult.ownMatch ? applyMatchLoad(getCupName(gameState)) : null;
       renderAll(gameState);
       if(cupResult.ownMatch){
         const m = cupResult.ownMatch;
         presentMatch({
           clubName: gameState.clubName,
-          label: `DFB-Pokal · ${evt.label}`,
+          label: `${getCupName(gameState)} · ${evt.label}`,
           home: m.home, away: m.away, homeGoals: m.homeGoals, awayGoals: m.awayGoals,
           timeline: buildMatchTimeline({
             clubName: gameState.clubName, home: m.home, away: m.away,
@@ -395,7 +395,7 @@ function handleDebt(){
 
 // Rechtzeitig vor dem Sommer an auslaufende Vertraege erinnern.
 function remindExpiringContracts(){
-  if(!CONTRACT_REMINDER_MATCHDAYS.includes(gameState.matchday)) return;
+  if(!getContractReminderMatchdays(gameState).includes(gameState.matchday)) return;
   const n = (gameState.squad || []).filter(p => isContractExpiring(p) && p.age < RETIREMENT_FORCED_AGE - 1).length;
   if(n === 0) return;
   const text = `📝 ${n} Vertrag${n === 1 ? " läuft" : "e laufen"} zum Saisonende aus — Übersicht im Kader-Tab.`;

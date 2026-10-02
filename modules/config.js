@@ -174,46 +174,38 @@ const EUROPE_QUALIFY_BONUS = 800000;
 const EUROPE_ROUND_BONUS = 400000;
 const EUROPE_CHAMPION_BONUS = 6000000;
 
+// Europapokal-Teilnehmer aus Laendern ohne eigene Liga im Spiel. Die
+// Vereine der fuenf grossen Ligen kommen ueber ihre Tabellen hinein.
 const EURO_CLUBS = [
-  {name:"Real Madrid", strength:92},
-  {name:"Manchester City", strength:90},
-  {name:"FC Barcelona", strength:91},
-  {name:"FC Liverpool", strength:90},
-  {name:"Paris Saint-Germain", strength:91},
-  {name:"Inter Mailand", strength:88},
-  {name:"FC Arsenal", strength:90},
-  {name:"Atlético Madrid", strength:86},
-  {name:"FC Chelsea", strength:85},
-  {name:"Juventus Turin", strength:85},
-  {name:"SSC Neapel", strength:84},
-  {name:"Atalanta Bergamo", strength:83},
-  {name:"AC Mailand", strength:83},
-  {name:"Manchester United", strength:80},
   {name:"Benfica Lissabon", strength:81},
   {name:"Sporting Lissabon", strength:81},
   {name:"FC Porto", strength:80},
   {name:"PSV Eindhoven", strength:79},
   {name:"Ajax Amsterdam", strength:78},
-  {name:"Olympique Marseille", strength:78},
   {name:"Feyenoord Rotterdam", strength:77},
   {name:"Club Brügge", strength:76},
+  {name:"Galatasaray Istanbul", strength:76},
+  {name:"Fenerbahçe Istanbul", strength:75},
   {name:"RB Salzburg", strength:75},
-  {name:"Galatasaray Istanbul", strength:75},
   {name:"Celtic Glasgow", strength:74},
+  {name:"Olympiakos Piräus", strength:73},
   {name:"Schachtar Donezk", strength:73},
+  {name:"Slavia Prag", strength:72},
   {name:"Roter Stern Belgrad", strength:72},
-  {name:"Olympique Lyon", strength:72}
+  {name:"BSC Young Boys", strength:71}
 ];
+// Wie viele Vereine je grosser Liga in den Europapokal kommen.
+const EUROPE_SLOTS_PER_TOP_LEAGUE = 4;
 
 const ACHIEVEMENTS = [
   { key:"firstWin", label:"🏆 Erster Sieg", desc:"Ersten Pflichtsieg eingefahren" },
   { key:"winStreak5", label:"🔥 5 Siege in Folge", desc:"Fünf Spiele in Serie gewonnen" },
-  { key:"champion", label:"👑 Meister", desc:"Die 1. Bundesliga-Saison auf Platz 1 beendet" },
-  { key:"topFour", label:"⭐ Europapokal-Rang", desc:"1. Bundesliga-Saison unter den Top 4 beendet" },
+  { key:"champion", label:"👑 Meister", desc:"Eine Saison in einer ersten Liga auf Platz 1 beendet" },
+  { key:"topFour", label:"⭐ Europapokal-Rang", desc:"Eine Saison in einer ersten Liga unter den Top 4 beendet" },
   { key:"bigSigning", label:"💎 Königstransfer", desc:"Einen Spieler für über 50% des verfügbaren Budgets verpflichtet" },
-  { key:"cupWinner", label:"🏆 Pokalsieger", desc:"Den DFB-Pokal gewonnen" },
+  { key:"cupWinner", label:"🏆 Pokalsieger", desc:"Den nationalen Pokal gewonnen" },
   { key:"europeChampion", label:"🌍 Europapokalsieger", desc:"Den Europapokal gewonnen" },
-  { key:"promotion", label:"⬆️ Aufstieg", desc:"Aus der 2. in die 1. Bundesliga aufgestiegen" },
+  { key:"promotion", label:"⬆️ Aufstieg", desc:"In eine höhere Liga aufgestiegen" },
   { key:"youthStar", label:"🌱 Eigengewächs", desc:"Einen Jugendspieler auf Bewertung 85 entwickelt" }
 ];
 
@@ -488,6 +480,7 @@ const GOAL_MINUTE_SECOND_HALF_BIAS = 0.58;
 // weiterhin der massgebliche Wert fuer die Simulation — der Pool ersetzt sie
 // NICHT. Sonst wuerde die ueber viele Durchgaenge austarierte Balance kippen.
 const POOL_PLAYERS_PER_CLUB = 18;
+const POOL_PLAYERS_PER_CLUB_SMALL = 13;   // zweite Ligen im Ausland
 const POOL_FOREIGN_CLUB_COUNT = 14;     // zusaetzliche Vereine aus dem Ausland
 const POOL_FREE_AGENT_COUNT = 40;
 // genPlayer streut intern bereits um +-10. Ein grosser Zusatzwert hier wuerde
@@ -892,16 +885,84 @@ const BOARD_GOALS_DIV3 = [
   { maxRank: 99, minStrength: 0,  label: "Klassenerhalt",               target: 16 }
 ];
 
-// Eine Stelle, an der alles Ligaabhaengige zusammenlaeuft. Eine weitere Liga
-// ergaenzt man hier, nicht verstreut im Code.
+// Saisonziele aus der Ligagroesse: der Klassenerhalt haengt an der Zahl der
+// Absteiger, das Mittelfeld an der Groesse.
+function buildTopDivisionGoals(size, meister, sicher){
+  return [
+    { maxRank: 1,  minStrength: 88, label: meister,                             target: 1 },
+    { maxRank: 4,  minStrength: 80, label: "Qualifikation für den Europapokal", target: 4 },
+    { maxRank: 8,  minStrength: 72, label: "Einstelliger Tabellenplatz",        target: 9 },
+    { maxRank: 12, minStrength: 64, label: "Gesicherter Mittelfeldplatz",       target: Math.round(size * 0.72) },
+    { maxRank: 99, minStrength: 0,  label: "Klassenerhalt",                     target: sicher }
+  ];
+}
+function buildLowerDivisionGoals(size, direkt, playoffLabel, playoffBis, sicher){
+  return [
+    { maxRank: 2,  minStrength: 62, label: "Direkter Aufstieg",           target: direkt },
+    { maxRank: 3,  minStrength: 55, label: playoffLabel,                  target: playoffBis },
+    { maxRank: 8,  minStrength: 48, label: "Vorderes Tabellendrittel",    target: Math.round(size / 3) },
+    { maxRank: 12, minStrength: 44, label: "Gesicherter Mittelfeldplatz", target: Math.round(size * 0.62) },
+    { maxRank: 99, minStrength: 0,  label: "Klassenerhalt",               target: sicher }
+  ];
+}
+
+// Laender mit ihrem Pokal und dem Reservekreis unter der untersten Liga
+// (wird nicht ausgespielt, liefert Aufsteiger und nimmt Absteiger auf).
+const COUNTRIES = [
+  { key: "de", name: "Deutschland", flag: "🇩🇪", code: "DE", nat: "DE", cup: "DFB-Pokal", cupShort: "Pokal",
+    reserve: { label: "Regionalliga", clubs: REGIONAL_CLUBS, swaps: REGIONAL_PROMOTIONS } },
+  { key: "en", name: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", code: "EN", nat: "GB", cup: "FA Cup", cupShort: "FA Cup",
+    reserve: { label: "League One", clubs: ENGLAND_RESERVE_CLUBS, swaps: 3 } },
+  { key: "es", name: "Spanien", flag: "🇪🇸", code: "ES", nat: "ES", cup: "Copa del Rey", cupShort: "Copa",
+    reserve: { label: "Primera RFEF", clubs: SPAIN_RESERVE_CLUBS, swaps: 4 } },
+  { key: "it", name: "Italien", flag: "🇮🇹", code: "IT", nat: "IT", cup: "Coppa Italia", cupShort: "Coppa",
+    reserve: { label: "Serie C", clubs: ITALY_RESERVE_CLUBS, swaps: 4 } },
+  { key: "fr", name: "Frankreich", flag: "🇫🇷", code: "FR", nat: "FR", cup: "Coupe de France", cupShort: "Coupe",
+    reserve: { label: "National", clubs: FRANCE_RESERVE_CLUBS, swaps: 3 } }
+];
+
+// Regeln an der Nahtstelle zur naechsttieferen Liga desselben Landes:
+//  relegation: Drittletzter oben gegen Dritten unten
+//  playoff:    Plaetze der unteren Liga spielen einen weiteren Aufsteiger aus
+//  barrage:    Play-off der unteren Liga, Sieger gegen den Drittletzten oben
+const SEAM_DE = { directDown: 2, directUp: 2, playoff: { type: "relegation" } };
+const SEAM_PLAYOFF = { directDown: 3, directUp: 2, playoff: { type: "playoff", positions: [3, 4, 5, 6] } };
+const SEAM_FR = { directDown: 2, directUp: 2, playoff: { type: "barrage", positions: [3, 4, 5] } };
+
+// Eine Stelle, an der alles Ligaabhaengige zusammenlaeuft. Die Nummer (nr)
+// ist eindeutig ueber alle Laender, tier ist die Spielklasse im Land.
 const DIVISIONS = [
-  { nr: 1, label: "1. Bundesliga", short: "1. BL",
+  { nr: 1, country: "de", tier: 1, label: "1. Bundesliga", short: "1. BL",
     clubs: CLUBS, revenueFactor: 1.0, staturePenalty: 0,
-    goals: BOARD_GOALS_DIV1, europe: true },
-  { nr: 2, label: "2. Bundesliga", short: "2. BL",
+    goals: BOARD_GOALS_DIV1, europe: true, seam: SEAM_DE },
+  { nr: 2, country: "de", tier: 2, label: "2. Bundesliga", short: "2. BL",
     clubs: SECOND_DIVISION_CLUBS, revenueFactor: 0.5, staturePenalty: 8,
-    goals: BOARD_GOALS_DIV2, europe: false },
-  { nr: 3, label: "3. Liga", short: "3. L",
+    goals: BOARD_GOALS_DIV2, europe: false, seam: SEAM_DE },
+  { nr: 3, country: "de", tier: 3, label: "3. Liga", short: "3. L",
     clubs: THIRD_DIVISION_CLUBS, revenueFactor: 0.22, staturePenalty: 16,
-    goals: BOARD_GOALS_DIV3, europe: false }
+    goals: BOARD_GOALS_DIV3, europe: false },
+  { nr: 4, country: "en", tier: 1, label: "Premier League", short: "PL",
+    clubs: PREMIER_LEAGUE_CLUBS, revenueFactor: 1.3, staturePenalty: 0,
+    goals: buildTopDivisionGoals(20, "Englischer Meister", 17), europe: true, seam: SEAM_PLAYOFF },
+  { nr: 5, country: "en", tier: 2, label: "Championship", short: "CH",
+    clubs: CHAMPIONSHIP_CLUBS, revenueFactor: 0.6, staturePenalty: 8,
+    goals: buildLowerDivisionGoals(24, 2, "Aufstiegs-Play-offs", 6, 21), europe: false },
+  { nr: 6, country: "es", tier: 1, label: "LaLiga", short: "LL",
+    clubs: LALIGA_CLUBS, revenueFactor: 1.0, staturePenalty: 0,
+    goals: buildTopDivisionGoals(20, "Spanischer Meister", 17), europe: true, seam: SEAM_PLAYOFF },
+  { nr: 7, country: "es", tier: 2, label: "LaLiga 2", short: "LL2",
+    clubs: LALIGA2_CLUBS, revenueFactor: 0.4, staturePenalty: 8,
+    goals: buildLowerDivisionGoals(22, 2, "Aufstiegs-Play-offs", 6, 18), europe: false },
+  { nr: 8, country: "it", tier: 1, label: "Serie A", short: "SA",
+    clubs: SERIE_A_CLUBS, revenueFactor: 0.95, staturePenalty: 0,
+    goals: buildTopDivisionGoals(20, "Italienischer Meister", 17), europe: true, seam: SEAM_PLAYOFF },
+  { nr: 9, country: "it", tier: 2, label: "Serie B", short: "SB",
+    clubs: SERIE_B_CLUBS, revenueFactor: 0.4, staturePenalty: 8,
+    goals: buildLowerDivisionGoals(20, 2, "Aufstiegs-Play-offs", 6, 16), europe: false },
+  { nr: 10, country: "fr", tier: 1, label: "Ligue 1", short: "L1",
+    clubs: LIGUE1_CLUBS, revenueFactor: 0.85, staturePenalty: 0,
+    goals: buildTopDivisionGoals(18, "Französischer Meister", 15), europe: true, seam: SEAM_FR },
+  { nr: 11, country: "fr", tier: 2, label: "Ligue 2", short: "L2",
+    clubs: LIGUE2_CLUBS, revenueFactor: 0.35, staturePenalty: 8,
+    goals: buildLowerDivisionGoals(18, 2, "Aufstiegs-Play-offs", 5, 15), europe: false }
 ];

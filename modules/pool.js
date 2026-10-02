@@ -16,15 +16,24 @@ function buildPoolClubList(gameState){
   // Sonst stuenden eigene Spieler auf dem Transfermarkt.
   gameState.leaguePools.forEach((pool, idx) => {
     pool.forEach(c => {
-      if(c.name !== gameState.clubName) clubs.push({ name: c.name, strength: c.strength, tier: "div" + (idx + 1) });
+      if(c.name !== gameState.clubName) clubs.push({ name: c.name, strength: c.strength, tier: "div" + (idx + 1),
+        nat: getCountryConfig(getDivisionCountry(idx + 1)).nat, size: getPoolSizeForDivision(idx + 1) });
     });
   });
 
   shuffleArray(EURO_CLUBS).slice(0, POOL_FOREIGN_CLUB_COUNT).forEach(c => {
-    clubs.push({ name: c.name, strength: c.strength, tier: "ausland" });
+    clubs.push({ name: c.name, strength: c.strength, tier: "ausland", size: POOL_PLAYERS_PER_CLUB });
   });
 
   return clubs;
+}
+
+// Kleinere Bestaende in den auslaendischen zweiten Ligen halten Spielstand
+// und Rechenzeit klein. Fuer Transfers und Torschuetzen reicht das.
+function getPoolSizeForDivision(nr){
+  const d = getDivisionConfig(nr);
+  if(!d.country || d.country === "de" || d.tier === 1) return POOL_PLAYERS_PER_CLUB;
+  return POOL_PLAYERS_PER_CLUB_SMALL;
 }
 
 // Positionen so verteilen, dass jeder Verein einen spielfaehigen Stamm hat.
@@ -49,9 +58,9 @@ function createWorldPool(gameState){
   const players = [];
 
   buildPoolClubList(gameState).forEach(club => {
-    poolPositionsForClub(POOL_PLAYERS_PER_CLUB).forEach(pos => {
+    poolPositionsForClub(club.size || POOL_PLAYERS_PER_CLUB).forEach(pos => {
       const target = club.strength + randInt(-POOL_STRENGTH_SPREAD, POOL_STRENGTH_SPREAD);
-      const player = genPlayer(Math.max(45, Math.min(94, target)), pos, [18, 34], true);
+      const player = withHomeNationality(club.nat, () => genPlayer(Math.max(45, Math.min(94, target)), pos, [18, 34], true));
       capPoolPlayer(player, club.strength);
       player.clubName = club.name;
       player.clubTier = club.tier;
@@ -229,15 +238,18 @@ function syncPoolWithLeagues(gameState){
       p.clubName = null; p.clubTier = "frei";
     }
   });
+  const proVerein = new Map();
+  gameState.pool.players.forEach(p => { if(p.clubName) proVerein.set(p.clubName, (proVerein.get(p.clubName) || 0) + 1); });
   gameState.leaguePools.forEach((pool, idx) => pool.forEach(club => {
     if(club.name === gameState.clubName) return;
-    const vorhanden = gameState.pool.players.filter(p => p.clubName === club.name).length;
+    const vorhanden = (proVerein.get(club.name) || 0);
     // Nur neu hinzugekommene Vereine (Regionalliga-Aufsteiger) auffuellen;
     // den normalen Schwund gleicht der Jugend-Zustrom aus.
     if(vorhanden >= 8) return;
-    poolPositionsForClub(POOL_PLAYERS_PER_CLUB).slice(vorhanden).forEach(pos => {
+    const nat = getCountryConfig(getDivisionCountry(idx + 1)).nat;
+    poolPositionsForClub(getPoolSizeForDivision(idx + 1)).slice(vorhanden).forEach(pos => {
       const ziel = club.strength + randInt(-POOL_STRENGTH_SPREAD, POOL_STRENGTH_SPREAD);
-      const neu = genPlayer(Math.max(40, Math.min(94, ziel)), pos, [19, 31], true);
+      const neu = withHomeNationality(nat, () => genPlayer(Math.max(40, Math.min(94, ziel)), pos, [19, 31], true));
       capPoolPlayer(neu, club.strength);
       neu.clubName = club.name;
       neu.clubTier = "div" + (idx + 1);
@@ -334,7 +346,10 @@ function advancePool(gameState){
   });
 
   const clubs = buildPoolClubList(gameState);
-  const soll = clubs.length * POOL_PLAYERS_PER_CLUB + POOL_FREE_AGENT_COUNT;
+  const soll = clubs.reduce((sum, c) => sum + (c.size || POOL_PLAYERS_PER_CLUB), 0) + POOL_FREE_AGENT_COUNT;
+  // Zugaenge verteilen sich nach Bestandsgroesse der Vereine.
+  const gewichtet = [];
+  clubs.forEach(c => { for(let i = 0; i < (c.size || POOL_PLAYERS_PER_CLUB); i++) gewichtet.push(c); });
 
   // Jede Saison kommt ein fester Jahrgang nach. Die Menge ist so bemessen,
   // dass sie den natuerlichen Abgaengen entspricht — die Pyramide traegt sich
@@ -358,16 +373,16 @@ function advancePool(gameState){
   }
 
   for(let i = 0; i < zugaenge; i++){
-    bleibt.push(createPoolProspect(randChoice(clubs)));
+    bleibt.push(createPoolProspect(randChoice(gewichtet)));
   }
 
   // Falls der Bestand trotzdem unter das Soll faellt, mit Spielern im
   // besten Alter auffuellen.
   while(bleibt.length < soll){
-    const club = randChoice(clubs);
+    const club = randChoice(gewichtet);
     const ziel = club.strength - POOL_INTAKE_BELOW_CLUB
       + randInt(-POOL_STRENGTH_SPREAD, POOL_STRENGTH_SPREAD);
-    const neu = genPlayer(Math.max(45, Math.min(94, ziel)), randChoice(POSITION_ORDER), [21, 27], true);
+    const neu = withHomeNationality(club.nat, () => genPlayer(Math.max(45, Math.min(94, ziel)), randChoice(POSITION_ORDER), [21, 27], true));
     capPoolPlayer(neu, club.strength);
     neu.clubName = club.name;
     neu.clubTier = club.tier;
@@ -386,8 +401,8 @@ function advancePool(gameState){
 function createPoolProspect(club){
   const ziel = club.strength - POOL_INTAKE_BELOW_CLUB
     + randInt(-POOL_STRENGTH_SPREAD, POOL_STRENGTH_SPREAD);
-  const spieler = genPlayer(Math.max(42, Math.min(94, ziel)), randChoice(POSITION_ORDER),
-    [POOL_INTAKE_AGE_MIN, POOL_INTAKE_AGE_MAX], true);
+  const spieler = withHomeNationality(club.nat, () => genPlayer(Math.max(42, Math.min(94, ziel)), randChoice(POSITION_ORDER),
+    [POOL_INTAKE_AGE_MIN, POOL_INTAKE_AGE_MAX], true));
   capPoolPlayer(spieler, club.strength);
   spieler.clubName = club.name;
   spieler.clubTier = club.tier;
@@ -471,10 +486,14 @@ function resetPoolSeasonStats(pool){
 
 // Ligaweite Torschuetzenliste: eigener Kader und Bestandsspieler zusammen.
 function getLeagueTopScorers(gameState, limit){
-  const ligaNamen = new Set((gameState.teams || []).map(t => t.name));
+  return getTopScorersForClubs(gameState, new Set((gameState.teams || []).map(t => t.name)), limit);
+}
+
+// Torjaeger einer beliebigen Liga (Vereinsnamen als Set).
+function getTopScorersForClubs(gameState, ligaNamen, limit){
   const eintraege = [];
 
-  (gameState.squad || []).forEach(p => {
+  (ligaNamen.has(gameState.clubName) ? (gameState.squad || []) : []).forEach(p => {
     if((p.goalsSeason || 0) > 0){
       eintraege.push({ name: p.name, pos: p.pos, nat: p.nat, goals: p.goalsSeason,
         club: gameState.clubName, eigen: true });

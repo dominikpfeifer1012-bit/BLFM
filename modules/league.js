@@ -27,6 +27,21 @@ function getRoundFixtures(fixtures, teamCount, day){
   return fixtures.filter((f, idx) => Math.floor(idx / proRunde) === day);
 }
 
+// Termine (Pokal, Europapokal, Transferfenster, Vorstand) sind fuer 34
+// Spieltage geplant und werden auf die Laenge der eigenen Saison gestreckt.
+function scaleMatchday(md, gameState){
+  const n = getSeasonMatchdays(gameState);
+  if(n === TOTAL_MATCHDAYS) return md;
+  return Math.max(1, Math.min(n, Math.round(md * n / TOTAL_MATCHDAYS)));
+}
+function getCupTriggerMatchdays(gameState){ return CUP_ROUND_TRIGGER_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
+function getEuropeGroupMatchdays(gameState){ return EUROPE_GROUP_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
+function getEuropeKoMatchdays(gameState){ return EUROPE_KO_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
+function getTransferWindows(gameState){
+  return TRANSFER_WINDOWS.map(([a, b]) => [a === 1 ? 1 : scaleMatchday(a, gameState), scaleMatchday(b, gameState)]);
+}
+function getContractReminderMatchdays(gameState){ return CONTRACT_REMINDER_MATCHDAYS.map(m => scaleMatchday(m, gameState)); }
+
 function getFixtureMatchday(idx, teamCount){
   return Math.floor(idx / getRoundSize(teamCount)) + 1;
 }
@@ -140,6 +155,48 @@ function getDivisionLabel(nr){
   return getDivisionConfig(nr).label;
 }
 
+// ---------- Laender ----------
+
+function getCountryConfig(key){
+  return COUNTRIES.find(c => c.key === key) || COUNTRIES[0];
+}
+
+function getDivisionCountry(nr){
+  return getDivisionConfig(nr).country || "de";
+}
+
+// Ligen eines Landes, von oben nach unten.
+function getCountryDivisions(country){
+  return DIVISIONS.filter(d => (d.country || "de") === country).sort((a, b) => a.tier - b.tier);
+}
+
+function isTopDivision(nr){
+  return (getDivisionConfig(nr).tier || 1) === 1;
+}
+
+function getOwnCountry(gameState){
+  const gs = gameState || (typeof window !== "undefined" ? window.gameState : null);
+  return getDivisionCountry(gs && gs.division ? gs.division : 1);
+}
+
+function getCupName(gameState){
+  return getCountryConfig(getOwnCountry(gameState)).cup;
+}
+
+// Flagge, wo der Browser sie zeichnen kann, sonst das Laenderkuerzel.
+function getCountryBadge(country){
+  const c = getCountryConfig(country);
+  const flaggen = typeof browserSupportsFlags === "function" ? browserSupportsFlags() : true;
+  return flaggen ? c.flag : c.code;
+}
+
+// Kurzbezeichnung mit Land, z.B. "🏴 PL" — nur ausserhalb Deutschlands,
+// damit die gewohnten Bundesliga-Anzeigen unveraendert bleiben.
+function getDivisionTag(nr){
+  const d = getDivisionConfig(nr);
+  return d.country && d.country !== "de" ? `${getCountryBadge(d.country)} ${d.short}` : d.short;
+}
+
 function ensureLeaguePools(gameState){
   if(!Array.isArray(gameState.leaguePools)){
     // Umstellung aus der alten Zwei-Ligen-Struktur.
@@ -183,11 +240,10 @@ function getClubDivision(gameState, name){
 }
 
 // ============================================
-// Auf- und Abstieg ueber alle Ligen
+// Auf- und Abstieg in allen Laendern
 // ============================================
-// Zwischen je zwei benachbarten Ligen gilt dieselbe Regel: die letzten beiden
-// steigen direkt ab, die ersten zwei direkt auf, der Drittletzte spielt gegen
-// den Dritten der unteren Liga eine Relegation.
+// Jedes Land fuer sich: an jeder Nahtstelle gilt die Regel der oberen Liga
+// (DIVISIONS[].seam), unter der untersten Liga liegt der Reservekreis.
 
 function getDivisionStandings(gameState, nr){
   if(nr === gameState.division) return getSortedStandings(gameState.teams);
@@ -199,6 +255,57 @@ function getDivisionStandings(gameState, nr){
   }
   // Rueckfallebene fuer alte Spielstaende oder abgebrochene Saisons.
   return simulateShadowSeason(pool);
+}
+
+// Mini-Play-off: Plaetze paarweise (bester gegen schlechtesten), Sieger weiter.
+function runPlayoffBracket(teams){
+  let runde = [...teams];
+  while(runde.length > 1){
+    const weiter = [];
+    if(runde.length % 2 === 1) weiter.push(runde.shift());   // bester hat ein Freilos
+    for(let i = 0; i < runde.length / 2; i++){
+      weiter.push(resolvePlayoff(runde[i], runde[runde.length - 1 - i]));
+    }
+    runde = weiter;
+  }
+  return runde[0];
+}
+
+// Eine Nahtstelle abwickeln. Liefert die Namen der Bewegungen.
+function resolveSeam(seam, obenTab, untenTab){
+  const res = { down: [], up: [], playoffWinnerName: "", playoffLoserName: "", playoffLabel: "" };
+  if(obenTab.length < 4 || untenTab.length < 4) return res;
+  res.down = obenTab.slice(-seam.directDown).map(t => t.name);
+  res.up = untenTab.slice(0, seam.directUp).map(t => t.name);
+  const p = seam.playoff;
+  if(!p) return res;
+
+  if(p.type === "relegation"){
+    const oben = obenTab[obenTab.length - seam.directDown - 1], unten = untenTab[seam.directUp];
+    const sieger = resolvePlayoff(oben, unten);
+    const verlierer = sieger.name === oben.name ? unten : oben;
+    if(sieger.name === unten.name){ res.up.push(unten.name); res.down.push(oben.name); }
+    res.playoffWinnerName = sieger.name; res.playoffLoserName = verlierer.name;
+    res.playoffLabel = "Relegation";
+  } else if(p.type === "playoff"){
+    const teilnehmer = p.positions.map(pos => untenTab[pos - 1]).filter(Boolean);
+    const sieger = runPlayoffBracket(teilnehmer);
+    res.up.push(sieger.name);
+    res.playoffWinnerName = sieger.name;
+    res.playoffLabel = "Aufstiegs-Play-offs";
+  } else if(p.type === "barrage"){
+    const teilnehmer = [...p.positions].reverse().map(pos => untenTab[pos - 1]).filter(Boolean);
+    // Fuenfter gegen Vierten, Sieger gegen Dritten, dann gegen den Drittletzten oben.
+    let unten = teilnehmer[0];
+    for(let i = 1; i < teilnehmer.length; i++) unten = resolvePlayoff(teilnehmer[i], unten);
+    const oben = obenTab[obenTab.length - seam.directDown - 1];
+    const sieger = resolvePlayoff(oben, unten);
+    if(sieger.name === unten.name){ res.up.push(unten.name); res.down.push(oben.name); }
+    res.playoffWinnerName = sieger.name;
+    res.playoffLoserName = sieger.name === oben.name ? unten.name : oben.name;
+    res.playoffLabel = "Barrage";
+  }
+  return res;
 }
 
 function processPromotionRelegation(gameState){
@@ -220,68 +327,62 @@ function processPromotionRelegation(gameState){
   }
 
   const bewegungen = [];
+  const reserve = { down: [], up: [], byCountry: {} };
+  const reserveUp = [];
 
-  // Jede Nahtstelle zwischen zwei Ligen getrennt abwickeln.
-  for(let oben = 1; oben < anzahl; oben++){
-    const unten = oben + 1;
-    const obenTab = standings[oben], untenTab = standings[unten];
-    if(obenTab.length < 3 || untenTab.length < 3) continue;
+  COUNTRIES.forEach(land => {
+    const ligen = getCountryDivisions(land.key).filter(d => d.nr <= anzahl);
+    for(let i = 0; i + 1 < ligen.length; i++){
+      const oben = ligen[i].nr, unten = ligen[i + 1].nr;
+      const seam = ligen[i].seam || SEAM_DE;
+      const r = resolveSeam(seam, standings[oben], standings[unten]);
+      r.down.forEach(n => neueZuordnung.set(n, unten));
+      r.up.forEach(n => neueZuordnung.set(n, oben));
+      bewegungen.push({
+        oben, unten, country: land.key,
+        relegatedNames: r.down, promotedNames: r.up,
+        playoffWinnerName: r.playoffWinnerName, playoffLoserName: r.playoffLoserName,
+        playoffLabel: r.playoffLabel
+      });
+    }
 
-    const absteiger = [obenTab[obenTab.length - 2], obenTab[obenTab.length - 1]];
-    const aufsteiger = [untenTab[0], untenTab[1]];
-    const relegationOben = obenTab[obenTab.length - 3];
-    const relegationUnten = untenTab[2];
-
-    const sieger = resolvePlayoff(relegationOben, relegationUnten);
-    const verlierer = sieger.name === relegationOben.name ? relegationUnten : relegationOben;
-
-    absteiger.forEach(t => neueZuordnung.set(t.name, unten));
-    aufsteiger.forEach(t => neueZuordnung.set(t.name, oben));
-    neueZuordnung.set(sieger.name, oben);
-    neueZuordnung.set(verlierer.name, unten);
-
-    bewegungen.push({
-      oben, unten,
-      relegatedNames: absteiger.map(t => t.name),
-      promotedNames: aufsteiger.map(t => t.name),
-      playoffWinnerName: sieger.name,
-      playoffLoserName: verlierer.name
-    });
-  }
-
-  // Unterste Liga gegen die Regionalliga: die letzten vier steigen ab,
-  // vier Vereine aus dem Regionalliga-Kreis kommen hinzu.
-  const regional = { down: [], up: [] };
-  const untersteTab = standings[anzahl];
-  if(untersteTab && untersteTab.length > REGIONAL_PROMOTIONS + 4){
-    ensureRegionalClubs(gameState);
-    untersteTab.slice(-REGIONAL_PROMOTIONS).forEach(t => {
-      neueZuordnung.set(t.name, 0);
-      regional.down.push(t.name);
-    });
-    regional.up = pickRegionalPromotions(gameState, REGIONAL_PROMOTIONS);
-  }
+    // Unterste Liga gegen den Reservekreis.
+    const unterste = ligen[ligen.length - 1];
+    const tab = unterste ? standings[unterste.nr] : null;
+    const n = land.reserve ? land.reserve.swaps : 0;
+    if(tab && n > 0 && tab.length > n + 4){
+      ensureReservePool(gameState, land.key);
+      const runter = tab.slice(-n).map(t => t.name);
+      runter.forEach(name => neueZuordnung.set(name, 0));
+      const hoch = pickReservePromotions(gameState, land.key, n);
+      hoch.forEach(c => reserveUp.push({ club: c, nr: unterste.nr }));
+      reserve.byCountry[land.key] = { down: runter, up: hoch.map(c => c.name), label: land.reserve.label };
+      reserve.down.push(...runter);
+      reserve.up.push(...hoch.map(c => c.name));
+    }
+  });
 
   // Neue Ligapools aufbauen.
   const neuePools = Array.from({ length: anzahl }, () => []);
   alleVereine.forEach((club, name) => {
     const ziel = neueZuordnung.get(name);
     if(ziel === 0){
-      // In die Regionalliga: Verein verlaesst die Ligen, schwaecht sich etwas ab.
+      // In den Reservekreis: Verein verlaesst die Ligen, schwaecht sich etwas ab.
+      const land = getDivisionCountry(getClubDivision(gameState, name) || anzahl);
       club.strength = Math.max(AI_STRENGTH_FLOOR, Math.round((club.strength - REGIONAL_RELEGATION_STRENGTH_LOSS) * 10) / 10);
-      gameState.regionalClubs.push(club);
+      ensureReservePool(gameState, land).push(club);
       return;
     }
     const nr = ziel || getClubDivision(gameState, name) || anzahl;
     neuePools[nr - 1].push(club);
   });
-  regional.up.forEach(club => neuePools[anzahl - 1].push(club));
+  reserveUp.forEach(r => neuePools[r.nr - 1].push(r.club));
   gameState.leaguePools = neuePools;
   gameState.leagueOnePool = neuePools[0];   // Rueckwaertskompatibel
   gameState.leagueTwoPool = neuePools[1];
 
-  const inRegionalliga = neueZuordnung.get(gameState.clubName) === 0;
-  const neueEigene = inRegionalliga ? playedDivision : (neueZuordnung.get(gameState.clubName) || playedDivision);
+  const inReserve = neueZuordnung.get(gameState.clubName) === 0;
+  const neueEigene = inReserve ? playedDivision : (neueZuordnung.get(gameState.clubName) || playedDivision);
   gameState.division = neueEigene;
 
   // Staerkedrift mit den tatsaechlich gespielten Tabellen.
@@ -302,39 +403,55 @@ function processPromotionRelegation(gameState){
 
   // Die Nahtstelle der eigenen Liga fuer die Meldungen heraussuchen.
   const eigene = bewegungen.find(b => b.oben === playedDivision || b.unten === playedDivision)
-    || bewegungen[0] || { relegatedNames: [], promotedNames: [],
-         playoffWinnerName: "", playoffLoserName: "" };
+    || { relegatedNames: [], promotedNames: [], playoffWinnerName: "", playoffLoserName: "" };
+  const ownLand = getDivisionCountry(playedDivision);
+  const ownReserve = reserve.byCountry[ownLand] || { down: [], up: [], label: "" };
 
   return {
     relegatedNames: eigene.relegatedNames,
     promotedNames: eigene.promotedNames,
     playoffWinnerName: eigene.playoffWinnerName,
     playoffLoserName: eigene.playoffLoserName,
+    playoffLabel: eigene.playoffLabel,
     ownWasPromoted: neueEigene < playedDivision,
     ownWasRelegated: neueEigene > playedDivision,
-    ownRelegatedToRegional: inRegionalliga,
-    regionalDown: regional.down,
-    regionalUp: regional.up.map(c => c.name),
+    ownRelegatedToRegional: inReserve,
+    reserveLabel: ownReserve.label,
+    regionalDown: ownReserve.down,
+    regionalUp: ownReserve.up,
+    reserveByCountry: reserve.byCountry,
     ownDivisionNow: neueEigene,
     movements: bewegungen,
+    standings,
     driftChanges
   };
 }
 
 
-// ---------- Regionalliga ----------
+// ---------- Reservekreise (Regionalliga, League One, ...) ----------
 
-function ensureRegionalClubs(gameState){
-  if(!Array.isArray(gameState.regionalClubs)){
-    const inLigen = new Set(getAllLeagueClubs(gameState).map(c => c.name));
-    gameState.regionalClubs = clonePool(REGIONAL_CLUBS).filter(c => !inLigen.has(c.name));
+function ensureReservePool(gameState, country){
+  gameState.reservePools = gameState.reservePools || {};
+  // Aeltere Spielstaende fuehrten nur die Regionalliga.
+  if(!gameState.reservePools.de && Array.isArray(gameState.regionalClubs)){
+    gameState.reservePools.de = gameState.regionalClubs;
   }
-  return gameState.regionalClubs;
+  if(!Array.isArray(gameState.reservePools[country])){
+    const inLigen = new Set(getAllLeagueClubs(gameState).map(c => c.name));
+    const land = getCountryConfig(country);
+    gameState.reservePools[country] = clonePool((land.reserve && land.reserve.clubs) || []).filter(c => !inLigen.has(c.name));
+  }
+  if(country === "de") gameState.regionalClubs = gameState.reservePools.de;
+  return gameState.reservePools[country];
 }
 
-// Aufsteiger aus der Regionalliga: nach Staerke gewichtet, ohne Zuruecklegen.
-function pickRegionalPromotions(gameState, anzahl){
-  const kreis = ensureRegionalClubs(gameState);
+function ensureRegionalClubs(gameState){
+  return ensureReservePool(gameState, "de");
+}
+
+// Aufsteiger aus dem Reservekreis: nach Staerke gewichtet, ohne Zuruecklegen.
+function pickReservePromotions(gameState, country, anzahl){
+  const kreis = ensureReservePool(gameState, country);
   const gewaehlt = [];
   for(let i = 0; i < anzahl && kreis.length > 0; i++){
     const gewichte = kreis.map(c => Math.pow(Math.max(1, c.strength - 30), 2));
@@ -346,6 +463,10 @@ function pickRegionalPromotions(gameState, anzahl){
     gewaehlt.push(club);
   }
   return gewaehlt;
+}
+
+function pickRegionalPromotions(gameState, anzahl){
+  return pickReservePromotions(gameState, "de", anzahl);
 }
 
 // ============================================

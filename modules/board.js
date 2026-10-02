@@ -49,7 +49,7 @@ function addBoardCredit(gameState, amount){
 // (34 oder 38), die ersten beiden bleiben nach der Hin- bzw. Rueckrunde fest.
 function getBoardCheckpoints(gameState){
   const gs = gameState || (typeof window !== "undefined" ? window.gameState : null);
-  return [BOARD_CHECKPOINTS[0], BOARD_CHECKPOINTS[1], getSeasonMatchdays(gs)];
+  return [scaleMatchday(BOARD_CHECKPOINTS[0], gs), scaleMatchday(BOARD_CHECKPOINTS[1], gs), getSeasonMatchdays(gs)];
 }
 
 function isBoardCheckpoint(matchday){

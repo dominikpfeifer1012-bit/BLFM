@@ -222,7 +222,7 @@ function renderSuccessOffers(gameState){
   return `<p class="eyebrow">Anfragen anderer Vereine · Trainer-Ruf ${Math.round(getReputation(gameState))} (${getReputationLabel(getReputation(gameState))})</p>
     <div class="choiceGrid" style="margin-bottom:14px;">${angebote.map(o => `
       <button class="ghost choiceBtn" onclick="acceptJobOffer('${o.name.replace(/'/g, "\\'")}')">
-        <span class="choiceTitle">${o.name} · ${getDivisionConfig(o.division).short}</span>
+        <span class="choiceTitle">${o.name} · ${getDivisionTag(o.division)}</span>
         <span class="choiceSub">Stärke ${Math.round(o.strength)} · Ziel: ${o.goal.label} · Budget ${fmtMoney(o.budget)}</span>
         <span class="choiceSub">Wechseln</span></button>`).join("")}</div>`;
 }

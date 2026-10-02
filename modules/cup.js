@@ -4,31 +4,50 @@
 
 // shuffleArray liegt bei den Zufallshelfern in players.js.
 
-// Teilnehmerfeld: alle Erstligisten, aufgefuellt mit gezogenen Zweitligisten.
-// Der eigene Verein ist immer dabei, auch wenn er in Liga 2 spielt.
-function drawCupField(gameState){
+// Teilnehmerfeld: alle Erstligisten des eigenen Landes, aufgefuellt mit
+// gezogenen Vereinen der unteren Ligen. Der eigene Verein ist immer dabei.
+function drawCupField(gameState, country){
   ensureLeaguePools(gameState);
-  const erstliga = getLeaguePool(gameState, 1).map(c => c.name);
+  const land = country || getOwnCountry(gameState);
+  const ligen = getCountryDivisions(land);
+  const erstliga = ligen.length ? getLeaguePool(gameState, ligen[0].nr).map(c => c.name) : [];
   if(erstliga.length === 0){
     return shuffleArray((gameState.teams || []).map(t => t.name));
   }
 
-  // Alle Erstligisten sind gesetzt, der Rest kommt aus den unteren Ligen —
-  // die naechsthoehere zuerst, damit das Feld eine Pyramide bleibt.
-  const field = [...erstliga];
+  // Die naechsthoehere Liga zuerst, damit das Feld eine Pyramide bleibt.
+  const field = [...erstliga].slice(0, CUP_FIELD_SIZE);
   const unten = [];
-  for(let nr = 2; nr <= gameState.leaguePools.length; nr++){
-    unten.push(...shuffleArray(getLeaguePool(gameState, nr).map(c => c.name)));
-  }
+  ligen.slice(1).forEach(d => unten.push(...shuffleArray(getLeaguePool(gameState, d.nr).map(c => c.name))));
 
   let kandidaten = unten.filter(n => !field.includes(n));
-  // Der eigene Verein ist immer dabei, egal in welcher Liga er spielt.
-  if(!field.includes(gameState.clubName) && kandidaten.includes(gameState.clubName)){
+  if(!country && !field.includes(gameState.clubName) && kandidaten.includes(gameState.clubName)){
     kandidaten = [gameState.clubName, ...kandidaten.filter(n => n !== gameState.clubName)];
   }
   field.push(...kandidaten.slice(0, Math.max(0, CUP_FIELD_SIZE - field.length)));
 
   return shuffleArray(field);
+}
+
+// Pokal eines anderen Landes: schnell im Hintergrund ausgespielt, nur der
+// Sieger zaehlt (Nachrichten, Ligen-Ansicht).
+function simulateForeignCup(gameState, country){
+  let teams = drawCupField(gameState, country);
+  const staerke = name => { const c = findClubEverywhere(gameState, name); return c ? c.strength : 50; };
+  while(teams.length > 1){
+    const weiter = [];
+    if(teams.length % 2 === 1) weiter.push(teams.pop());
+    for(let i = 0; i < teams.length; i += 2){
+      const h = teams[i], a = teams[i + 1];
+      const r = simulateGenericMatch(staerke(h), staerke(a), teams.length === 2);
+      if(r.goalsA === r.goalsB){
+        const e = penaltyShootout(staerke(h), staerke(a));
+        weiter.push(e.home > e.away ? h : a);
+      } else weiter.push(r.goalsA > r.goalsB ? h : a);
+    }
+    teams = shuffleArray(weiter);
+  }
+  return teams[0] || null;
 }
 
 function createFreshCup(gameState){
@@ -42,9 +61,10 @@ function createFreshCup(gameState){
   };
 }
 
+// Spielklasse im eigenen Land (1 = oberste Liga).
 function getCupDivisionRank(gameState, name){
   const nr = typeof getClubDivision === "function" ? getClubDivision(gameState, name) : null;
-  return nr || 2;
+  return nr ? (getDivisionConfig(nr).tier || nr) : 2;
 }
 
 function simulateCupRound(gameState){
