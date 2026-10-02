@@ -187,7 +187,10 @@ function promoteYouthPlayer(gameState, playerId){
   const player = gameState.youthSquad[idx];
   gameState.youthSquad.splice(idx, 1);
   delete player.isYouthSquad;
-  player.contractYears = Math.max(getContractYears(player), CONTRACT_YOUTH_YEARS);
+  // Wer schon Profi war, behaelt seinen Vertrag; nur echte Talente bekommen
+  // beim ersten Hochziehen ihren Profivertrag.
+  if(player.hasProContract) delete player.hasProContract;
+  else player.contractYears = Math.max(getContractYears(player), CONTRACT_YOUTH_YEARS);
   gameState.squad.push(player);
 
   return { success: true, player: player,
@@ -215,7 +218,7 @@ function demoteToYouthSquad(gameState, playerId){
   gameState.squad.splice(idx, 1);
   pruneLineup(gameState);
   player.isYouthSquad = true;
-  player.consecutiveStarts = 0;
+  player.hasProContract = true;
   gameState.youthSquad.push(player);
   return { success: true, message: `⬇️ ${player.name} spielt vorerst in der Jugend.` };
 }
@@ -229,12 +232,28 @@ function advanceYouthSquad(gameState){
 
   gameState.youthSquad.forEach(player => {
     player.age += 1;
+    // Profis in der Jugend: ihr Vertrag laeuft weiter ab wie im Kader.
+    if(player.hasProContract){
+      player.contractYears = getContractYears(player) - 1;
+      if(player.contractYears <= 0){
+        // Wie im Kader: ablösefrei in den Bestand statt spurlos verschwinden.
+        if(gameState.pool){
+          delete player.isYouthSquad; delete player.hasProContract;
+          Object.assign(player, { clubName: null, clubTier: "frei", transferListed: false,
+            leftClub: gameState.clubName, leftSeason: gameState.season, contractYears: 1 });
+          gameState.pool.players.push(player);
+        }
+        abgaenge.push(Object.assign({}, player, { vertragsende: true }));
+        return;
+      }
+    }
     if(player.age <= YOUTH_SQUAD_MAX_AGE){ bleibt.push(player); return; }
 
     // Zu alt fuer die Jugend: automatisch hochziehen, wenn Platz ist.
     if(gameState.squad.length < SQUAD_COMPOSITION.reduce((s, e) => s + e.count, 0) + 4){
       delete player.isYouthSquad;
-      player.contractYears = Math.max(getContractYears(player), CONTRACT_YOUTH_YEARS);
+      if(player.hasProContract) delete player.hasProContract;
+      else player.contractYears = Math.max(getContractYears(player), CONTRACT_YOUTH_YEARS);
       gameState.squad.push(player);
       hochgezogen.push(player);
     } else {
@@ -247,9 +266,13 @@ function advanceYouthSquad(gameState){
   return { hochgezogen, abgaenge };
 }
 
+// Talente kosten ein Jugendgehalt; geparkte Profis behalten ihr volles Gehalt.
+function getYouthPlayerSalary(p){
+  return p.hasProContract ? getPlayerSalary(p) : Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR);
+}
+
 function getYouthSquadSalary(gameState){
-  return (gameState.youthSquad || []).reduce((sum, p) =>
-    sum + Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR), 0);
+  return (gameState.youthSquad || []).reduce((sum, p) => sum + getYouthPlayerSalary(p), 0);
 }
 
 // Wer ist reif fuer den Sprung? Vergleich mit dem schwaechsten Profi auf

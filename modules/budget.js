@@ -47,11 +47,22 @@ function getMatchdayRevenue(revenueFactor){
 
 // Leistungspraemie: fuer jeden Verein gleich hoch. Der Ueberraschungsbonus
 // obendrauf belohnt Siege gegen staerkere Gegner.
-function getMatchBonus(result, ownStrength, opponentStrength){
+// Praemien richten sich nach der Liga: in der 3. Liga wird weniger
+// ausgeschuettet als in der Bundesliga (Wurzel des Einnahmefaktors, damit
+// der Abstand nicht so extrem ausfaellt wie bei den TV-Geldern).
+function getLeaguePrizeFactor(division){
+  const gs = typeof gameState !== "undefined" ? gameState : null;
+  const nr = division || (gs ? gs.division : 1);
+  const konfig = typeof getDivisionConfig === "function" ? getDivisionConfig(nr) : null;
+  return Math.sqrt(konfig ? konfig.revenueFactor : 1);
+}
+
+function getMatchBonus(result, ownStrength, opponentStrength, division){
   const base = MATCH_BONUS_BASE[result] || 0;
   if(base === 0) return 0;
   const strengthDiff = Math.max(0, opponentStrength - ownStrength);
-  return base + Math.round(strengthDiff * UNDERDOG_BONUS_PER_POINT);
+  const roh = (base + strengthDiff * UNDERDOG_BONUS_PER_POINT) * getLeaguePrizeFactor(division);
+  return Math.round(roh / 5000) * 5000;
 }
 
 function addToBudget(currentBudget, amount){
@@ -76,9 +87,9 @@ function fmtMoney(value){
 
 // Platzierungspreisgeld: identisch fuer alle. Der Meistertitel bringt einem
 // Aufsteiger genau so viel wie dem Rekordmeister.
-function calculateSeasonEndBonus(finalPosition, totalTeams){
+function calculateSeasonEndBonus(finalPosition, totalTeams, division){
   const factor = 1.0 - ((finalPosition - 1) / (totalTeams - 1)) * (1 - SEASON_END_BONUS_MIN_FACTOR);
-  const raw = SEASON_END_BONUS_BASE * factor;
+  const raw = SEASON_END_BONUS_BASE * factor * getLeaguePrizeFactor(division);
   return Math.round(raw / BUDGET_ROUND_TO) * BUDGET_ROUND_TO;
 }
 
@@ -110,8 +121,7 @@ function getSquadSalaryTotal(squad){
 
 function getMatchdaySalaryCost(squad, youthSquad){
   const jugend = typeof getYouthSquadSalary === "function" && youthSquad
-    ? youthSquad.reduce((sum, p) =>
-        sum + Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR), 0)
+    ? youthSquad.reduce((sum, p) => sum + getYouthPlayerSalary(p), 0)
     : 0;
   // Das Jahresgehalt verteilt sich auf die Spieltage der eigenen Liga.
   const spieltage = typeof getSeasonMatchdays === "function" ? getSeasonMatchdays() : TOTAL_MATCHDAYS;

@@ -201,7 +201,7 @@ function processSquadTurnover(){
     addLogEntry(gameState, `\u2B06\uFE0F ${p.name} rückt aus der Jugend in den Profikader.`);
   });
   jugendWechsel.abgaenge.forEach(p => {
-    addLogEntry(gameState, `\u{1F44B} ${p.name} verlässt den Verein (Altersgrenze Jugend, kein Platz im Kader).`, "loss");
+    addLogEntry(gameState, `\u{1F44B} ${p.name} verlässt den Verein (${p.vertragsende ? "Vertragsende" : "Altersgrenze Jugend, kein Platz im Kader"}).`, "loss");
   });
 
   // Nach allen Abgaengen pruefen, ob der Kader noch spielfaehig ist.
@@ -236,7 +236,7 @@ function finishSeason(){
   const sorted = getSortedStandings(gameState.teams);
   const finalPosition = sorted.findIndex(t => t.name === gameState.clubName) + 1;
   const totalTeams = gameState.teams.length;
-  const bonus = calculateSeasonEndBonus(finalPosition, totalTeams);
+  const bonus = calculateSeasonEndBonus(finalPosition, totalTeams, playedDivision);
 
   // Auszeichnungen vor dem Saisonwechsel (Tore und Entwicklung zaehlen noch).
   gameState.lastAwards = computeSeasonAwards(gameState);
