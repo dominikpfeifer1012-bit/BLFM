@@ -153,10 +153,13 @@ check("Rotation schont müde Stammspieler", () => {
   stamm.consecutiveStarts=6;
   gs.autoRotate=true;
   const mitRotation=w.getStartingXI(gs.squad,1);
+  const imTeam=mitRotation.includes(bank);
+  // Gegenprobe mit dem echten Ersatz: ohne Rotation bleibt der Stammspieler
+  // trotz Serie drin (bei gleich starkem Ersatz entschiede der Zufall).
+  Object.assign(bank,sicher);
   gs.autoRotate=false;
   const ohneRotation=w.getStartingXI(gs.squad,1);
-  const imTeam=mitRotation.includes(bank);
-  stamm.consecutiveStarts=0; Object.assign(bank,sicher);
+  stamm.consecutiveStarts=0;
   // Der gleich starke, ausgeruhte Ersatz muss spielen (der Müde kann auf
   // eine andere Position rücken, wenn dort der Ersatz noch schwächer wäre).
   if(!imTeam) return "ausgeruhter Ersatz spielt nicht";

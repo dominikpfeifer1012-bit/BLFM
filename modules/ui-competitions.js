@@ -321,7 +321,8 @@ function showDismissalModal(result){
 
   const saisons = (gameState.seasonHistory || []).length;
   const titel = (gameState.achievements || []).length;
-  const angebote = generateJobOffers(gameState);
+  const zusagen = typeof getAcceptedJobOffers === "function" ? getAcceptedJobOffers(gameState) : [];
+  const angebote = zusagen.concat(generateJobOffers(gameState).filter(o => !zusagen.some(z => z.name === o.name)));
 
   const angebotsHtml = angebote.length > 0 ? `
     <p class="eyebrow" style="margin-top:18px;">Angebote anderer Vereine</p>

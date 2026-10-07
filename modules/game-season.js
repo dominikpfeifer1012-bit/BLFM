@@ -394,7 +394,10 @@ function finishSeason(){
   if(Math.abs(ruf.delta) >= 1){
     addLogEntry(gameState, `🎓 Trainer-Ruf ${ruf.delta > 0 ? "steigt" : "sinkt"} auf ${Math.round(ruf.neu)} (${getReputationLabel(ruf.neu)}).`, ruf.delta > 0 ? "win" : "loss");
   }
-  gameState.successOffers = generateSuccessOffers(gameState, finalPosition, ziel);
+  // Zusagen vom Stellenmarkt stehen neben den Anfragen.
+  const zusagen = typeof getAcceptedJobOffers === "function" ? getAcceptedJobOffers(gameState) : [];
+  gameState.successOffers = zusagen.concat(generateSuccessOffers(gameState, finalPosition, ziel)
+    .filter(o => !zusagen.some(z => z.name === o.name)));
   if(gameState.successOffers.length > 0){
     addLogEntry(gameState, `📞 Anfragen anderer Vereine: ${gameState.successOffers.map(o => o.name).join(", ")}.`, "win", true);
     showToast(`📞 ${gameState.successOffers.length} ${gameState.successOffers.length === 1 ? "Anfrage" : "Anfragen"} anderer Vereine`, "success");

@@ -13,6 +13,7 @@ const TABS = [
   { id:"transfers",   label:"Transfers",   short:"Transfers", icon:"🔁" },
   { id:"wettbewerbe", label:"Wettbewerbe", short:"Tabellen",  icon:"🏆" },
   { id:"statistik",   label:"Statistik",   short:"Statistik", icon:"📊" },
+  { id:"jobs",        label:"Jobs",        short:"Jobs",      icon:"💼" },
   { id:"verlauf",     label:"Verlauf",     short:"Verlauf",   icon:"📜" }
 ];
 
@@ -45,6 +46,7 @@ function switchTab(id){
   if(id === "transfers" && typeof renderMarket === "function"){ renderMarket(gameState); renderOfferPanel(gameState); }
   if(id === "kader" && typeof renderSquad === "function") renderSquad(gameState);
   if(id === "wettbewerbe" && typeof renderFixtureList === "function") renderFixtureList(gameState);
+  if(id === "jobs" && typeof renderJobMarket === "function") renderJobMarket(gameState);
   if(id === "uebersicht"){
     // Der Uebersichtsbereich enthaelt Karten, die sich zwischen zwei
     // Spieltagen aendern koennen — etwa nach einer Investition.
@@ -182,6 +184,7 @@ function renderAll(gameState){
   renderSquadStats(gameState);
   renderMarket(gameState);
   renderOfferPanel(gameState);
+  if(typeof renderJobMarket === "function") renderJobMarket(gameState);
   renderPreseasonPanel(gameState);
   renderNewsPanel(gameState);
   renderSeasonStats(gameState);
