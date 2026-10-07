@@ -810,6 +810,18 @@ const BOARD_REWARD_MAX = 8000000;
 
 // --- Vereinswechsel nach Entlassung ---
 const JOB_OFFER_COUNT = 3;
+// Stellenmarkt: Anteil freier Trainerposten je Saison und noetiger Ruf
+// (Staerke 92 -> 80, 75 -> 46, 60 -> 16).
+const JOB_VACANCY_SHARE = 0.2;
+const JOB_REP_BASE_STRENGTH = 52;
+const JOB_REP_PER_POINT = 2;
+// Erfolgreiche Trainer kommen auch ohne passenden Ruf bei Vereinen bis
+// knapp ueber dem eigenen unter.
+const JOB_STATURE_MARGIN = 2;
+const JOB_STATURE_MIN_PATIENCE = 50;
+const JOB_HOPELESS_GAP = 12;
+const JOB_LEAK_CHANCE = 0.2;
+const JOB_LEAK_PATIENCE = 6;
 const JOB_OFFER_MAX_STRENGTH_DROP = 22;  // Angebote liegen unter dem letzten Verein
 const JOB_OFFER_MIN_STRENGTH_DROP = 4;
 
