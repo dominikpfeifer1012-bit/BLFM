@@ -73,6 +73,9 @@ function acceptJobOffer(clubName){
   // Spieler nicht einfach verschwinden und der Verein weiter Spieler hat.
   const alterVerein = gameState.clubName;
   const alteLiga = getClubDivision(gameState, alterVerein);
+  // Der alte Verein behaelt die Staerke des Kaders, den der Trainer hinterlaesst.
+  syncOwnClubStrength(gameState);
+  changeCareerClub(gameState, clubName);
   (gameState.loans || []).forEach(l => gameState.squad.push(l.player));
   if(gameState.pool && gameState.pool.players){
     (gameState.squad || []).forEach(p => {
@@ -422,7 +425,16 @@ function finishSeason(){
 
 function logStrengthDrift(changes){
   if(!changes || changes.length === 0) return;
-  const sorted = [...changes].sort((a, b) => b.delta - a.delta);
+  const land = getOwnCountry(gameState);
+  const texte = {
+    investor: n => `Investor steigt bei ${n} ein.`,
+    krise: n => `Sparkurs bei ${n}: Der Verein muss Leistungsträger abgeben.`,
+    umbruch: n => `Umbruch bei ${n}: Leistungsträger verlassen den Serienmeister.`
+  };
+  const icons = { investor: "💰", krise: "📉", umbruch: "🔄" };
+  (changes.events || []).filter(e => e.division && (isTopDivision(e.division) || getDivisionCountry(e.division) === land))
+    .forEach(e => addNews(gameState, texte[e.type](e.name), icons[e.type]));
+  const sorted = changes.filter(c => c.division && getDivisionCountry(c.division) === land).sort((a, b) => b.delta - a.delta);
   const fmt = c => `${c.name} ${c.delta > 0 ? "+" : ""}${c.delta.toFixed(1)} (jetzt ${c.after.toFixed(1)})`;
   const risers = sorted.filter(c => c.delta > 0.5).slice(0, 3);
   const fallers = sorted.filter(c => c.delta < -0.5).slice(-3).reverse();

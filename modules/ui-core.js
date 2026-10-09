@@ -57,7 +57,9 @@ function switchTab(id){
   }
   if(id === "statistik"){
     [renderSeasonStats, renderSquadAnalysis, renderNationBreakdown, renderTopScorers,
-     renderRecords, renderSeasonTrends].forEach(fn => {
+     renderRecords, renderSeasonTrends,
+     typeof renderCareer === "function" ? renderCareer : null,
+     typeof renderHonours === "function" ? renderHonours : null].forEach(fn => {
       if(typeof fn === "function") fn(gameState);
     });
   }
@@ -197,6 +199,7 @@ function renderAll(gameState){
   renderCupStatus(gameState);
   renderEuropeStatus(gameState);
   renderUefaRanking(gameState);
+  if(typeof renderCareer === "function") renderCareer(gameState);
   renderHonours(gameState);
   renderFixtureList(gameState);
   renderAchievements(gameState);
