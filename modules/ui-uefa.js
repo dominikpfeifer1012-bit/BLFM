@@ -169,30 +169,47 @@ function renderUefaRanking(gameState){
 
 // ---------- Ehrentafel ----------
 
-let honoursOnlyOwn = false;
-function toggleHonoursFilter(){ honoursOnlyOwn = !honoursOnlyOwn; renderHonours(gameState); }
+// Filter: "alle", "meine" (alle Titel als Trainer) oder "club:<Name>".
+let honoursFilter = "alle";
+function setHonoursFilter(wert){
+  honoursFilter = wert;
+  renderHonours(gameState);
+  const el = document.getElementById("honoursList");
+  if(el && wert !== "alle" && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 function renderHonours(gameState){
   const el = document.getElementById("honoursList");
   if(!el) return;
   const alle = gameState.honours || [];
-  const me = gameState.clubName;
-  const eigeneTitel = getClubTitles(gameState, me);
   if(alle.length === 0){
     el.innerHTML = `<p class="muted">Noch keine Titel vergeben.</p>`;
     return;
   }
+  ensureHonourAttribution(gameState);
+  const vereine = [...new Set(ensureCareer(gameState).map(s => s.club))];
+  const club = honoursFilter.startsWith("club:") ? honoursFilter.slice(5) : null;
+  const passt = h => honoursFilter === "alle" || (h.mine && (!club || h.winner === club));
+  const meine = groupHonours(getMyHonours(gameState, club));
+  const titelzeile = club ? `Titel mit ${club}` : "Deine Titel";
+
   const saisons = [...new Set(alle.map(h => h.season))].sort((a, b) => b - a);
   const reihenfolge = k => k === "cl" ? 0 : k === "el" ? 1 : k === "ecl" ? 2 : k.startsWith("super-uefa") ? 3
     : k.startsWith("league-") ? 10 + Number(k.slice(7)) : k.startsWith("cup-") ? 30 : 40;
+  const liste = saisons.map(sn => {
+    const eintraege = alle.filter(h => h.season === sn && passt(h))
+      .sort((a, b) => reihenfolge(a.key) - reihenfolge(b.key));
+    if(!eintraege.length) return "";
+    return `<p class="eyebrow" style="margin:12px 0 6px;">Saison ${sn}/${String(sn + 1).slice(2)}</p>
+      <div class="honourGrid">${eintraege.map(h => `<div class="honourItem${h.mine ? " own" : ""}"><span class="muted">${h.label}</span><b>${h.winner}</b></div>`).join("")}</div>`;
+  }).join("");
+
   el.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-      <span>${eigeneTitel.length ? `Titel von ${me}: ${eigeneTitel.map(t => `<b>${t.count}× ${t.label}</b>`).join(", ")}` : `<span class="muted">${me} hat noch keinen Titel.</span>`}</span>
-      <button class="ghost" onclick="toggleHonoursFilter()">${honoursOnlyOwn ? "Alle zeigen" : "Nur meine Titel"}</button></div>
-    ${saisons.map(sn => {
-      const eintraege = alle.filter(h => h.season === sn && (!honoursOnlyOwn || h.winner === me))
-        .sort((a, b) => reihenfolge(a.key) - reihenfolge(b.key));
-      if(!eintraege.length) return "";
-      return `<p class="eyebrow" style="margin:12px 0 6px;">Saison ${sn}/${String(sn + 1).slice(2)}</p>
-        <div class="honourGrid">${eintraege.map(h => `<div class="honourItem${h.winner === me ? " own" : ""}"><span class="muted">${h.label}</span><b>${h.winner}</b></div>`).join("")}</div>`;
-    }).join("")}`;
+      <span>${meine.length ? `${titelzeile}: ${meine.map(t => `<b>${t.count}× ${t.label}</b>`).join(", ")}` : `<span class="muted">${titelzeile}: noch keine.</span>`}</span>
+      <select id="honoursFilterSelect" onchange="setHonoursFilter(this.value)">
+        <option value="alle"${honoursFilter === "alle" ? " selected" : ""}>Alle Titel</option>
+        <option value="meine"${honoursFilter === "meine" ? " selected" : ""}>Meine Titel</option>
+        ${vereine.map(v => `<option value="club:${v.replace(/"/g, "&quot;")}"${club === v ? " selected" : ""}>Mit ${v}</option>`).join("")}
+      </select></div>
+    ${liste || `<p class="muted">Keine Titel.</p>`}`;
 }
