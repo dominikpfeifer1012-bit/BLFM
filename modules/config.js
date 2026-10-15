@@ -83,20 +83,44 @@ const SCORER_WEIGHTS = { TW:0, RV:1, IV:1, LV:1, DM:1, ZM:3, LM:4, RM:4, OM:7, S
 
 // --- Formationen ---
 // needs bestimmt die elf Plaetze, rows die Darstellung auf dem Spielfeld.
+// style: Wirkung auf Angriff und Abwehr in Staerkepunkten. Jede Formation
+// ist nullsummig: mehr Offensive kostet Abwehr und umgekehrt.
 const FORMATIONS = {
-  "4-2-3-1": { needs:{TW:1, RV:1, IV:2, LV:1, DM:2, LM:1, OM:1, RM:1, ST:1},
+  "4-2-3-1": { style:{ att:0, def:0 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:2, LM:1, OM:1, RM:1, ST:1},
                rows:[["ST"],["LM","OM","RM"],["DM"],["LV","IV","RV"],["TW"]] },
-  "4-4-2":   { needs:{TW:1, RV:1, IV:2, LV:1, ZM:2, LM:1, RM:1, ST:2},
+  "4-4-2":   { style:{ att:0.5, def:-0.5 }, needs:{TW:1, RV:1, IV:2, LV:1, ZM:2, LM:1, RM:1, ST:2},
                rows:[["ST"],["LM","ZM","RM"],["LV","IV","RV"],["TW"]] },
-  "4-3-3":   { needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
+  "4-3-3":   { style:{ att:1, def:-1 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
                rows:[["LM","ST","RM"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
-  "4-1-4-1": { needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
+  "4-1-4-1": { style:{ att:-0.5, def:0.5 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
                rows:[["ST"],["LM","ZM","RM"],["DM"],["LV","IV","RV"],["TW"]] },
-  "3-5-2":   { needs:{TW:1, IV:3, DM:1, ZM:2, LM:1, RM:1, ST:2},
+  "3-5-2":   { style:{ att:0.5, def:-0.5 }, needs:{TW:1, IV:3, DM:1, ZM:2, LM:1, RM:1, ST:2},
                rows:[["ST"],["LM","ZM","RM"],["DM"],["IV"],["TW"]] },
-  "5-3-2":   { needs:{TW:1, LV:1, IV:3, RV:1, DM:1, ZM:2, ST:2},
-               rows:[["ST"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] }
+  "5-3-2":   { style:{ att:-1.5, def:1.5 }, needs:{TW:1, LV:1, IV:3, RV:1, DM:1, ZM:2, ST:2},
+               rows:[["ST"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "4-4-2 Raute": { style:{ att:1, def:-1 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, OM:1, ST:2},
+               rows:[["ST"],["OM"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "4-4-1-1": { style:{ att:-0.5, def:0.5 }, needs:{TW:1, RV:1, IV:2, LV:1, ZM:2, LM:1, RM:1, OM:1, ST:1},
+               rows:[["ST"],["OM"],["LM","ZM","RM"],["LV","IV","RV"],["TW"]] },
+  "4-3-2-1": { style:{ att:0, def:0 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, OM:2, ST:1},
+               rows:[["ST"],["OM"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "4-2-2-2": { style:{ att:1.5, def:-1.5 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:2, OM:2, ST:2},
+               rows:[["ST"],["OM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "3-4-3":   { style:{ att:2, def:-2 }, needs:{TW:1, IV:3, DM:1, ZM:1, LM:1, RM:1, ST:3},
+               rows:[["ST"],["LM","ZM","RM"],["DM"],["IV"],["TW"]] },
+  "3-4-1-2": { style:{ att:1, def:-1 }, needs:{TW:1, IV:3, ZM:2, LM:1, RM:1, OM:1, ST:2},
+               rows:[["ST"],["OM"],["LM","ZM","RM"],["IV"],["TW"]] },
+  "3-4-2-1": { style:{ att:0.5, def:-0.5 }, needs:{TW:1, IV:3, ZM:2, LM:1, RM:1, OM:2, ST:1},
+               rows:[["ST"],["OM"],["LM","ZM","RM"],["IV"],["TW"]] },
+  "5-4-1":   { style:{ att:-2, def:2 }, needs:{TW:1, LV:1, IV:3, RV:1, ZM:2, LM:1, RM:1, ST:1},
+               rows:[["ST"],["LM","ZM","RM"],["LV","IV","RV"],["TW"]] }
 };
+// Gruppierung fuer die Auswahl.
+const FORMATION_GROUPS = [
+  { label: "Viererkette", names: ["4-2-3-1", "4-4-2", "4-4-2 Raute", "4-3-3", "4-1-4-1", "4-4-1-1", "4-3-2-1", "4-2-2-2"] },
+  { label: "Dreierkette", names: ["3-5-2", "3-4-3", "3-4-1-2", "3-4-2-1"] },
+  { label: "Fünferkette", names: ["5-3-2", "5-4-1"] }
+];
 const DEFAULT_FORMATION = "4-2-3-1";
 
 // --- Grundausrichtung ---

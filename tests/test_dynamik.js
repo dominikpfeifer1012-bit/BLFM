@@ -10,7 +10,7 @@ function neueWelt(){
   const win=dom.window;
   const errors=[]; win.addEventListener("error",e=>errors.push(e.message));
   win.eval("try{localStorage.clear();}catch(e){}");
-  win.eval(code+"\nwindow.K={AI_STRENGTH_CEILING};");
+  win.eval(code+"\nwindow.K={AI_STRENGTH_CEILING,FORMATIONS,FORMATION_GROUPS};");
   win.__errors=errors;
   return win;
 }
@@ -138,6 +138,48 @@ check("Altstand: zurückgesetzter Ex-Verein wird aus seinem Kader repariert", ()
   const n=w.repairExClubStrengths(gs);
   return n===1 && rom.strength>romVorher+3 ? true : `${n} repariert, ${romVorher} → ${rom.strength}`;
 });
+
+console.log("\n--- Formationen ---");
+{
+  const w=neueWelt(); const $=id=>w.document.getElementById(id);
+  $("clubSelect").value="VfB Stuttgart"; w.startCareer(); const gs=w.gameState; gs.liveMatches=false; gs.pressConferences=false;
+  const F=w.K.FORMATIONS, namen=Object.keys(F);
+  check("Mindestens 14 Formationen, alle gruppiert", () => {
+    const gruppiert=w.K.FORMATION_GROUPS.flatMap(g=>g.names);
+    const fehlt=namen.filter(n=>!gruppiert.includes(n));
+    return namen.length>=14 && !fehlt.length && gruppiert.every(n=>F[n]) ? true : `${namen.length}, ungruppiert: ${fehlt}`;
+  });
+  check("Jede Formation: 11 Plätze, alle Positionen auf dem Feld", () => {
+    for(const n of namen){
+      const summe=Object.values(F[n].needs).reduce((a,b)=>a+b,0);
+      if(summe!==11) return `${n}: ${summe}`;
+      const imFeld=new Set(F[n].rows.flat());
+      const fehlt=Object.keys(F[n].needs).filter(p=>!imFeld.has(p));
+      if(fehlt.length) return `${n}: ${fehlt}`;
+    }
+    return true;
+  });
+  check("Jede Formation stellt eine volle Elf und zeichnet das Feld", () => {
+    for(const n of namen){
+      w.handleFormationChange(n);
+      if(w.getStartingXI(gs.squad,1).length!==11) return n;
+      if(w.document.querySelectorAll("#pitchView .pitchSlot").length!==11) return `${n}: Feld`;
+    }
+    return true;
+  });
+  check("Spielweise: 3-4-3 offensiver als 5-4-1, jede Formation nullsummig", () => {
+    if(namen.some(n=>!F[n].style || Math.abs(F[n].style.att+F[n].style.def)>1e-9)) return "nicht nullsummig";
+    w.handleFormationChange("3-4-3"); const off=w.getTeamSides(gs,gs.clubName);
+    w.handleFormationChange("5-4-1"); const def=w.getTeamSides(gs,gs.clubName);
+    return off.attack-off.defence > def.attack-def.defence+4 ? true : JSON.stringify({off,def});
+  });
+  check("Spiele mit neuer Formation laufen", () => {
+    w.handleFormationChange("4-4-2 Raute");
+    for(let i=0;i<4;i++){ w.runNextEvent(); w.closeLiveMatch(); w.document.querySelectorAll(".modalOverlay.show").forEach(e=>e.classList.remove("show")); }
+    return gs.matchday>=1 && gs.formation==="4-4-2 Raute" ? true : `Spieltag ${gs.matchday}`;
+  });
+  check("Keine Laufzeitfehler (Formationen)", () => w.__errors.length===0 ? true : w.__errors.join(" | "));
+}
 
 check("Keine Laufzeitfehler", () => w.__errors.length===0 ? true : w.__errors.join(" | "));
 console.log(fails===0?"\nAlle Tests bestanden.":`\n${fails} Test(s) fehlgeschlagen.`);

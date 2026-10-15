@@ -252,8 +252,12 @@ function renderLineupControls(gameState, info){
     ? `<span style="color:#FCA311;"> · ⚠️ ${dropped.map(d => d.name).join(", ")} nicht einsatzbereit</span>`
     : "";
 
-  const formOptions = Object.keys(FORMATIONS).map(name =>
-    `<option value="${name}"${name === getActiveFormationName() ? " selected" : ""}>${name}</option>`).join("");
+  const formOption = name =>
+    `<option value="${name}"${name === getActiveFormationName() ? " selected" : ""}>${name}</option>`;
+  const gruppiert = new Set(FORMATION_GROUPS.flatMap(g => g.names));
+  const formOptions = FORMATION_GROUPS.map(g =>
+      `<optgroup label="${g.label}">${g.names.filter(n => FORMATIONS[n]).map(formOption).join("")}</optgroup>`).join("")
+    + Object.keys(FORMATIONS).filter(n => !gruppiert.has(n)).map(formOption).join("");
   const tacticOptions = Object.entries(TACTICS).map(([key, t]) =>
     `<option value="${key}"${key === (gameState.tactic || DEFAULT_TACTIC) ? " selected" : ""}>${t.label}</option>`).join("");
   const trainingOptions = Object.entries(TRAINING_FOCUS).map(([key, t]) =>
@@ -275,7 +279,17 @@ function renderLineupControls(gameState, info){
       <button class="ghost${gameState.autoRotate ? " on" : ""}" onclick="toggleAutoRotate()" title="Ab ${ROTATION_START_LIMIT} Spielen in Folge, Ersatz max. ${ROTATION_MAX_GAP} schwächer">🔄 Rotation: ${gameState.autoRotate ? "an" : "aus"}</button>
     </div>
     <p class="muted" style="margin:0 0 10px;">${status}${warn}</p>
+    ${formationEffects(getActiveFormationName())}
     ${trainingEffects(training)}`;
+}
+
+// Spielweise der Formation als knappe Zahlenzeile.
+function formationEffects(name){
+  const st = (FORMATIONS[name] || {}).style;
+  if(!st) return "";
+  const z = v => (v > 0 ? "+" : "−") + String(Math.abs(v)).replace(".", ",");
+  const art = st.att >= 1.5 ? "sehr offensiv" : st.att > 0 ? "offensiv" : st.att <= -1.5 ? "sehr defensiv" : st.att < 0 ? "defensiv" : "ausgewogen";
+  return `<p class="muted" style="margin:0 0 6px; font-size:12px;">Formation ${name}: ${art}${st.att ? ` · Angriff ${z(st.att)} · Abwehr ${z(st.def)}` : ""}</p>`;
 }
 
 // Trainingswirkung als knappe Zahlenzeile.

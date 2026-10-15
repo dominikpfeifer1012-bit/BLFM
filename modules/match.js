@@ -108,7 +108,10 @@ function getTeamSides(gameState, teamName){
     const effekt = (training && training.match) || { att: 0, def: 0 };
     const lager = typeof getCampBoost === "function" ? getCampBoost(gameState) : 0;
     const form = getTeamFormBonus(gameState, teamName);
-    return { attack: ad.attack + effekt.att + lager + form, defence: ad.defence + effekt.def + lager + form };
+    // Die Formation gibt der Mannschaft ihre Spielweise.
+    const stil = getActiveFormation().style || { att: 0, def: 0 };
+    return { attack: ad.attack + effekt.att + stil.att + lager + form,
+             defence: ad.defence + effekt.def + stil.def + lager + form };
   }
   const strength = getTeamStrength(gameState, teamName) + getTeamFormBonus(gameState, teamName);
   return { attack: strength, defence: strength };
