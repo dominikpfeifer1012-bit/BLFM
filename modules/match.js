@@ -110,8 +110,12 @@ function getTeamSides(gameState, teamName){
     const form = getTeamFormBonus(gameState, teamName);
     // Die Formation gibt der Mannschaft ihre Spielweise.
     const stil = getActiveFormation().style || { att: 0, def: 0 };
-    return { attack: ad.attack + effekt.att + stil.att + lager + form,
-             defence: ad.defence + effekt.def + stil.def + lager + form };
+    // Fuehrungsspieler und Standardschuetzen der Startelf.
+    const xi = getStartingXI(gameState.squad, gameState.matchday + 1);
+    const fuehrung = typeof getLeadershipBonus === "function" ? getLeadershipBonus(gameState, xi) : 0;
+    const standards = typeof getSetPieceBonus === "function" ? getSetPieceBonus(gameState, xi) : 0;
+    return { attack: ad.attack + effekt.att + stil.att + lager + form + fuehrung + standards,
+             defence: ad.defence + effekt.def + stil.def + lager + form + fuehrung };
   }
   const strength = getTeamStrength(gameState, teamName) + getTeamFormBonus(gameState, teamName);
   return { attack: strength, defence: strength };
@@ -120,8 +124,13 @@ function getTeamSides(gameState, teamName){
 // Torerwartung beider Teams. Getrennt vom Wuerfeln, damit sich ein Spiel
 // auch halbzeitweise berechnen laesst (Taktikwechsel zur Pause).
 function getMatchLambdas(gameState, home, away){
-  const h = getTeamSides(gameState, home);
-  const a = getTeamSides(gameState, away);
+  let h = getTeamSides(gameState, home);
+  let a = getTeamSides(gameState, away);
+  // Philosophie des Trainers, abhaengig vom Kraefteverhaeltnis.
+  if(typeof applyPhilosophy === "function"){
+    if(home === gameState.clubName) h = applyPhilosophy(gameState, h, a);
+    else if(away === gameState.clubName) a = applyPhilosophy(gameState, a, h);
+  }
   const basis = getBaseLambdas(h, a);
   let lambdaHome = basis.home;
   let lambdaAway = basis.away;
@@ -142,6 +151,8 @@ function getMatchLambdas(gameState, home, away){
   lambdaHome = Math.max(0.25, lambdaHome + konter.own);
   lambdaAway = Math.max(0.25, lambdaAway + konter.opp);
 
+  // Derbys sind enger.
+  if(typeof applyDerbyEqualizer === "function") return applyDerbyEqualizer(home, away, lambdaHome, lambdaAway);
   return { home: lambdaHome, away: lambdaAway };
 }
 
@@ -204,7 +215,9 @@ function processInjuries(gameState, matchdayJustPlayed, chanceFactor, incidents)
     if(incidents && isStarter) return;
     const training = typeof getActiveTraining === "function" ? getActiveTraining().injury : 1;
     const medizin = typeof getMedicalInjuryFactor === "function" ? getMedicalInjuryFactor(gameState) : 1;
-    const chance = (isStarter ? INJURY_CHANCE_STARTER : INJURY_CHANCE_BENCH) * factor * training * medizin;
+    const stil = isStarter && typeof getPhilosophy === "function" ? getPhilosophy(gameState).injury : 1;
+    const chance = (isStarter ? INJURY_CHANCE_STARTER : INJURY_CHANCE_BENCH) * factor * training * medizin * stil
+      * (typeof getTraitInjuryFactor === "function" ? getTraitInjuryFactor(player) : 1);
 
     if(Math.random() < chance){
       const duration = randInt(INJURY_MIN_DURATION, INJURY_MAX_DURATION);
@@ -255,19 +268,16 @@ function processCards(startingXI, matchdayJustPlayed, incidents){
 
 function assignScorers(startingXI, goalCount){
   if(goalCount <= 0) return [];
-
-  const weighted = [];
-  startingXI.forEach(p => {
-    const weight = SCORER_WEIGHTS[p.pos] != null ? SCORER_WEIGHTS[p.pos] : 1;
-    for(let i = 0; i < weight; i++) weighted.push(p);
-  });
-  if(weighted.length === 0) return [];
+  const feld = startingXI.filter(p => getScorerWeight(p) > 0);
+  if(feld.length === 0) return [];
+  const rollen = typeof gameState !== "undefined" && gameState ? gameState.roles : null;
 
   const scorers = [];
   for(let i = 0; i < goalCount; i++){
-    const scorer = weighted[randInt(0, weighted.length - 1)];
-    scorer.goalsSeason = (scorer.goalsSeason || 0) + 1;
-    scorers.push(scorer.name);
+    const tor = pickGoalScorerWithType(feld, rollen);
+    if(!tor.player) continue;
+    tor.player.goalsSeason = (tor.player.goalsSeason || 0) + 1;
+    scorers.push(tor.player.name + (tor.type ? ` (${tor.type})` : ""));
   }
   return scorers;
 }
@@ -286,9 +296,12 @@ function creditScorersById(spieler, ids){
 
 // Gewichteter Torschuetze aus einer Spielerliste (ohne Zaehlung).
 function pickScorer(spieler){
-  const gewichtet = [];
-  (spieler || []).forEach(p => { for(let i = 0; i < (SCORER_WEIGHTS[p.pos] != null ? SCORER_WEIGHTS[p.pos] : 1); i++) gewichtet.push(p); });
-  return gewichtet.length ? randChoice(gewichtet) : null;
+  const liste = (spieler || []).filter(p => getScorerWeight(p) > 0);
+  const summe = liste.reduce((s, p) => s + getScorerWeight(p), 0);
+  if(!summe) return null;
+  let r = Math.random() * summe;
+  for(const p of liste){ r -= getScorerWeight(p); if(r <= 0) return p; }
+  return liste[liste.length - 1];
 }
 
 function simulateMatchday(gameState, override){
@@ -343,8 +356,13 @@ function simulateMatchday(gameState, override){
       const startingInfo = getStartingXIInfo(gameState.squad, day + 1);
       const ownStrength = teamRating(gameState.squad, day + 1);
       const opponentStrength = getTeamStrength(gameState, opponentName);
+      // Vorab ausgespielte Spiele: Namen samt Tor-Art (Elfmeter, Freistoss) aus dem Verlauf.
       const scorers = vorgegeben
-        ? creditScorersById(gameState.squad, override.ownScorerIds || [])
+        ? (() => {
+            const namen = creditScorersById(gameState.squad, override.ownScorerIds || []);
+            const mitArt = (override.goals || []).filter(g => g.side === "own" && g.scorerId).map(g => g.scorer);
+            return mitArt.length === namen.length ? mitArt : namen;
+          })()
         : assignScorers(startingInfo.xi, ownGoals);
 
       const ownIncidents = vorgegeben ? (override.incidents || null) : null;

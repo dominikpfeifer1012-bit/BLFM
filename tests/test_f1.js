@@ -107,7 +107,8 @@ check("Athletik erhöht das Verletzungsrisiko", () => {
 });
 
 check("Regeneration senkt die Ermüdung messbar", () => {
-  const p={consecutiveStarts:20};
+  // 12 in Folge: unter dem Deckel, auch mit belastender Philosophie (Gegenpressing).
+  const p={consecutiveStarts:12};
   win.handleTrainingChange("balanced");
   const normal=win.getFatiguePenalty(p);
   win.handleTrainingChange("regeneration");

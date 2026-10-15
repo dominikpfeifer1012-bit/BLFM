@@ -84,6 +84,8 @@ function updateSquadMorale(gameState, context){
     if(isContractExpiring(player)) delta += MORALE_EXPIRING_CONTRACT;
     if(typeof getActiveTraining === "function") delta += getActiveTraining().morale || 0;
 
+    if(typeof getTraitMoraleDelta === "function") delta = getTraitMoraleDelta(player, delta);
+
     // Sanfte Rueckkehr zum Ruhepunkt: ohne sie wuerden Ausschlaege ewig
     // nachwirken und die Moral bliebe an den Raendern kleben.
     const aktuell = getMorale(player);

@@ -77,7 +77,9 @@ function getCoachingDevBonus(gameState){
 
 function getYouthQualityBonus(gameState){
   const stufe = getFacilityLevel(gameState, "youth");
-  return { strength: stufe * 2, potential: stufe * 3 };
+  const profil = typeof getOwnProfile === "function" ? getOwnProfile(gameState).youth : { strength: 0, potential: 0 };
+  const stil = typeof getPhilosophy === "function" ? getPhilosophy(gameState).youthPotential : 0;
+  return { strength: stufe * 2 + profil.strength, potential: stufe * 3 + profil.potential + stil };
 }
 
 function getMedicalInjuryFactor(gameState){

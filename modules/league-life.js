@@ -59,8 +59,13 @@ function checkCoachChanges(gameState){
       const alt = gameState.coaches[t.name];
       const nr = getClubDivision(gameState, t.name);
       const land = nr ? getDivisionCountry(nr) : "de";
-      const neu = Object.assign(generateCoachName(getCountryConfig(land).nat), { since: gameState.season });
+      const ehemalig = typeof pickFormerPlayerAsCoach === "function" ? pickFormerPlayerAsCoach(gameState, t.name) : null;
+      const neu = ehemalig || Object.assign(generateCoachName(getCountryConfig(land).nat), { since: gameState.season });
       gameState.coaches[t.name] = neu;
+      if(ehemalig){
+        addNews(gameState, `${neu.name}, früher dein Spieler bei ${ehemalig.formerClub}, ist neuer Trainer von ${t.name}.`, "🎓");
+        return;
+      }
       // Nachrichten nur aus dem eigenen Land, sonst wird die Liste zur Flut.
       if(land === getOwnCountry(gameState)) addNews(gameState, `${t.name} trennt sich nach Platz ${sortiert.indexOf(t) + 1} von ${alt ? alt.name : "seinem Trainer"}. Nachfolger: ${neu.name}.`, "🔄");
     });

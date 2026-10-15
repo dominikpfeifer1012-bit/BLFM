@@ -138,10 +138,15 @@ function applyClubStrengthDrift(clubs, standingsMap, movementMap, opts){
       events.push({ name: club.name, type: "umbruch", division: entry.division });
     } else if(wurf < CLUB_DEV_EVENT_CHANCE){
       schub = randFloat(CLUB_DEV_EVENT_MIN, CLUB_DEV_EVENT_MAX);
-      events.push({ name: club.name, type: "investor", division: entry ? entry.division : null });
+      // Ein Investor macht den Verein zum Investorenklub (Grossklubs bleiben, was sie sind).
+      const wandel = club.profile && club.profile !== "gross" && typeof setClubProfile === "function" && setClubProfile(club, "investor");
+      events.push({ name: club.name, type: "investor", division: entry ? entry.division : null, profile: wandel });
     } else if(wurf < 2 * CLUB_DEV_EVENT_CHANCE){
       schub = -randFloat(CLUB_DEV_EVENT_MIN, CLUB_DEV_EVENT_MAX);
-      events.push({ name: club.name, type: "krise", division: entry ? entry.division : null });
+      // Beim Sparkurs zieht sich ein spaeter eingestiegener Investor zurueck.
+      const wandel = club.profile === "investor" && club.profileOrigin && club.profileOrigin !== "investor"
+        && typeof setClubProfile === "function" && setClubProfile(club, club.profileOrigin);
+      events.push({ name: club.name, type: "krise", division: entry ? entry.division : null, profile: wandel });
     }
     club.trend = Math.round((club.trend * CLUB_DEV_TREND_DECAY + perf * CLUB_DEV_TREND_FROM_PERF + schub) * 100) / 100;
 
@@ -503,6 +508,7 @@ function processPromotionRelegation(gameState){
   const driftChanges = applyClubStrengthDrift(
     getAllLeagueClubs(gameState), standingsMap, movementMap, { ownClub: gameState.clubName });
   syncOwnClubStrength(gameState);
+  if(typeof ensureClubProfiles === "function"){ ensureClubProfiles(gameState); ensureClubFormations(gameState); }
 
   // Die Nahtstelle der eigenen Liga fuer die Meldungen heraussuchen.
   const eigene = bewegungen.find(b => b.oben === playedDivision || b.unten === playedDivision)

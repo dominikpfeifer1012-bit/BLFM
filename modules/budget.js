@@ -83,7 +83,8 @@ function calculateSellValue(playerValue){
 // Erloes fuer einen eigenen Spieler. Wer in dieser Saison geholt wurde,
 // bringt hoechstens zurueck, was er gekostet hat.
 function getSellPrice(player){
-  const wert = calculateSellValue(player.value);
+  const profil = typeof getOwnProfile === "function" ? getOwnProfile().sell : 1;
+  const wert = Math.round(calculateSellValue(player.value) * profil / 10000) * 10000;
   const gs = typeof gameState !== "undefined" ? gameState : null;
   if(gs && player.joinedSeason === gs.season && typeof player.purchaseFee === "number"){
     return Math.min(wert, player.purchaseFee);

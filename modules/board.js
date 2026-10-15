@@ -28,10 +28,18 @@ function getBoardReferenceStrength(gameState){
 
 function createFreshBoard(clubStrength, division, carryPatience){
   const goal = getSeasonGoal(clubStrength, division);
+  // Das Vereinsprofil verschiebt den Anspruch um einen Platz.
+  // Nur Bereichsziele verschieben: Meister, Aufstieg, Relegation und
+  // Klassenerhalt haengen an festen Plaetzen.
+  const profil = typeof getOwnProfile === "function" ? getOwnProfile() : null;
+  let verschiebung = profil ? profil.target : 0;
+  if(verschiebung < 0 && goal.target < 4) verschiebung = 0;
+  if(verschiebung > 0 && (goal.maxRank >= 99 || goal.target < 4)) verschiebung = 0;
+  const ziel = Math.max(1, goal.target + verschiebung);
   return {
     patience: carryPatience != null ? carryPatience : BOARD_START_PATIENCE,
     goalLabel: goal.label,
-    targetPosition: goal.target,
+    targetPosition: ziel,
     checkpointsDone: 0,
     dismissed: false,
     credit: 0,
@@ -76,6 +84,10 @@ function evaluateBoard(gameState){
   let swing = Math.max(-BOARD_MAX_SWING, Math.min(BOARD_MAX_SWING, ligaAnteil + credit));
   // Schwierigkeit: wie hart Rueckschlaege den Vorstand treffen
   if(swing < 0 && typeof getDifficulty === "function") swing = Math.round(swing * getDifficulty(gameState).patienceLoss);
+  // Vereinsprofil: ein Grossklub verzeiht weniger als ein Kultklub.
+  if(swing < 0 && typeof getOwnProfile === "function") swing = Math.round(swing * getOwnProfile(gameState).patience);
+  // Eine Spielweise, die zum Verein passt, kommt beim Vorstand an.
+  if(typeof philosophyFitsClub === "function" && philosophyFitsClub(gameState, gameState.clubName)) swing += PHILOSOPHY_FIT_PATIENCE;
 
   // Der Bonus soll spuerbar bleiben, auch wenn der Ligaanteil am Anschlag ist.
   if(credit > 0 && swing <= ligaAnteil) swing = Math.min(BOARD_MAX_SWING, ligaAnteil + Math.round(credit / 2));
@@ -164,7 +176,7 @@ function generateJobOffers(gameState){
     strength: c.strength,
     division: c.division,
     goal: getSeasonGoal(c.strength, c.division),
-    budget: calculateStartingBudget(c.strength)
+    budget: getClubStartBudget(gameState, c.name, c.strength)
   }));
 }
 
@@ -210,6 +222,6 @@ function generateSuccessOffers(gameState, position, target){
     .filter(c => c.name !== gameState.clubName && c.strength >= eigene + 3 && c.strength <= obergrenze);
   return shuffleArray(alle).slice(0, randInt(1, 3)).map(c => ({
     name: c.name, strength: c.strength, division: c.division,
-    goal: getSeasonGoal(c.strength, c.division), budget: calculateStartingBudget(c.strength)
+    goal: getSeasonGoal(c.strength, c.division), budget: getClubStartBudget(gameState, c.name, c.strength)
   }));
 }

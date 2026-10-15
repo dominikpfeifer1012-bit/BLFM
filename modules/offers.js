@@ -52,7 +52,8 @@ function updateIncomingOffers(gameState){
   const kaeufer = pickOfferBuyer(gameState, spieler);
   if(!kaeufer) return null;
 
-  const fee = Math.max(50000, Math.round(spieler.value * randFloat(OFFER_FEE_MIN, OFFER_FEE_MAX) / 50000) * 50000);
+  const profil = typeof getOwnProfile === "function" ? getOwnProfile(gameState).sell : 1;
+  const fee = Math.max(50000, Math.round(spieler.value * randFloat(OFFER_FEE_MIN, OFFER_FEE_MAX) * profil / 50000) * 50000);
   const angebot = {
     id: Math.random().toString(36).slice(2),
     playerId: spieler.id, playerName: spieler.name, pos: spieler.pos,
@@ -80,6 +81,7 @@ function acceptIncomingOffer(gameState, offerId){
     return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
   const spieler = gameState.squad[idx];
+  if(typeof noteDeparture === "function") noteDeparture(gameState, spieler, "verkauft");
   gameState.squad.splice(idx, 1);
   pruneLineup(gameState);
   spieler.clubName = o.club;

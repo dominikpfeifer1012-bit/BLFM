@@ -84,7 +84,8 @@ console.log("\n--- Start in jeder Liga ---");
   check(`  Liga ${nr}: Ziel und Budget passen zur Klasse`, () => {
     if(!gs.board || !gs.board.goalLabel) return "kein Saisonziel";
     const erwartet=win.getSeasonGoal(win.getOwnClubStrength(gs), nr);
-    return gs.board.targetPosition===erwartet.target ? true : "Ziel passt nicht zur Liga";
+    // Das Vereinsprofil verschiebt den Zielplatz um hoechstens einen Platz.
+    return gs.board.goalLabel===erwartet.label && Math.abs(gs.board.targetPosition-erwartet.target)<=1 ? true : "Ziel passt nicht zur Liga";
   });
 
   check(`  Liga ${nr}: alle anderen Ligen laufen parallel`, () => {

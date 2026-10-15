@@ -110,13 +110,15 @@ check("Starker Umsteller verdrängt schwachen Positionsspieler", () => {
     attributes: win.buildAttributes(s, pos, 0), maxAttributes: win.buildAttributes(s, pos, 0),
     injuredUntilMatchday: 0, suspendedUntilMatchday: 0, consecutiveStarts: 0, goalsSeason: 0,
     yellowCards: 0, contractYears: 3 });
-  const alt = gs.squad;
+  const alt = gs.squad, altFormation = gs.formation;
+  // Der Kader ist fuer ein 4-2-3-1 gebaut; der Startverein kann ein anderes System haben.
+  gs.formation = "4-2-3-1";
   gs.squad = [mk("TW",70),mk("RV",70),mk("IV",70),mk("IV",70),mk("LV",70),mk("DM",70),mk("DM",70),
     mk("RM",70),mk("OM",70),mk("ST",42),mk("LM",60),mk("LM",60)];
   win.clearLineup(gs);
   const st = win.getStartingXIInfo(gs.squad, 1).allSlots.find(s => s.slotKey === "ST0");
   const ergebnis = st.player.pos === "LM";
-  gs.squad = alt;
+  gs.squad = alt; gs.formation = altFormation;
   return ergebnis ? true : `ST0 = ${st.player.pos}`;
 });
 

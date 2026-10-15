@@ -128,7 +128,7 @@ function renderMarket(gameState){
 
       html += `<tr class="rowLink" onclick="showPoolPlayerDetail('${p.id}')">
         <td><b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b></td>
-        <td>${getFlag(p)} ${p.name}${p.isScoutingFind ? ' <span title="Scouting-Fund">🔍</span>' : ""}</td>
+        <td>${getFlag(p)} ${p.name}${p.isScoutingFind ? ' <span title="Scouting-Fund">🔍</span>' : ""}${typeof renderTraitIcons === "function" ? renderTraitIcons(p) : ""}${typeof isFollower === "function" && isFollower(gameState, p) ? ' <span class="badge win" title="Will dir folgen: wechselbereit, Ablöse reduziert">🤝 folgt dir</span>' : ""}</td>
         <td style="font-size:12px;">${vereinsText}</td>
         <td class="n">${Math.round(p.strength)}</td>
         <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}" title="${pot.exact ? "beobachtet" : "Schätzung"}">${pot.text}</td>

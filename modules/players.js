@@ -238,35 +238,95 @@ function genPlayer(baseStrength, pos, ageRange, allowScouting){
     goalsSeason: 0,
     yellowCards: 0,
     suspendedUntilMatchday: 0,
-    consecutiveStarts: 0
+    consecutiveStarts: 0,
+    altPos: rollNaturalSecondaryPositions(pos),
+    traits: typeof rollTraits === "function" ? rollTraits(pos) : []
   });
 }
 
-function generateSquadRaw(baseStrength){
+// Manche Spieler koennen von Natur aus eine Nachbarposition (IV auch DM,
+// ZM auch OM, LV auch RV ...).
+function rollNaturalSecondaryPositions(pos){
+  if(typeof getNeighbourPositions !== "function" || Math.random() >= SECONDARY_POS_CHANCE) return [];
+  const nachbarn = getNeighbourPositions(pos);
+  return nachbarn.length ? [randChoice(nachbarn)] : [];
+}
+
+function generateSquadRaw(baseStrength, plan){
   const squad = [];
-  SQUAD_COMPOSITION.forEach(entry => {
+  const zusammensetzung = plan ? plan.composition : SQUAD_COMPOSITION;
+  zusammensetzung.forEach(entry => {
     for(let i = 0; i < entry.count; i++){
-      squad.push(genPlayer(baseStrength, entry.pos, null, false));
+      const linie = plan ? (plan.lineOffset[getPositionLine(entry.pos)] || 0) : 0;
+      squad.push(genPlayer(baseStrength + linie, entry.pos, null, false));
     }
   });
   return squad;
+}
+
+// Mannschaftsreihe einer Position: Abwehr, Mittelfeld oder Angriff.
+function getPositionLine(pos){
+  if(["RV", "IV", "LV"].includes(pos)) return "abwehr";
+  if(["DM", "ZM", "LM", "RM"].includes(pos)) return "mittelfeld";
+  if(["OM", "ST"].includes(pos)) return "angriff";
+  return "tor";
+}
+const SQUAD_LINE_LABELS = { abwehr: "Abwehr", mittelfeld: "Mittelfeld", angriff: "Angriff" };
+
+// Plan fuer einen individuellen Startkader: Besetzung nach dem System des
+// Vereins, ein paar Engpaesse und Ueberbesetzungen, eine starke und eine
+// schwache Reihe.
+function buildSquadPlan(formationName){
+  const needs = (FORMATIONS[formationName] || FORMATIONS[DEFAULT_FORMATION]).needs;
+  const anzahl = {};
+  POSITION_ORDER.forEach(pos => { anzahl[pos] = pos === "TW" ? 3 : (needs[pos] || 0) * 2; });
+  const feld = POSITION_ORDER.filter(p => p !== "TW");
+  const duenn = shuffleArray(feld.filter(p => anzahl[p] >= 2)).slice(0, randInt(SQUAD_THIN_SPOTS[0], SQUAD_THIN_SPOTS[1]));
+  duenn.forEach(p => { anzahl[p] -= 1; });
+  const extra = shuffleArray(feld.filter(p => !duenn.includes(p))).slice(0, randInt(SQUAD_EXTRA_SPOTS[0], SQUAD_EXTRA_SPOTS[1]));
+  extra.forEach(p => { anzahl[p] += 1; });
+  const reihen = shuffleArray(["abwehr", "mittelfeld", "angriff"]);
+  const lineOffset = {};
+  // In einem Drittel der Kader gibt es keine ausgepraegte Staerke.
+  if(Math.random() > 0.33){ lineOffset[reihen[0]] = SQUAD_LINE_FOCUS; lineOffset[reihen[1]] = -SQUAD_LINE_FOCUS; }
+  return {
+    formation: formationName,
+    composition: POSITION_ORDER.map(pos => ({ pos, count: anzahl[pos] })).filter(e => e.count > 0),
+    thin: duenn, extra, lineOffset,
+    strongLine: lineOffset[reihen[0]] ? reihen[0] : null,
+    weakLine: lineOffset[reihen[0]] ? reihen[1] : null
+  };
 }
 
 // Die beste Elf aus einem breiten Kader liegt ueber dem Schnitt der Spieler.
 // Ohne Ausgleich startete der eigene Verein 3-4 Punkte staerker als derselbe
 // Verein in der KI-Simulation. Deshalb wird die Erzeugungsstaerke so
 // nachgefuehrt, dass die Teambewertung zur Vereinsstaerke passt.
-function generateSquad(baseStrength){
-  let erzeugung = baseStrength - 3;
-  let bester = null, besterAbstand = Infinity;
-  for(let versuch = 0; versuch < 12; versuch++){
-    const kader = generateSquadRaw(erzeugung);
-    const abstand = teamRating(kader, 1) - baseStrength;
-    if(Math.abs(abstand) < besterAbstand){ bester = kader; besterAbstand = Math.abs(abstand); }
-    if(Math.abs(abstand) <= 0.5) break;
-    erzeugung -= abstand;
-  }
-  return bester;
+// Mit Plan (buildSquadPlan) wird in dessen Formation kalibriert.
+function generateSquad(baseStrength, plan){
+  const erzeugen = () => {
+    let erzeugung = baseStrength - 3;
+    let bester = null, besterAbstand = Infinity;
+    for(let versuch = 0; versuch < 12; versuch++){
+      const kader = generateSquadRaw(erzeugung, plan);
+      const abstand = teamRating(kader, 1) - baseStrength;
+      if(Math.abs(abstand) < besterAbstand){ bester = kader; besterAbstand = Math.abs(abstand); }
+      if(Math.abs(abstand) <= 0.5) break;
+      erzeugung -= abstand;
+    }
+    return bester;
+  };
+  return plan && typeof withFormation === "function" ? withFormation(plan.formation, erzeugen) : erzeugen();
+}
+
+// Kurzbeschreibung eines Startkaders fuer das Protokoll.
+function describeSquadPlan(plan){
+  if(!plan) return "";
+  const teile = [`System ${plan.formation}`];
+  if(plan.strongLine) teile.push(`stark: ${SQUAD_LINE_LABELS[plan.strongLine]}`, `schwach: ${SQUAD_LINE_LABELS[plan.weakLine]}`);
+  if(plan.thin.length) teile.push(`dünn besetzt: ${plan.thin.join(", ")}`);
+  if(plan.extra.length) teile.push(`viele: ${plan.extra.join(", ")}`);
+  return teile.join(" · ");
 }
 
 function priceToApproxStrength(price, age){

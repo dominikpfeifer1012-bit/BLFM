@@ -181,6 +181,7 @@ function renderNextMatch(gameState){
         <h2 style="margin:2px 0 6px;">${info.opponentName}</h2>
         ${getCoachName(gameState, info.opponentName) ? `<p class="muted" style="margin:-2px 0 6px; font-size:12px;">Trainer: ${getCoachName(gameState, info.opponentName)}</p>` : ""}
         <span class="matchupTag ${cls}">${label}</span>
+        ${typeof getDerby === "function" && getDerby(gameState.clubName, info.opponentName) ? `<span class="matchupTag underdog" title="Derby: enger, emotionaler, wichtiger für Fans und Vorstand">🔥 ${getDerby(gameState.clubName, info.opponentName).name}</span>` : ""}
         ${info.opponentForm ? `<span class="matchupTag neutral" title="Formkurve der letzten Spiele">${info.opponentForm}</span>` : ""}
         ${info.ownForm ? `<p class="muted" style="margin:6px 0 0; font-size:12px;">Wir: ${info.ownForm}</p>` : ""}
       </div>

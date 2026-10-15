@@ -125,7 +125,8 @@ check("Nach dem Wechsel ist alles Vereinsgebundene neu", () => {
   if(gs.squad.length<K.MIN_SQUAD_SIZE) return "Kader zu klein";
   if(gs.youth.played!==0) return "Jugendbilanz nicht zurückgesetzt";
   if(Object.keys(gs.lineup).length!==0) return "alte Aufstellung übernommen";
-  if(gs.formation!==K.DEFAULT_FORMATION) return "Formation nicht zurückgesetzt";
+  // Der neue Verein bringt sein eigenes System mit.
+  if(gs.formation!==win.getClubFormation(gs, gs.clubName)) return "Formation nicht vom neuen Verein übernommen";
   return true;
 });
 

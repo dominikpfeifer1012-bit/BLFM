@@ -148,7 +148,7 @@ function renderSquad(gameState){
       + (p.id === kapitaenId ? ' <span class="badge" style="background:var(--gold); color:#10202C;" title="Kapitän">C</span>' : "");
     const flag = getFlag(p) ? `<span title="${getNationality(p).name}">${getFlag(p)}</span> ` : "";
     const ageStyle = p.age >= RETIREMENT_MIN_AGE ? ' style="color:#fca311;" title="Karriereende möglich"' : "";
-    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b><span class="posIcon">${icon} </span>${p.pos}</b></td><td>${flag}${p.name}${youthTag}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(getPlayerSalary(p))}</td><td class="n hideMobile"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
+    html += `<tr class="rowLink ${rowClass}" onclick="showPlayerDetail('${p.id}')"><td><b><span class="posIcon">${icon} </span>${p.pos}</b>${(p.altPos || []).length ? `<span class="muted" style="font-size:10.5px;" title="Zweitposition">/${p.altPos.join("/")}</span>` : ""}${p.retrain ? ` <span title="Umschulung auf ${p.retrain.pos}: ${Math.round(p.retrain.progress * 100)} %">🔄</span>` : ""}</td><td>${flag}${p.name}${youthTag}${typeof renderTraitIcons === "function" ? renderTraitIcons(p) : ""}</td><td class="n">${Math.round(p.strength)}${trend}</td><td class="n"${ageStyle}>${p.age}</td><td class="n hideMobile">${p.goalsSeason || 0}</td><td class="n hideMobile">${fmtMoney(p.value)}</td><td class="n hideMobile">${fmtMoney(getPlayerSalary(p))}</td><td class="n hideMobile"${isContractExpiring(p) ? ' style="color:#FCA311;" title="Vertrag läuft aus"' : ""}>${getContractYears(p)} J.</td><td class="status">${statusBadge}</td></tr>`;
   });
 
   document.getElementById("squadTable").innerHTML = html;
@@ -238,6 +238,49 @@ function buildPitchSlot(slot){
   </div>`;
 }
 
+// Umschulung im Profil: Stand oder Auswahl einer neuen Position.
+function renderRetrainBlock(player){
+  if(player.pos === "TW") return "";
+  if(player.retrain){
+    const r = player.retrain, pct = Math.round((r.progress || 0) * 100);
+    const rest = Math.max(1, Math.ceil(getRetrainMatchdays(player, r.pos) * (1 - (r.progress || 0))));
+    return `<div style="margin:0 0 14px;"><p class="eyebrow">Umschulung auf ${r.pos}</p>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="bar" style="flex:1;"><i style="width:${pct}%;"></i></span>
+        <span class="num" style="font-size:12px;">${pct} % · ca. ${rest} ST</span>
+        <button class="ghost" onclick="handleCancelRetrain('${player.id}')">Abbrechen</button>
+      </div></div>`;
+  }
+  const ziele = POSITION_ORDER.filter(pos => !canRetrain(player, pos));
+  if(!ziele.length) return "";
+  return `<div style="margin:0 0 14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <span class="eyebrow" style="margin:0;">Umschulen auf</span>
+    <select id="retrainSelect">${ziele.map(pos => `<option value="${pos}">${pos} · ca. ${getRetrainMatchdays(player, pos)} Spieltage</option>`).join("")}</select>
+    <button class="ghost" onclick="handleStartRetrain('${player.id}')">Starten</button></div>`;
+}
+
+function findOwnPlayer(playerId){
+  return gameState.squad.concat(gameState.youthSquad || []).find(p => p.id === playerId);
+}
+
+function handleStartRetrain(playerId){
+  const p = findOwnPlayer(playerId);
+  const sel = document.getElementById("retrainSelect");
+  if(!p || !sel) return;
+  const r = startRetraining(p, sel.value);
+  if(r.success) addLogEntry(gameState, `🔄 ${r.message}`);
+  showToast(r.message, r.success ? "info" : "error");
+  showPlayerDetail(playerId);
+}
+
+function handleCancelRetrain(playerId){
+  const p = findOwnPlayer(playerId);
+  if(!p) return;
+  cancelRetraining(p);
+  showToast(`Umschulung von ${p.name} abgebrochen.`, "info");
+  showPlayerDetail(playerId);
+}
+
 function renderLineupControls(gameState, info){
   const el = document.getElementById("lineupControls");
   if(!el) return;
@@ -275,6 +318,7 @@ function renderLineupControls(gameState, info){
       <label>Training
         <select onchange="handleTrainingChange(this.value)">${trainingOptions}</select>
       </label>
+      ${typeof renderRoleControls === "function" ? renderRoleControls(gameState, info.xi || []) : ""}
       <button class="ghost" onclick="resetLineup()"${manualCount === 0 ? " disabled" : ""}>Alles automatisch</button>
       <button class="ghost${gameState.autoRotate ? " on" : ""}" onclick="toggleAutoRotate()" title="Ab ${ROTATION_START_LIMIT} Spielen in Folge, Ersatz max. ${ROTATION_MAX_GAP} schwächer">🔄 Rotation: ${gameState.autoRotate ? "an" : "aus"}</button>
     </div>
@@ -444,7 +488,10 @@ function showPlayerDetail(playerId){
   else if(!canSellFromSquad(gameState.squad)) sellBlock = `Kader zu klein zum Verkaufen (Minimum ${MIN_SQUAD_SIZE} Spieler).`;
 
   const tags = [];
+  (player.traits || []).forEach(k => { const t = PLAYER_TRAITS[k]; if(t) tags.push(`<span class="profTag" title="${t.text}">${t.icon} ${t.label}</span>`); });
   if(player.isYouthProduct) tags.push('<span class="profTag gold">🌱 Eigengewächs</span>');
+  if((gameState.legends || []).some(l => l.id === player.id && l.club === gameState.clubName)) tags.push('<span class="profTag gold">🏛️ Vereinslegende</span>');
+  if(player.clubApps) tags.push(`<span class="profTag">Für uns: ${player.clubApps} Spiele · ${typeof getClubGoals === "function" ? getClubGoals(player) : 0} Tore</span>`);
   if(player.isTalent) tags.push('<span class="profTag gold">✨ Ausnahmetalent</span>');
   if(player.isScoutingFind) tags.push('<span class="profTag gold">🔍 Scouting-Fund</span>');
   if(fatigue > 0) tags.push(`<span class="profTag warn">🥵 Müde -${fatigue.toFixed(1)}</span>`);
@@ -461,10 +508,11 @@ function showPlayerDetail(playerId){
       <span class="profFlag">${getFlag(player) || POSITION_ICONS[player.pos] || "⚽"}</span>
       <div class="profName">
         <h3>${player.name}</h3>
-        <p class="muted" style="margin:0;">${POSITION_ICONS[player.pos] || ""} ${player.pos} · ${player.age} Jahre${nat ? ` · ${nat.name}` : ""}</p>
+        <p class="muted" style="margin:0;">${POSITION_ICONS[player.pos] || ""} ${player.pos}${(player.altPos || []).length ? ` (auch ${player.altPos.join(", ")})` : ""} · ${player.age} Jahre${nat ? ` · ${nat.name}` : ""}</p>
       </div>
       <div class="profRating"><div class="v">${Math.round(player.strength)}</div><div class="k">Bewertung</div></div>
     </div>
+    ${renderRetrainBlock(player)}
 
     <p class="eyebrow">Attribute</p>
     <div style="margin:6px 0 16px;">

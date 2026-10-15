@@ -159,7 +159,7 @@ function showClubDetail(name){
   document.getElementById("clubModalContent").innerHTML = `
     <p class="eyebrow">${nr ? `${getDivisionTag(nr)} · ${getDivisionLabel(nr)}` : getUefaCountryName(club && club.country ? club.country : "?")}</p>
     <h2 style="margin:2px 0 6px;">${name}</h2>
-    ${trainer ? `<p class="muted" style="margin:0 0 10px;">Trainer: ${trainer}</p>` : ""}
+    <p class="muted" style="margin:0 0 10px;">${typeof getClubProfile === "function" ? (() => { const pr = getClubProfile(gameState, name); return `${pr.icon} ${pr.label}`; })() : ""}${trainer ? ` · Trainer: ${trainer}` : ""}</p>
     <div class="statGrid" style="margin-bottom:12px;">
       <div class="stat"><div class="k">Stärke</div><div class="v">${club ? Math.round(club.strength) : "–"}</div></div>
       <div class="stat"><div class="k">Platz</div><div class="v">${platz || "–"}</div>${tab.length ? `<div class="sub">von ${tab.length}</div>` : ""}</div>
@@ -167,6 +167,8 @@ function showClubDetail(name){
     </div>
     ${(() => { const titel = getClubTitles(gameState, name);
       return titel.length ? `<p style="margin:-4px 0 12px; font-size:13px;">🏆 ${titel.map(t => `${t.count}× ${t.label}`).join(" · ")}</p>` : ""; })()}
+    ${(() => { const leg = typeof getLegends === "function" ? getLegends(gameState, name) : [];
+      return leg.length ? `<p style="margin:-4px 0 12px; font-size:13px;">🏛️ Legenden: ${leg.slice(0, 5).map(l => `${l.name} (${l.apps} Spiele)`).join(" · ")}</p>` : ""; })()}
     <div class="tableWrap" style="max-height:46vh; overflow-y:auto;"><table>
       <tr><th>Pos</th><th>Spieler</th><th class="n">Alter</th><th class="n">Stärke</th><th class="n hideMobile">Wert</th></tr>
       ${kader.map(p => `<tr class="rowLink" onclick="closeClubDetail(); showPoolPlayerDetail('${p.id}')">
@@ -310,7 +312,9 @@ function renderBoardPanel(gameState){
     <p class="muted" style="margin:0;">
       Platz ${position} · <span style="color:${aufKurs ? "var(--win)" : "var(--loss)"};">${aufKurs ? "im Soll" : "unter Soll"}</span>${next ? ` · Bewertung Spieltag ${next}` : ""}
     </p>
-    <p class="muted" style="margin:6px 0 0;">🎓 Trainer-Ruf: <b>${Math.round(getReputation(gameState))}</b> (${getReputationLabel(getReputation(gameState))})</p>
+    ${typeof renderIdentityBlock === "function" ? renderIdentityBlock(gameState) : ""}
+    ${typeof renderPhilosophyBlock === "function" ? renderPhilosophyBlock(gameState) : ""}
+    <p class="muted" style="margin:10px 0 0;">🎓 Trainer-Ruf: <b>${Math.round(getReputation(gameState))}</b> (${getReputationLabel(getReputation(gameState))})</p>
     ${typeof getCareerOverview === "function" ? (() => {
       const st = getCareerOverview(gameState), titel = st.reduce((s, x) => s + x.titelAnzahl, 0);
       return `<p class="muted" style="margin:4px 0 0;">Laufbahn: ${st.length} ${st.length === 1 ? "Station" : "Stationen"} · ${titel} Titel ·
