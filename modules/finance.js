@@ -22,7 +22,8 @@ function getFinanceScale(gameState){
 }
 
 function getSponsorOffers(gameState){
-  const basis = SPONSOR_BASE * getFinanceScale(gameState);
+  const basis = SPONSOR_BASE * getFinanceScale(gameState)
+    * (typeof getOwnProfile === "function" ? getOwnProfile(gameState).revenue : 1);
   const rund = x => Math.round(x / 50000) * 50000;
   return [
     { key: "fix", label: "Festbetrag", icon: "🏦", upfront: rund(basis), perWin: 0, goalBonus: 0 },

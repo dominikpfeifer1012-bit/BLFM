@@ -83,21 +83,67 @@ const SCORER_WEIGHTS = { TW:0, RV:1, IV:1, LV:1, DM:1, ZM:3, LM:4, RM:4, OM:7, S
 
 // --- Formationen ---
 // needs bestimmt die elf Plaetze, rows die Darstellung auf dem Spielfeld.
+// style: Wirkung auf Angriff und Abwehr in Staerkepunkten. Jede Formation
+// ist nullsummig: mehr Offensive kostet Abwehr und umgekehrt.
 const FORMATIONS = {
-  "4-2-3-1": { needs:{TW:1, RV:1, IV:2, LV:1, DM:2, LM:1, OM:1, RM:1, ST:1},
+  "4-2-3-1": { style:{ att:0, def:0 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:2, LM:1, OM:1, RM:1, ST:1},
                rows:[["ST"],["LM","OM","RM"],["DM"],["LV","IV","RV"],["TW"]] },
-  "4-4-2":   { needs:{TW:1, RV:1, IV:2, LV:1, ZM:2, LM:1, RM:1, ST:2},
+  "4-4-2":   { style:{ att:0.5, def:-0.5 }, needs:{TW:1, RV:1, IV:2, LV:1, ZM:2, LM:1, RM:1, ST:2},
                rows:[["ST"],["LM","ZM","RM"],["LV","IV","RV"],["TW"]] },
-  "4-3-3":   { needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
+  "4-3-3":   { style:{ att:1, def:-1 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
                rows:[["LM","ST","RM"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
-  "4-1-4-1": { needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
+  "4-1-4-1": { style:{ att:-0.5, def:0.5 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, LM:1, RM:1, ST:1},
                rows:[["ST"],["LM","ZM","RM"],["DM"],["LV","IV","RV"],["TW"]] },
-  "3-5-2":   { needs:{TW:1, IV:3, DM:1, ZM:2, LM:1, RM:1, ST:2},
+  "3-5-2":   { style:{ att:0.5, def:-0.5 }, needs:{TW:1, IV:3, DM:1, ZM:2, LM:1, RM:1, ST:2},
                rows:[["ST"],["LM","ZM","RM"],["DM"],["IV"],["TW"]] },
-  "5-3-2":   { needs:{TW:1, LV:1, IV:3, RV:1, DM:1, ZM:2, ST:2},
-               rows:[["ST"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] }
+  "5-3-2":   { style:{ att:-1.5, def:1.5 }, needs:{TW:1, LV:1, IV:3, RV:1, DM:1, ZM:2, ST:2},
+               rows:[["ST"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "4-4-2 Raute": { style:{ att:1, def:-1 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, OM:1, ST:2},
+               rows:[["ST"],["OM"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "4-4-1-1": { style:{ att:-0.5, def:0.5 }, needs:{TW:1, RV:1, IV:2, LV:1, ZM:2, LM:1, RM:1, OM:1, ST:1},
+               rows:[["ST"],["OM"],["LM","ZM","RM"],["LV","IV","RV"],["TW"]] },
+  "4-3-2-1": { style:{ att:0, def:0 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:1, ZM:2, OM:2, ST:1},
+               rows:[["ST"],["OM"],["ZM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "4-2-2-2": { style:{ att:1.5, def:-1.5 }, needs:{TW:1, RV:1, IV:2, LV:1, DM:2, OM:2, ST:2},
+               rows:[["ST"],["OM"],["DM"],["LV","IV","RV"],["TW"]] },
+  "3-4-3":   { style:{ att:2, def:-2 }, needs:{TW:1, IV:3, DM:1, ZM:1, LM:1, RM:1, ST:3},
+               rows:[["ST"],["LM","ZM","RM"],["DM"],["IV"],["TW"]] },
+  "3-4-1-2": { style:{ att:1, def:-1 }, needs:{TW:1, IV:3, ZM:2, LM:1, RM:1, OM:1, ST:2},
+               rows:[["ST"],["OM"],["LM","ZM","RM"],["IV"],["TW"]] },
+  "3-4-2-1": { style:{ att:0.5, def:-0.5 }, needs:{TW:1, IV:3, ZM:2, LM:1, RM:1, OM:2, ST:1},
+               rows:[["ST"],["OM"],["LM","ZM","RM"],["IV"],["TW"]] },
+  "5-4-1":   { style:{ att:-2, def:2 }, needs:{TW:1, LV:1, IV:3, RV:1, ZM:2, LM:1, RM:1, ST:1},
+               rows:[["ST"],["LM","ZM","RM"],["LV","IV","RV"],["TW"]] }
 };
+// Gruppierung fuer die Auswahl.
+const FORMATION_GROUPS = [
+  { label: "Viererkette", names: ["4-2-3-1", "4-4-2", "4-4-2 Raute", "4-3-3", "4-1-4-1", "4-4-1-1", "4-3-2-1", "4-2-2-2"] },
+  { label: "Dreierkette", names: ["3-5-2", "3-4-3", "3-4-1-2", "3-4-2-1"] },
+  { label: "Fünferkette", names: ["5-3-2", "5-4-1"] }
+];
 const DEFAULT_FORMATION = "4-2-3-1";
+
+// Bevorzugtes System der Vereine (Gewichte). Jeder Verein bekommt zum
+// Karrierestart eines; der eigene Startkader wird danach zusammengestellt.
+const CLUB_FORMATION_WEIGHTS = {
+  "4-2-3-1": 24, "4-3-3": 17, "4-4-2": 11, "3-5-2": 8, "3-4-2-1": 7, "4-1-4-1": 6,
+  "4-4-2 Raute": 5, "3-4-3": 5, "4-4-1-1": 4, "5-3-2": 4, "4-3-2-1": 3, "4-2-2-2": 2,
+  "3-4-1-2": 2, "5-4-1": 2
+};
+// Startkader: zwei Spieler je Position der Formation, drei Torhueter. Dazu
+// zufaellige Engpaesse und Ueberbesetzungen sowie eine starke und eine
+// schwache Mannschaftsreihe.
+const SQUAD_THIN_SPOTS = [1, 2];
+const SQUAD_EXTRA_SPOTS = [1, 3];
+const SQUAD_LINE_FOCUS = 2.5;
+
+// Zweitpositionen: Nachbarpositionen (Malus bis 3,5) kommen von Natur aus vor,
+// weitere lassen sich ueber eine Umschulung lernen.
+const SECONDARY_POS_CHANCE = 0.3;
+const SECONDARY_POS_MAX = 2;
+const RETRAIN_BASE_MATCHDAYS = 10;       // plus der Positionsmalus in Spieltagen
+const RETRAIN_STARTER_BONUS = 1.25;      // Einsaetze beschleunigen
+const RETRAIN_AGE_FACTORS = [{ maxAge: 21, factor: 1.3 }, { maxAge: 25, factor: 1.1 }, { maxAge: 29, factor: 1 }, { maxAge: 99, factor: 0.75 }];
 
 // --- Grundausrichtung ---
 const TACTICS = {
@@ -823,6 +869,50 @@ const BOARD_REWARD_MAX = 8000000;
 
 // --- Vereinswechsel nach Entlassung ---
 const JOB_OFFER_COUNT = 3;
+// Spielphilosophie und Derbys (philosophy.js)
+const PHILOSOPHY_FIT_PATIENCE = 1;      // je Vorstandsbewertung, wenn die Philosophie zum Verein passt
+const PHILOSOPHY_FIT_JOB_BONUS = 0.1;   // hoehere Zusagechance bei passenden Vereinen
+const DERBY_EQUALIZER = 0.2;            // Torerwartungen ruecken um diesen Anteil zusammen
+const DERBY_MORALE = 5;
+const DERBY_PATIENCE = 3;
+// Spielereigenschaften und Rollen (traits.js)
+const TRAIT_CHANCE_NONE = 0.45;         // ohne Eigenschaft
+const TRAIT_CHANCE_ONE = 0.42;          // eine Eigenschaft, sonst zwei
+const TRAIT_SCORER_FACTOR = 1.6;
+const TRAIT_ROBUST_INJURY = 0.5;
+const TRAIT_FRAGILE_INJURY = 1.7;
+const TRAIT_ROBUST_FATIGUE = 0.5;
+const TRAIT_DILIGENT_DEV = 1.15;
+const TRAIT_MOODY_FACTOR = 1.6;
+const TRAIT_LOYAL_FACTOR = 0.6;
+const TRAIT_LEADER_BONUS = 0.4;         // Staerkepunkte fuer Angriff und Abwehr
+const TRAIT_LEADER_CAPTAIN_BONUS = 0.2;
+const TRAIT_SPECIALIST_POINTS = 15;
+const SET_PIECE_PENALTY_SHARE = 0.1;    // Anteil der Tore per Elfmeter
+const SET_PIECE_FREEKICK_SHARE = 0.05;  // Anteil der Tore per Freistoss
+const SET_PIECE_BONUS_PENALTY = 0.2;    // Angriffsbonus je Punkt Schuetzenqualitaet
+const SET_PIECE_BONUS_FREEKICK = 0.2;
+const SET_PIECE_TYPICAL_EDGE = 8;
+// Legenden und Beziehungen (legends.js)
+const LEGEND_MIN_APPS = 120;            // Pflichtspiele unter dem Trainer
+const LEGEND_MIN_GOALS = 50;
+const FOLLOW_MIN_APPS = 30;             // so viele Spiele, damit ein Spieler folgen will
+const FOLLOW_MAX_AGE = 33;
+const FOLLOW_MAX_PLAYERS = 2;
+const FOLLOW_FEE_DISCOUNT = 0.3;
+const FORMER_COACH_MIN_APPS = 40;       // ehemalige Spieler, die spaeter Trainer werden koennen
+const FORMER_COACH_MIN_YEARS = 2;
+const FORMER_COACH_CHANCE = 0.35;
+const HOMECOMING_HERO_BONUS = 12;
+const HOMECOMING_SKEPTIC_MALUS = 10;
+// Vereinsidentitaet (identity.js): Nebenziele und Eigentuemerwechsel
+const SIDE_GOAL_COUNT = 2;
+const SIDE_GOAL_REWARD = 600000;        // je erreichtem Nebenziel, mit der Finanzskala
+const SIDE_GOAL_PATIENCE_MET = 5;
+const SIDE_GOAL_PATIENCE_MISSED = 3;
+const OWN_INVESTOR_ARRIVE_CHANCE = 0.025;
+const OWN_INVESTOR_LEAVE_CHANCE = 0.06;
+const OWN_INVESTOR_CASH = 0.5;          // Anteil des Startbudgets als Einstiegsgeld
 // Altstaende: Ex-Vereine bekommen die Staerke ihres Kaders zurueck, wenn
 // sie um mehr als diesen Wert darunter lagen.
 const EX_CLUB_REPAIR_MIN_GAP = 3;

@@ -24,13 +24,24 @@ function getFatiguePenalty(player){
   if(starts <= FATIGUE_THRESHOLD_MATCHES) return 0;
   const over = starts - FATIGUE_THRESHOLD_MATCHES;
   const training = typeof getActiveTraining === "function" ? getActiveTraining().fatigue : 1;
-  return Math.min(FATIGUE_MAX_PENALTY, over * FATIGUE_PENALTY_PER_EXTRA_MATCH * training);
+  const robust = typeof getTraitFatigueFactor === "function" ? getTraitFatigueFactor(player) : 1;
+  const stil = typeof getPhilosophy === "function" ? getPhilosophy().fatigue : 1;
+  return Math.min(FATIGUE_MAX_PENALTY, over * FATIGUE_PENALTY_PER_EXTRA_MATCH * training * robust * stil);
 }
 
 // --- Aufstellung ----------------------------------------------------
 // Die elf Startelf-Plaetze bekommen stabile Schluessel: TW0, RV0, IV0,
 // IV1, LV0, ZM0, ZM1, LM0, RM0, OM0, ST0.
+// Fuer die Kadererzeugung: kurzzeitig eine andere Formation zugrunde legen.
+let formationOverride = null;
+function withFormation(name, fn){
+  const vorher = formationOverride;
+  formationOverride = FORMATIONS[name] ? name : null;
+  try { return fn(); } finally { formationOverride = vorher; }
+}
+
 function getActiveFormationName(){
+  if(formationOverride) return formationOverride;
   if(typeof gameState === "undefined" || !gameState) return DEFAULT_FORMATION;
   return FORMATIONS[gameState.formation] ? gameState.formation : DEFAULT_FORMATION;
 }
@@ -98,10 +109,25 @@ function getSlotRating(player, slotPos){
   const attrRating = player.attributes
     ? Math.min(getAttributeRating(player, slotPos), overall)
     : overall;
-  const attrLoss = (overall - attrRating) * ATTRIBUTE_LOSS_FACTOR;
-  const familiarity = getPositionPenalty(player.pos, slotPos) * FAMILIARITY_FACTOR;
+  // Eine gelernte Position kostet keine Eingewoehnung und nur den halben
+  // Attributverlust; waehrend der Umschulung sinkt beides schrittweise.
+  const gelernt = getPositionFamiliarity(player, slotPos);
+  const attrLoss = (overall - attrRating) * ATTRIBUTE_LOSS_FACTOR * (1 - 0.5 * gelernt);
+  const familiarity = getPositionPenalty(player.pos, slotPos) * FAMILIARITY_FACTOR * (1 - gelernt);
 
   return Math.max(ATTRIBUTE_MIN, overall - attrLoss - familiarity);
+}
+
+// 1 = Position gelernt, 0 = fremd, dazwischen der Stand einer Umschulung.
+function getPositionFamiliarity(player, slotPos){
+  if((player.altPos || []).includes(slotPos)) return 1;
+  if(player.retrain && player.retrain.pos === slotPos) return Math.max(0, Math.min(1, player.retrain.progress || 0));
+  return 0;
+}
+
+// Nachbarpositionen fuer natuerliche Zweitpositionen.
+function getNeighbourPositions(pos){
+  return POSITION_ORDER.filter(p => p !== pos && p !== "TW" && pos !== "TW" && getPositionPenalty(pos, p) <= 3.5);
 }
 
 // Gesamtabzug fuer die Anzeige: Differenz zwischen eigener Position und Platz.
@@ -160,6 +186,7 @@ function healAllInjuries(squad){
 function resetSeasonalPlayerState(squad){
   squad.forEach(player => {
     player.goalsSeason = 0;
+    delete player.goalsFolded;
     player.gradeSum = 0;
     player.gradeCount = 0;
     player.motmCount = 0;

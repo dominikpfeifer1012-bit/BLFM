@@ -130,7 +130,9 @@ function getPoolPlayer(pool, playerId){
 function getTransferFee(player){
   if(!player.clubName) return Math.round(player.value * FREE_AGENT_SIGNING_FEE / 10000) * 10000;
   const premium = isContractExpiring(player) ? TRANSFER_FEE_EXPIRING_PREMIUM : TRANSFER_FEE_PREMIUM;
-  return Math.round(player.value * (1 + premium) / 10000) * 10000;
+  // Wer seinem alten Trainer folgen will, draengt auf den Wechsel.
+  const folgt = typeof isFollower === "function" && typeof gameState !== "undefined" && isFollower(gameState, player);
+  return Math.round(player.value * (1 + premium) * (folgt ? 1 - FOLLOW_FEE_DISCOUNT : 1) / 10000) * 10000;
 }
 
 // ---------- Suche ----------
@@ -187,6 +189,7 @@ function getTransferInterestLimit(gameState){
 }
 
 function isWillingToJoin(gameState, player){
+  if(typeof isFollower === "function" && isFollower(gameState, player)) return true;
   return player.strength <= getTransferInterestLimit(gameState);
 }
 
@@ -223,6 +226,9 @@ function signPlayerFromPool(gameState, playerId){
   player.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
   player.joinedSeason = gameState.season;
   player.purchaseFee = fee;
+  // Bilanz beim neuen Verein beginnt bei null.
+  Object.assign(player, { clubApps: 0, clubGoals: 0, clubSeasons: 0, clubSince: gameState.season });
+  delete player.followCoach; delete player.followSeason;
   if(!herkunft) player.salaryFactor = Math.max(player.salaryFactor || 1, FREE_AGENT_SALARY_FACTOR);
   player.seasonStartStrength = player.strength;
   gameState.squad.push(player);
@@ -305,6 +311,7 @@ function sellPlayerToPool(gameState, squadIndex){
   }
 
   const erloes = getSellPrice(player);
+  if(typeof noteDeparture === "function") noteDeparture(gameState, player, "verkauft");
   gameState.budget = addToBudget(gameState.budget, erloes);
   gameState.squad.splice(squadIndex, 1);
   pruneLineup(gameState);
@@ -339,6 +346,7 @@ function advancePool(gameState){
     p.contractYears = Math.max(0, getContractYears(p) - 1);
 
     if(Math.random() < getRetirementChance(p.age, p.strength)){
+      if((p.formerCoachApps || 0) >= FORMER_COACH_MIN_APPS && typeof rememberRetiredPlayer === "function") rememberRetiredPlayer(gameState, p);
       releasePlayerName(p.name);   // sonst waechst die Namensreserve unbegrenzt
       abgaenge++;
       return;

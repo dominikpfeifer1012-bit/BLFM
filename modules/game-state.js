@@ -50,7 +50,7 @@ function startCareer(){
     leagueTwoPool: leaguePools[1],
     fixtures: generateFixtures(teams.map(t => t.name)),
     teams: teams,
-    squad: withHomeNationality(getCountryConfig(startDivision.country || "de").nat, () => generateSquad(clubBase.strength)),
+    squad: [],
     budget: calculateStartingBudget(clubBase.strength),
     lineup: {},
     clubStature: clubBase.strength,
@@ -79,9 +79,17 @@ function startCareer(){
     lastTopFour: [],
     lastSeasonWasDivision1: isTopDivision(startDivision.nr),
     difficulty: (document.getElementById("difficultySelect") || {}).value || "normal",
+    philosophy: (document.getElementById("philosophySelect") || {}).value || "pressing",
     reputation: REPUTATION_START
   };
 
+  ensureClubProfiles(gameState);
+  ensureClubFormations(gameState);
+  // Individueller Startkader im System des Vereins.
+  const plan = buildSquadPlan(getClubFormation(gameState, clubName));
+  gameState.formation = plan.formation;
+  gameState.squad = withHomeNationality(getCountryConfig(startDivision.country || "de").nat, () => generateSquad(clubBase.strength, plan));
+  gameState.budget = getClubStartBudget(gameState, clubName, clubBase.strength);
   gameState.cup = createFreshCup(gameState);
   gameState.board = createFreshBoard(clubBase.strength, startDivision.nr);
   gameState.pool = createWorldPool(gameState);
@@ -102,6 +110,8 @@ function startCareer(){
   }
   ensureCoaches(gameState);
   startUefaSeasonForClub(gameState);
+  setupSideGoals(gameState);
+  addLogEntry(gameState, `📋 Kader: ${describeSquadPlan(plan)}.`);
   markSeasonStart(gameState);
   simulateAiTransfers(gameState);
 
@@ -128,11 +138,12 @@ function startCareer(){
       const opt = document.createElement("option");
       opt.value = c.name;
       opt.dataset.division = div.nr;
-      opt.textContent = `${c.name} (Stärke ${c.strength})`;
+      opt.textContent = `${getClubProfile(null, c.name).icon} ${c.name} (Stärke ${c.strength})`;
       gruppe.appendChild(opt);
     });
     sel.appendChild(gruppe);
   }));
+  updateClubProfileInfo();
 })();
 
 (function populateSquadFilterOptions(){

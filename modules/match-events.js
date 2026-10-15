@@ -17,7 +17,8 @@ function minuteShare(von, bis){
 function getStarterInjuryChance(gameState, faktor){
   const training = typeof getActiveTraining === "function" ? getActiveTraining().injury : 1;
   const medizin = typeof getMedicalInjuryFactor === "function" ? getMedicalInjuryFactor(gameState) : 1;
-  return INJURY_CHANCE_STARTER * (faktor != null ? faktor : 1) * training * medizin;
+  const stil = typeof getPhilosophy === "function" ? getPhilosophy(gameState).injury : 1;
+  return INJURY_CHANCE_STARTER * (faktor != null ? faktor : 1) * training * medizin * stil;
 }
 
 // Platzverweise beider Seiten und Verletzungen der eigenen Startelf.
@@ -35,7 +36,7 @@ function planMatchIncidents(gameState, xi, gegnerKader){
   const chance = getStarterInjuryChance(gameState);
   xi.forEach(p => {
     if(rot && rot.id === p.id) return;
-    if(Math.random() < chance){
+    if(Math.random() < chance * (typeof getTraitInjuryFactor === "function" ? getTraitInjuryFactor(p) : 1)){
       inc.push({ type: "injury", side: "own", minute: randInt(3, 88), playerId: p.id, player: p.name,
         duration: randInt(INJURY_MIN_DURATION, INJURY_MAX_DURATION) });
     }
@@ -91,9 +92,11 @@ function playersOnPitch(spieler, incidents, side, m){
 function assignGoalScorers(goals, xi, roster, incidents){
   goals.forEach(g => {
     const kader = g.side === "own" ? xi : roster;
-    const p = pickScorer(playersOnPitch(kader, incidents, g.side, g.minute).filter(x => x.pos !== "TW"));
+    const rollen = g.side === "own" && typeof gameState !== "undefined" ? gameState.roles : null;
+    const tor = pickGoalScorerWithType(playersOnPitch(kader, incidents, g.side, g.minute).filter(x => x.pos !== "TW"), rollen);
+    const p = tor.player;
     g.scorerId = p ? p.id : null;
-    g.scorer = p ? p.name : null;
+    g.scorer = p ? p.name + (tor.type ? ` (${tor.type})` : "") : null;
   });
   return goals;
 }
@@ -179,6 +182,7 @@ function recordGrades(squad, bewertung){
     if(!p) return;
     p.gradeSum = (p.gradeSum || 0) + g.grade;
     p.gradeCount = (p.gradeCount || 0) + 1;
+    if(typeof countCoachAppearance === "function") countCoachAppearance(p);
   });
   if(bewertung.motm){
     const p = squad.find(x => x.id === bewertung.motm.id);

@@ -77,6 +77,10 @@ function acceptJobOffer(clubName){
   syncOwnClubStrength(gameState);
   changeCareerClub(gameState, clubName);
   (gameState.loans || []).forEach(l => gameState.squad.push(l.player));
+  // Bilanz der Spieler beim alten Verein festhalten; die engsten Vertrauten
+  // wollen dem Trainer folgen.
+  if(typeof closeClubLegends === "function") closeClubLegends(gameState);
+  const folgerIds = typeof pickFollowers === "function" ? pickFollowers(gameState.squad).map(p => p.id) : [];
   if(gameState.pool && gameState.pool.players){
     (gameState.squad || []).forEach(p => {
       p.clubName = alterVerein;
@@ -90,16 +94,20 @@ function acceptJobOffer(clubName){
   gameState.clubName = clubName;
   gameState.division = division;
   gameState.clubStature = club.strength;
+  // Der neue Verein hat sein eigenes System und einen Kader mit Eigenheiten.
+  if(typeof ensureClubFormations === "function") ensureClubFormations(gameState);
+  const plan = buildSquadPlan(typeof getClubFormation === "function" ? getClubFormation(gameState, clubName) : DEFAULT_FORMATION);
   gameState.squad = takeCustomRosterOnJobChange(gameState, clubName, club.strength)
-    || withHomeNationality(getCountryConfig(getDivisionCountry(division)).nat, () => generateSquad(club.strength));
+    || withHomeNationality(getCountryConfig(getDivisionCountry(division)).nat, () => generateSquad(club.strength, plan));
   ensureSquadMorale(gameState.squad);
-  gameState.budget = Math.round(calculateStartingBudget(club.strength) * getDifficulty(gameState).budget / 50000) * 50000;
+  gameState.budget = Math.round(getClubStartBudget(gameState, clubName, club.strength) * getDifficulty(gameState).budget / 50000) * 50000;
   gameState.captainId = null;
   gameState.lineup = {};
-  gameState.formation = DEFAULT_FORMATION;
+  gameState.formation = plan.formation;
   gameState.tactic = DEFAULT_TACTIC;
   gameState.training = DEFAULT_TRAINING;
   gameState.board = createFreshBoard(club.strength, division);
+  const heimkehr = typeof applyHomecoming === "function" ? applyHomecoming(gameState, clubName) : null;
   gameState.youth = createFreshYouthTeam();
   gameState.youthSquad = [];
   gameState.pendingYouthCandidates = null;
@@ -127,12 +135,22 @@ function acceptJobOffer(clubName){
   gameState.shadowLeagues = createShadowLeagues(gameState);
   gameState.cup = createFreshCup(gameState);
   startUefaSeasonForClub(gameState);
+  setupSideGoals(gameState);
   gameState.marketRefreshedOnMatchday = -1;
   if(gameState.pool) advancePool(gameState);
+  const folger = typeof markFollowers === "function" ? markFollowers(gameState, folgerIds, clubName) : [];
 
   gameState.clubHistory = gameState.clubHistory || [];
   gameState.clubHistory.push({ club: clubName, seit: gameState.season });
 
+  addLogEntry(gameState, `📋 Kader: ${describeSquadPlan(plan)}.`);
+  if(heimkehr){
+    addLogEntry(gameState, `🏠 ${heimkehr.text} Vorstand ${heimkehr.delta >= 0 ? "+" : ""}${heimkehr.delta}.`, heimkehr.delta >= 0 ? "win" : "loss", true);
+    addNews(gameState, `${clubName}: ${heimkehr.text}`, "🏠");
+  }
+  if(folger.length){
+    addLogEntry(gameState, `🤝 ${folger.map(p => p.name).join(" und ")} ${folger.length === 1 ? "würde" : "würden"} dir von ${alterVerein} folgen. ${folger.length === 1 ? "Er steht" : "Sie stehen"} auf dem Transfermarkt, mit Nachlass.`, "win", true);
+  }
   addLogEntry(gameState,
     `\u{1F91D} Neuer Verein: ${clubName} (${getDivisionLabel(division)}). Saisonziel: ${gameState.board.goalLabel}.`,
     "win", true);
@@ -166,6 +184,7 @@ function processSquadTurnover(){
   const contracts = processContracts(gameState.squad);
   gameState.squad = contracts.remaining;
   contracts.leaving.forEach(p => {
+    if(typeof noteDeparture === "function") noteDeparture(gameState, p, "Vertragsende");
     addLogEntry(gameState, `📝 Vertragsende: ${p.name} (${p.pos}, Bewertung ${Math.round(p.strength)}) verlässt den Verein ablösefrei.`);
     // Der Spieler verschwindet nicht, sondern taucht wieder im Bestand auf.
     if(gameState.pool){
@@ -189,6 +208,7 @@ function processSquadTurnover(){
   gameState.squad = remaining;
 
   retired.forEach(p => {
+    if(typeof noteDeparture === "function") noteDeparture(gameState, p, "Karriereende");
     addLogEntry(gameState, `🏁 Karriereende: ${p.name} (${p.pos}, ${p.age} Jahre, Bewertung ${Math.round(p.strength)}) beendet seine Laufbahn.`);
     releasePlayerName(p.name);
   });
@@ -241,6 +261,9 @@ function finishSeason(){
   const totalTeams = gameState.teams.length;
   const bonus = calculateSeasonEndBonus(finalPosition, totalTeams, playedDivision);
 
+  // Nebenziele des Vorstands, bevor Kader und Alter sich aendern.
+  const nebenziele = typeof evaluateSideGoals === "function" ? evaluateSideGoals(gameState) : [];
+
   // Auszeichnungen vor dem Saisonwechsel (Tore und Entwicklung zaehlen noch).
   gameState.lastAwards = computeSeasonAwards(gameState);
   const tabelle = getSortedStandings(gameState.teams);
@@ -257,6 +280,7 @@ function finishSeason(){
   returnLoans(gameState).forEach(r => addLogEntry(gameState,
     `🔁 ${r.name} kehrt von ${r.club} zurück: Bewertung ${r.vorher} → ${r.nachher}.`, r.nachher > r.vorher ? "win" : null));
 
+  if(typeof updateLegendsAtSeasonEnd === "function") updateLegendsAtSeasonEnd(gameState);
   ageSquadOneYear(gameState.squad);
   processSquadTurnover();
   healAllInjuries(gameState.squad);
@@ -282,7 +306,13 @@ function finishSeason(){
   const promoRelResult = processPromotionRelegation(gameState);
 
   gameState.seasonEnded = true;
-  gameState.lastSeasonSummary = { finalPosition, totalTeams, bonus, season: gameState.season };
+  gameState.lastSeasonSummary = { finalPosition, totalTeams, bonus, season: gameState.season, sideGoals: nebenziele };
+  // Eigentuemerwechsel beim eigenen Verein (Investor steigt ein oder aus).
+  const eigentum = typeof rollOwnClubOwnership === "function" ? rollOwnClubOwnership(gameState) : null;
+  if(eigentum){
+    addLogEntry(gameState, `${eigentum.type === "einstieg" ? "💼" : "📉"} ${eigentum.text}`, eigentum.type === "einstieg" ? "win" : "loss", true);
+    addNews(gameState, eigentum.text, eigentum.type === "einstieg" ? "💼" : "📉");
+  }
   gameState.lastTopFour = sorted.slice(0, 4).map(t => t.name);
   gameState.lastSeasonWasDivision1 = isTopDivision(playedDivision);
   // Ehrentafel: Meister aller Ligen und alle Pokalsieger.
@@ -427,13 +457,13 @@ function logStrengthDrift(changes){
   if(!changes || changes.length === 0) return;
   const land = getOwnCountry(gameState);
   const texte = {
-    investor: n => `Investor steigt bei ${n} ein.`,
-    krise: n => `Sparkurs bei ${n}: Der Verein muss Leistungsträger abgeben.`,
-    umbruch: n => `Umbruch bei ${n}: Leistungsträger verlassen den Serienmeister.`
+    investor: (n, e) => e.profile ? `Investor steigt bei ${n} ein. Der Verein wird zum Investorenklub.` : `${n} investiert kräftig in den Kader.`,
+    krise: (n, e) => `Sparkurs bei ${n}: Der Verein muss Leistungsträger abgeben.${e.profile ? " Der Investor zieht sich zurück." : ""}`,
+    umbruch: (n) => `Umbruch bei ${n}: Leistungsträger verlassen den Serienmeister.`
   };
   const icons = { investor: "💰", krise: "📉", umbruch: "🔄" };
   (changes.events || []).filter(e => e.division && (isTopDivision(e.division) || getDivisionCountry(e.division) === land))
-    .forEach(e => addNews(gameState, texte[e.type](e.name), icons[e.type]));
+    .forEach(e => addNews(gameState, texte[e.type](e.name, e), icons[e.type]));
   const sorted = changes.filter(c => c.division && getDivisionCountry(c.division) === land).sort((a, b) => b.delta - a.delta);
   const fmt = c => `${c.name} ${c.delta > 0 ? "+" : ""}${c.delta.toFixed(1)} (jetzt ${c.after.toFixed(1)})`;
   const risers = sorted.filter(c => c.delta > 0.5).slice(0, 3);
@@ -465,6 +495,7 @@ function startNextSeason(){
     gameState.board ? gameState.board.patience : null);
 
   startUefaSeasonForClub(gameState);
+  setupSideGoals(gameState);
 
   resetYouthSeason(gameState);
   resetMoraleForNewSeason(gameState.squad);

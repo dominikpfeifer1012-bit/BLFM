@@ -27,7 +27,10 @@ function ensureCareer(gameState){
 function changeCareerClub(gameState, neuerVerein){
   const stationen = ensureCareer(gameState);
   const aktuell = stationen.find(s => s.to == null);
-  if(aktuell) aktuell.to = gameState.season;
+  if(aktuell){
+    aktuell.to = gameState.season;
+    if(gameState.board && gameState.board.dismissed) aktuell.dismissed = true;
+  }
   stationen.push({ club: neuerVerein, from: gameState.season + 1, to: null });
 }
 
@@ -131,5 +134,6 @@ function renderCareer(gameState){
         <td>${st.titelAnzahl
           ? `<a href="#" class="textLink" onclick="setHonoursFilter('club:${st.club.replace(/'/g, "\\'")}'); return false;">${st.titel.map(t => `${t.count}× ${t.label}`).join(", ")}</a>`
           : `<span class="muted">—</span>`}</td></tr>`).join("")}
-    </table></div>`;
+    </table></div>
+    ${typeof getLegends === "function" && getLegends(gameState).length ? `<p class="eyebrow" style="margin-top:14px;">Legenden</p>${renderLegendList(gameState, null, 10)}` : ""}`;
 }

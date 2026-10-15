@@ -246,6 +246,7 @@ tr.dim:hover td{ opacity:1; }
 @media (min-width:900px){ .uefaCols{ grid-template-columns:1fr 1fr; } }
 .duelLine{ margin:12px 0 0; padding-top:10px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-dim); }
 .confRow.own{ background:rgba(255,183,3,.14); }
+.profileTag{ cursor:help; }
 .textLink{ color:var(--gold); text-decoration:none; cursor:pointer; }
 .textLink:hover{ text-decoration:underline; }
 .honourGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:5px; }
@@ -414,7 +415,16 @@ tr.dim:hover td{ opacity:1; }
   <div class="field"><label for="managerName">Trainername</label>
     <input id="managerName" placeholder="Dein Name" value="Dominik Pfeifer"></div>
   <div class="field"><label for="clubSelect">Verein</label>
-    <select id="clubSelect"></select></div>
+    <select id="clubSelect" onchange="updateClubProfileInfo()"></select>
+    <p class="muted" id="clubProfileInfo" style="margin:6px 0 0; font-size:12.5px;"></p></div>
+  <div class="field"><label for="philosophySelect">Spielphilosophie</label>
+    <select id="philosophySelect">
+      <option value="ballbesitz">🎼 Ballbesitz</option>
+      <option value="pressing" selected>⚡ Gegenpressing</option>
+      <option value="konter">🏹 Konterfußball</option>
+      <option value="defensive">🧱 Defensivkunst</option>
+      <option value="jugend">🌱 Jugendförderung</option>
+    </select></div>
   <div class="field"><label for="difficultySelect">Schwierigkeit</label>
     <select id="difficultySelect">
       <option value="leicht">Leicht</option>
@@ -806,6 +816,10 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/uefa.js"></script>
 <script src="modules/jobs.js"></script>
 <script src="modules/career.js"></script>
+<script src="modules/identity.js"></script>
+<script src="modules/legends.js"></script>
+<script src="modules/traits.js"></script>
+<script src="modules/philosophy.js"></script>
 <script src="modules/ui-core.js"></script>
 <script src="modules/ui-header.js"></script>
 <script src="modules/ui-squad.js"></script>

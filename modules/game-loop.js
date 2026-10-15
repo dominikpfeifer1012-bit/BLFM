@@ -245,7 +245,8 @@ function runMatchdaySimulation(override){
 
   const revenueFactor = getOwnRevenueFactor();
   // Das Stadion hebt nur die Kommerzeinnahmen, nicht das Preisgeld.
-  const baseRevenue = Math.round(getMatchdayRevenue(revenueFactor) * getStadiumRevenueBonus(gameState));
+  const baseRevenue = Math.round(getMatchdayRevenue(revenueFactor) * getStadiumRevenueBonus(gameState)
+    * (typeof getOwnProfile === "function" ? getOwnProfile(gameState).revenue : 1));
   gameState.budget = addToBudget(gameState.budget, baseRevenue);
 
   result.events.forEach((evt, idx) => {
@@ -260,6 +261,7 @@ function runMatchdaySimulation(override){
     ownEvt = evt;
     ownBonus = bonus;
     updateMatchRecords(gameState, evt);
+    if(typeof applyDerbyResult === "function") applyDerbyResult(gameState, evt);
 
     if(evt.result === "win"){
       gameState.currentWinStreak = (gameState.currentWinStreak || 0) + 1;
@@ -399,6 +401,7 @@ function handleDebt(){
   const idx = gameState.squad.reduce((best, p, i, arr) => p.value > arr[best].value ? i : best, 0);
   const spieler = gameState.squad[idx];
   const erloes = getSellPrice(spieler);
+  if(typeof noteDeparture === "function") noteDeparture(gameState, spieler, "verkauft");
   gameState.squad.splice(idx, 1);
   pruneLineup(gameState);
   const club = findNewClubFor(gameState, spieler);

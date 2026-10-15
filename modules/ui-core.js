@@ -219,6 +219,9 @@ function renderSeasonSummary(gameState){
         <div class="stat"><div class="k">Endplatzierung</div><div class="v gold">${summary.finalPosition}</div><div class="sub">von ${summary.totalTeams}</div></div>
         <div class="stat"><div class="k">Saisonbonus</div><div class="v">${fmtMoney(summary.bonus)}</div></div>
       </div>
+      ${(summary.sideGoals || []).length ? `<p class="eyebrow">Nebenziele</p>
+        ${summary.sideGoals.map(z => `<p style="margin:2px 0;">${z.met ? "✅" : "❌"} ${z.label} <span class="muted">· ${z.stand}${z.reward ? ` · +${fmtMoney(z.reward)}` : ""}</span></p>`).join("")}
+        <div style="height:10px;"></div>` : ""}
       ${renderAwards(gameState.lastAwards)}
       ${renderSuccessOffers(gameState)}
       <button onclick="startNextSeason()">${(gameState.successOffers || []).length ? "Bleiben und nächste Saison starten" : "Nächste Saison starten"}</button>

@@ -31,7 +31,8 @@ function getJobChance(gameState, club){
   const vonVerein = saisons >= 1 && geduld >= JOB_STATURE_MIN_PATIENCE ? (eigene + JOB_STATURE_MARGIN - club.strength) * 4 : -Infinity;
   const vorsprung = Math.max(vonRuf, vonVerein);
   if(vorsprung < -JOB_HOPELESS_GAP) return 0;
-  return Math.max(0.1, Math.min(0.9, 0.45 + vorsprung / 40));
+  const passt = typeof philosophyFitsClub === "function" && philosophyFitsClub(gameState, club.name) ? PHILOSOPHY_FIT_JOB_BONUS : 0;
+  return Math.max(0.1, Math.min(0.9, 0.45 + vorsprung / 40 + passt));
 }
 
 function getJobList(gameState){
@@ -79,13 +80,13 @@ function getAcceptedJobOffers(gameState){
   if(!jm || jm.season !== gameState.season) return [];
   return getJobList(gameState).filter(c => c.status === "zusage").map(c => ({
     name: c.name, strength: c.strength, division: c.division,
-    goal: getSeasonGoal(c.strength, c.division), budget: calculateStartingBudget(c.strength)
+    goal: getSeasonGoal(c.strength, c.division), budget: getClubStartBudget(gameState, c.name, c.strength)
   }));
 }
 
 // ---------- Oberflaeche ----------
 
-let jobFilter = { country: "alle", onlyOpen: true };
+let jobFilter = { country: "alle", profile: "alle", onlyOpen: true };
 
 function setJobFilter(feld, wert){
   jobFilter[feld] = wert;
@@ -105,6 +106,7 @@ function renderJobMarket(gameState){
   const ruf = getReputation(gameState);
   const liste = getJobList(gameState)
     .filter(c => jobFilter.country === "alle" || c.country === jobFilter.country)
+    .filter(c => jobFilter.profile === "alle" || getClubProfileKey(gameState, c.name) === jobFilter.profile)
     .filter(c => !jobFilter.onlyOpen || c.open || c.status)
     .sort((a, b) => b.strength - a.strength);
   const zusagen = getJobList(gameState).filter(c => c.status === "zusage");
@@ -131,6 +133,10 @@ function renderJobMarket(gameState){
         <option value="alle"${jobFilter.country === "alle" ? " selected" : ""}>Alle Länder</option>
         ${COUNTRIES.map(c => `<option value="${c.key}"${jobFilter.country === c.key ? " selected" : ""}>${c.name}</option>`).join("")}
       </select>
+      <select onchange="setJobFilter('profile', this.value)">
+        <option value="alle"${jobFilter.profile === "alle" ? " selected" : ""}>Alle Profile</option>
+        ${CLUB_PROFILE_ORDER.map(k => `<option value="${k}"${jobFilter.profile === k ? " selected" : ""}>${CLUB_PROFILES[k].icon} ${CLUB_PROFILES[k].label}</option>`).join("")}
+      </select>
       <label class="muted" style="display:flex; gap:6px; align-items:center;">
         <input type="checkbox"${jobFilter.onlyOpen ? " checked" : ""} onchange="setJobFilter('onlyOpen', this.checked)"> Nur freie Stellen
       </label>
@@ -139,7 +145,7 @@ function renderJobMarket(gameState){
     <div class="tableWrap"><table id="jobTable">
       <tr><th>Verein</th><th class="n">Stärke</th><th class="n">Ruf</th><th class="hideMobile">Chance</th><th></th></tr>
       ${liste.map(c => `<tr>
-        <td><b>${c.name}</b><br><span class="muted" style="font-size:11px;">${getDivisionTag(c.division)}</span></td>
+        <td><b>${c.name}</b><br><span class="muted" style="font-size:11px;">${getDivisionTag(c.division)} · ${getProfileBadge(gameState, c.name, true)}</span></td>
         <td class="n">${Math.round(c.strength)}</td>
         <td class="n" style="color:${ruf >= c.requirement ? "var(--win)" : "var(--ink-dim)"};">${c.requirement}</td>
         <td class="muted hideMobile">${c.open && !c.status ? chanceText(c) : ""}</td>

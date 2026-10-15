@@ -79,14 +79,62 @@ function developSquad(squad, currentMatchday1Based, youthAppearances){
 
     const level = startingIds.has(player.id) ? "starter"
                 : youthIds.has(player.id) ? "youth" : "bench";
+    if(player.retrain){
+      const pos = player.retrain.pos;
+      if(advanceRetraining(player, level === "starter") && typeof addLogEntry === "function" && typeof gameState !== "undefined"){
+        addLogEntry(gameState, `🔄 Umschulung abgeschlossen: ${player.name} spielt jetzt auch ${pos}.`, "win");
+      }
+    }
     const moral = typeof getMoraleDevMultiplier === "function" ? getMoraleDevMultiplier(player) : 1;
-    const trainer = typeof getCoachingDevBonus === "function" ? getCoachingDevBonus(gameState) : 1;
+    const trainer = (typeof getCoachingDevBonus === "function" ? getCoachingDevBonus(gameState) : 1)
+      * (player.age <= 21 && typeof getOwnProfile === "function" ? getOwnProfile(gameState).youthDev : 1)
+      * (player.age <= 21 && typeof getPhilosophy === "function" ? getPhilosophy(gameState).youthDev : 1);
     const rate = getDevelopmentRate(player.age, level);
     // Bei Wachstum verstaerkt oder bremst die Moral; beim Abbau wirkt sie
     // umgekehrt. Der Trainerstab wirkt nur auf das Wachstum.
-    applyAttributeChange(player, rate >= 0 ? rate * moral * trainer : rate / Math.max(0.5, moral));
+    const eigenschaft = typeof getTraitDevFactor === "function" ? getTraitDevFactor(player, rate) : 1;
+    applyAttributeChange(player, (rate >= 0 ? rate * moral * trainer : rate / Math.max(0.5, moral)) * eigenschaft);
     refreshPlayerValue(player);
   });
+}
+
+// ---------- Umschulung ----------
+// Ein Spieler lernt ueber einige Spieltage eine weitere Position. Wie lange
+// das dauert, haengt vom Abstand der Positionen und vom Alter ab.
+
+function getRetrainMatchdays(player, pos){
+  const alter = RETRAIN_AGE_FACTORS.find(s => player.age <= s.maxAge) || RETRAIN_AGE_FACTORS[RETRAIN_AGE_FACTORS.length - 1];
+  return Math.round((RETRAIN_BASE_MATCHDAYS + getPositionPenalty(player.pos, pos)) / alter.factor);
+}
+
+function canRetrain(player, pos){
+  if(player.pos === "TW" || pos === "TW") return "Torhüter lassen sich nicht umschulen.";
+  if(pos === player.pos || (player.altPos || []).includes(pos)) return "Position bereits gelernt.";
+  if((player.altPos || []).length >= SECONDARY_POS_MAX) return `Höchstens ${SECONDARY_POS_MAX} Zweitpositionen.`;
+  if(!POSITION_ORDER.includes(pos)) return "Unbekannte Position.";
+  return null;
+}
+
+function startRetraining(player, pos){
+  const grund = canRetrain(player, pos);
+  if(grund) return { success: false, message: grund };
+  player.retrain = { pos, progress: 0 };
+  return { success: true, message: `${player.name} lernt ${pos} (etwa ${getRetrainMatchdays(player, pos)} Spieltage).` };
+}
+
+function cancelRetraining(player){
+  delete player.retrain;
+}
+
+// Pro Spieltag; gibt true zurueck, wenn die Umschulung abgeschlossen ist.
+function advanceRetraining(player, istStarter){
+  if(!player.retrain) return false;
+  const schritt = (1 / getRetrainMatchdays(player, player.retrain.pos)) * (istStarter ? RETRAIN_STARTER_BONUS : 1);
+  player.retrain.progress = Math.min(1, (player.retrain.progress || 0) + schritt);
+  if(player.retrain.progress < 1) return false;
+  player.altPos = (player.altPos || []).concat(player.retrain.pos);
+  delete player.retrain;
+  return true;
 }
 
 function ageSquadOneYear(squad){
@@ -159,17 +207,18 @@ function getRenewalTerms(gameState, player){
     return { refused: true, reason: `${player.name} beendet seine Karriere.` };
   }
   const stimmung = typeof getMorale === "function" ? getMorale(player) : MORALE_NEUTRAL;
-  if(stimmung < MORALE_UNHAPPY_THRESHOLD){
+  const treu = typeof hasTrait === "function" && hasTrait(player, "treu");
+  if(stimmung < MORALE_UNHAPPY_THRESHOLD - (treu ? 15 : 0)){
     return { refused: true, reason: `${player.name} lehnt ab (unzufrieden).` };
   }
-  if(typeof getTransferInterestLimit === "function" && player.strength > getTransferInterestLimit(gameState)){
+  if(!treu && typeof getTransferInterestLimit === "function" && player.strength > getTransferInterestLimit(gameState)){
     return { refused: true, reason: `${player.name} lehnt ab (will zu einem größeren Verein).` };
   }
 
   const team = teamRating(gameState.squad, gameState.matchday + 1);
   // Gehaltsforderung: Leistungstraeger und Unzufriedene wollen mehr.
   const aufschlag = Math.max(0, Math.min(CONTRACT_RAISE_MAX,
-    CONTRACT_RAISE_BASE + (player.strength - team) * 0.012 + (MORALE_NEUTRAL - stimmung) * 0.004));
+    CONTRACT_RAISE_BASE + (player.strength - team) * 0.012 + (MORALE_NEUTRAL - stimmung) * 0.004)) * (treu ? 0.5 : 1);
   const basisFaktor = player.salaryFactor || 1;
   // Aeltere Spieler bekommen hoechstens zwei Jahre angeboten.
   const maxJahre = player.age >= 31 ? 2 : 4;

@@ -248,6 +248,12 @@ function applyLoadedState(state){
     }
     ensureCareer(gameState);
     ensureHonourAttribution(gameState);
+    ensureClubProfiles(gameState);
+    if(typeof ensureClubFormations === "function") ensureClubFormations(gameState);
+    ensurePlayerTraits(gameState.squad);
+    ensurePlayerTraits(gameState.youthSquad);
+    if(gameState.pool) ensurePlayerTraits(gameState.pool.players);
+    if(gameState.board && !gameState.board.sideGoals) setupSideGoals(gameState);
     repairExClubStrengths(gameState);
     // Fehlende Parallelligen anlegen und auf den aktuellen Spieltag bringen.
     for(let nr = 1; nr <= gameState.leaguePools.length; nr++){
