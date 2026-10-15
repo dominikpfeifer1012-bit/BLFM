@@ -246,6 +246,9 @@ function applyLoadedState(state){
         drawTransferList(gameState.pool);
       }
     }
+    ensureCareer(gameState);
+    ensureHonourAttribution(gameState);
+    repairExClubStrengths(gameState);
     // Fehlende Parallelligen anlegen und auf den aktuellen Spieltag bringen.
     for(let nr = 1; nr <= gameState.leaguePools.length; nr++){
       if(nr === gameState.division || gameState.shadowLeagues[nr]) continue;

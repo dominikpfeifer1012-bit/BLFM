@@ -311,6 +311,11 @@ function renderBoardPanel(gameState){
       Platz ${position} · <span style="color:${aufKurs ? "var(--win)" : "var(--loss)"};">${aufKurs ? "im Soll" : "unter Soll"}</span>${next ? ` · Bewertung Spieltag ${next}` : ""}
     </p>
     <p class="muted" style="margin:6px 0 0;">🎓 Trainer-Ruf: <b>${Math.round(getReputation(gameState))}</b> (${getReputationLabel(getReputation(gameState))})</p>
+    ${typeof getCareerOverview === "function" ? (() => {
+      const st = getCareerOverview(gameState), titel = st.reduce((s, x) => s + x.titelAnzahl, 0);
+      return `<p class="muted" style="margin:4px 0 0;">Laufbahn: ${st.length} ${st.length === 1 ? "Station" : "Stationen"} · ${titel} Titel ·
+        <a href="#" class="textLink" onclick="showCareer(); return false;">ansehen</a></p>`;
+    })() : ""}
     ${verlauf}`;
 }
 

@@ -246,6 +246,8 @@ tr.dim:hover td{ opacity:1; }
 @media (min-width:900px){ .uefaCols{ grid-template-columns:1fr 1fr; } }
 .duelLine{ margin:12px 0 0; padding-top:10px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-dim); }
 .confRow.own{ background:rgba(255,183,3,.14); }
+.textLink{ color:var(--gold); text-decoration:none; cursor:pointer; }
+.textLink:hover{ text-decoration:underline; }
 .honourGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:5px; }
 .honourItem{ display:flex; flex-direction:column; gap:1px; padding:6px 9px; border-radius:var(--r-sm); background:var(--bg-deep); font-size:12.5px; }
 .honourItem.own{ background:rgba(255,183,3,.16); box-shadow:inset 3px 0 0 var(--gold); }
@@ -629,6 +631,10 @@ tr.dim:hover td{ opacity:1; }
         <div id="trendPanel"></div>
       </div>
       <div class="card" style="margin-top:16px;">
+        <div class="cardHead"><h3>Trainerlaufbahn</h3></div>
+        <div id="careerPanel"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
         <div class="cardHead"><h3>Ehrentafel</h3></div>
         <div id="honoursList"></div>
       </div>
@@ -799,6 +805,7 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/cup.js"></script>
 <script src="modules/uefa.js"></script>
 <script src="modules/jobs.js"></script>
+<script src="modules/career.js"></script>
 <script src="modules/ui-core.js"></script>
 <script src="modules/ui-header.js"></script>
 <script src="modules/ui-squad.js"></script>

@@ -791,8 +791,9 @@ function playBackgroundSupercups(gameState){
 function addHonour(gameState, key, label, winner){
   gameState.honours = gameState.honours || [];
   const vorhanden = gameState.honours.find(h => h.season === gameState.season && h.key === key);
-  if(vorhanden){ vorhanden.winner = winner; return; }
-  gameState.honours.push({ season: gameState.season, key, label, winner });
+  const mine = winner === gameState.clubName;
+  if(vorhanden){ vorhanden.winner = winner; vorhanden.mine = mine; return; }
+  gameState.honours.push({ season: gameState.season, key, label, winner, mine });
 }
 
 // Titel eines Vereins, gruppiert nach Wettbewerb.

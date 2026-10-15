@@ -434,13 +434,26 @@ const SEASON_END_BONUS_BASE = 4000000;
 const SEASON_END_BONUS_MIN_FACTOR = 0.15;
 
 // --- Entwicklung der KI-Vereine zwischen den Saisons ---
-// Jeder Verein hat ein festes Grundniveau (baseStrength). Die aktuelle
-// Staerke pendelt darum herum, kann sich aber nie dauerhaft davon loesen.
-const AI_DRIFT_REVERSION = 0.35;        // Ruecktrieb zum Grundniveau
-const AI_DRIFT_PERFORMANCE = 2.2;       // Einfluss der Vorsaison-Platzierung
-const AI_DRIFT_NOISE = 1.0;             // Zufallsanteil
-const AI_DRIFT_MAX_PER_SEASON = 3.0;    // Deckel pro Saison
-const AI_DRIFT_MAX_DEVIATION = 5.0;     // maximaler Abstand zum Grundniveau
+// Fundament, Momentum und seltene Ereignisse (league.js, applyClubStrengthDrift).
+// Grosse Vereine bleiben ueber den Zug zur historischen Staerke robuster,
+// koennen aber ueber mehrere schwache Jahre abrutschen.
+const CLUB_DEV_PER_RANK = 0.35;         // je Platz ueber/unter der Erwartung
+const CLUB_DEV_PERF_MAX = 3.0;
+const CLUB_DEV_REVERSION = 0.15;        // Zug zum Fundament
+const CLUB_DEV_BASE_FOLLOW = 0.25;      // Fundament folgt der Staerke
+const CLUB_DEV_ORIGIN_PULL = 0.05;      // schwacher Zug zur historischen Staerke
+const CLUB_DEV_TREND_DECAY = 0.6;       // Momentum klingt ab
+const CLUB_DEV_TREND_FROM_PERF = 0.3;
+const CLUB_DEV_NOISE = 1.0;
+const CLUB_DEV_MAX_PER_SEASON = 4.5;
+const CLUB_DEV_SPREAD_CORRECTION = 0.1; // Rueckfuehrung zur Rangverteilung des Landes pro Saison
+const CLUB_DEV_EVENT_CHANCE = 0.035;    // je Verein und Saison, fuer Investor und Krise
+const CLUB_DEV_EVENT_MIN = 1.5;
+const CLUB_DEV_EVENT_MAX = 3.0;
+const CLUB_DEV_DYNASTY_PER_TITLE = 0.12; // Umbruchrisiko je Titel in Folge (ab dem zweiten)
+const CLUB_DEV_DYNASTY_MAX = 0.5;
+const CLUB_DEV_DYNASTY_HIT_MIN = 2.0;
+const CLUB_DEV_DYNASTY_HIT_MAX = 3.5;
 const AI_DRIFT_PROMOTION_BOOST = 2.5;   // Aufsteiger investieren
 const AI_DRIFT_RELEGATION_HIT = -2.5;   // Absteiger verlieren Spieler
 const AI_STRENGTH_FLOOR = 42;
@@ -810,6 +823,9 @@ const BOARD_REWARD_MAX = 8000000;
 
 // --- Vereinswechsel nach Entlassung ---
 const JOB_OFFER_COUNT = 3;
+// Altstaende: Ex-Vereine bekommen die Staerke ihres Kaders zurueck, wenn
+// sie um mehr als diesen Wert darunter lagen.
+const EX_CLUB_REPAIR_MIN_GAP = 3;
 // Stellenmarkt: Anteil freier Trainerposten je Saison und noetiger Ruf
 // (Staerke 92 -> 80, 75 -> 46, 60 -> 16).
 const JOB_VACANCY_SHARE = 0.2;

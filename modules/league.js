@@ -80,15 +80,22 @@ function resolvePlayoff(teamA, teamB){
 }
 
 
-// Pendelt die Vereinsstaerke um ihr festes Grundniveau. Drei Grenzen
-// verhindern jede Inflation: Deckel pro Saison, maximaler Abstand zum
-// Grundniveau und ein absoluter Ober-/Unterwert.
-function applyClubStrengthDrift(clubs, standingsMap, movementMap){
+// Vereinsentwicklung zum Saisonende. Jeder Verein hat ein Fundament
+// (baseStrength), das der tatsaechlichen Staerke langsam folgt, und ein
+// Momentum (trend), das gute oder schlechte Phasen ueber mehrere Jahre
+// traegt. Dazu kommen seltene Ereignisse wie ein Investor oder eine
+// Finanzkrise. So entstehen ueber die Jahre neue Spitzenvereine und
+// Abstuerze, und jede Karriere verlaeuft anders.
+// Gegen Inflation und Verflachung wird die Staerkeverteilung je Land zu
+// ihrer Ausgangsform zurueckgefuehrt: die Ligen behalten ihr Niveau, nur
+// wer oben und unten steht, aendert sich.
+function applyClubStrengthDrift(clubs, standingsMap, movementMap, opts){
+  opts = opts || {};
+  const eigener = opts.ownClub || null;
   const changes = [];
+  const events = [];
 
   // Erwartete Platzierung = Rang nach Staerke innerhalb der gespielten Liga.
-  // Belohnt wird nur, wer diese Erwartung uebertrifft. Dadurch kann sich der
-  // staerkste Verein nicht immer weiter nach oben schrauben.
   const byDivision = new Map();
   clubs.forEach(club => {
     const entry = standingsMap.get(club.name);
@@ -103,35 +110,131 @@ function applyClubStrengthDrift(clubs, standingsMap, movementMap){
       .forEach((c, i) => expectedRank.set(c.name, i + 1));
   });
 
+  const vorher = new Map(clubs.map(c => [c.name, c.strength]));
+  const begrenzen = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
   clubs.forEach(club => {
+    if(club.name === eigener) return;   // folgt dem Kader des Spielers
     if(club.baseStrength == null) club.baseStrength = club.strength;
-    const before = club.strength;
+    if(club.origStrength == null) club.origStrength = club.baseStrength;
+    if(club.trend == null) club.trend = 0;
 
     const entry = standingsMap.get(club.name);
-    const perf = (entry && entry.total > 1)
-      ? (expectedRank.get(club.name) - entry.position) / (entry.total - 1)
-      : 0;
+    const raenge = entry ? expectedRank.get(club.name) - entry.position : 0;
+    const perf = begrenzen(raenge * CLUB_DEV_PER_RANK, -CLUB_DEV_PERF_MAX, CLUB_DEV_PERF_MAX);
 
-    let delta = AI_DRIFT_REVERSION * (club.baseStrength - club.strength)
-              + AI_DRIFT_PERFORMANCE * perf
-              + randFloat(-AI_DRIFT_NOISE, AI_DRIFT_NOISE);
+    // Serienmeister: mit jedem Titel in Folge steigt das Risiko eines
+    // Umbruchs (Leistungstraeger gehen, der Kader altert).
+    const meister = entry && entry.position === 1 && isTopDivision(entry.division);
+    club.titleStreak = meister ? (club.titleStreak || 0) + 1 : 0;
 
+    // Seltene Ereignisse geben einen Schub, der ueber Jahre nachwirkt.
+    let schub = 0;
+    const wurf = Math.random();
+    const umbruch = Math.min(CLUB_DEV_DYNASTY_MAX, CLUB_DEV_DYNASTY_PER_TITLE * Math.max(0, club.titleStreak - 1));
+    if(umbruch > 0 && Math.random() < umbruch){
+      schub = -randFloat(CLUB_DEV_DYNASTY_HIT_MIN, CLUB_DEV_DYNASTY_HIT_MAX);
+      club.titleStreak = 0;
+      events.push({ name: club.name, type: "umbruch", division: entry.division });
+    } else if(wurf < CLUB_DEV_EVENT_CHANCE){
+      schub = randFloat(CLUB_DEV_EVENT_MIN, CLUB_DEV_EVENT_MAX);
+      events.push({ name: club.name, type: "investor", division: entry ? entry.division : null });
+    } else if(wurf < 2 * CLUB_DEV_EVENT_CHANCE){
+      schub = -randFloat(CLUB_DEV_EVENT_MIN, CLUB_DEV_EVENT_MAX);
+      events.push({ name: club.name, type: "krise", division: entry ? entry.division : null });
+    }
+    club.trend = Math.round((club.trend * CLUB_DEV_TREND_DECAY + perf * CLUB_DEV_TREND_FROM_PERF + schub) * 100) / 100;
+
+    let delta = CLUB_DEV_REVERSION * (club.baseStrength - club.strength)
+              + perf + club.trend
+              + randFloat(-CLUB_DEV_NOISE, CLUB_DEV_NOISE);
     const movement = movementMap.get(club.name);
     if(movement === "promoted") delta += AI_DRIFT_PROMOTION_BOOST;
     else if(movement === "relegated") delta += AI_DRIFT_RELEGATION_HIT;
+    delta = begrenzen(delta, -CLUB_DEV_MAX_PER_SEASON, CLUB_DEV_MAX_PER_SEASON);
 
-    delta = Math.max(-AI_DRIFT_MAX_PER_SEASON, Math.min(AI_DRIFT_MAX_PER_SEASON, delta));
-
-    let next = club.strength + delta;
-    next = Math.max(club.baseStrength - AI_DRIFT_MAX_DEVIATION,
-                    Math.min(club.baseStrength + AI_DRIFT_MAX_DEVIATION, next));
-    next = Math.max(AI_STRENGTH_FLOOR, Math.min(AI_STRENGTH_CEILING, next));
-
+    const next = begrenzen(club.strength + delta, AI_STRENGTH_FLOOR, AI_STRENGTH_CEILING);
     club.strength = Math.round(next * 10) / 10;
-    changes.push({ name: club.name, before, after: club.strength, delta: club.strength - before });
+    club.baseStrength = Math.round((club.baseStrength
+      + CLUB_DEV_BASE_FOLLOW * (club.strength - club.baseStrength)
+      + CLUB_DEV_ORIGIN_PULL * (club.origStrength - club.baseStrength)) * 10) / 10;
   });
 
+  normalizeCountryStrengths(clubs, standingsMap, eigener);
+
+  clubs.forEach(club => {
+    if(club.name === eigener) return;
+    const before = vorher.get(club.name);
+    changes.push({ name: club.name, before, after: club.strength, delta: club.strength - before,
+      division: standingsMap.get(club.name) ? standingsMap.get(club.name).division : null });
+  });
+  changes.events = events;
   return changes;
+}
+
+// Der eigene Verein steht im Ligapool mit der Staerke seines Kaders. So
+// zeigen Ligenansicht und Stellenmarkt den echten Wert, und beim Abschied
+// behaelt der Verein, was der Trainer aufgebaut hat.
+function syncOwnClubStrength(gameState){
+  const club = findClubEverywhere(gameState, gameState.clubName);
+  if(!club || !(gameState.squad || []).length) return null;
+  const wert = Math.max(AI_STRENGTH_FLOOR, Math.min(AI_STRENGTH_CEILING, teamRating(gameState.squad, 1)));
+  club.strength = Math.round(wert * 10) / 10;
+  club.baseStrength = club.strength;
+  club.trend = 0;
+  return club;
+}
+
+// Staerkeverteilung je Land zu Karrierebeginn (auch mit importierten
+// Vereinsstaerken). Aeltere Staende halten sie beim ersten Saisonende fest.
+function ensureStrengthProfiles(gameState){
+  if(gameState.strengthProfiles) return gameState.strengthProfiles;
+  const profile = {};
+  COUNTRIES.forEach(land => {
+    profile[land.key] = getCountryDivisions(land.key)
+      .flatMap(d => getLeaguePool(gameState, d.nr).map(c => ({ name: c.name, strength: c.strength })));
+  });
+  gameState.strengthProfiles = profile;
+  return profile;
+}
+
+// Staerken eines Landes zum Start, absteigend sortiert.
+function getCountryStrengthProfile(country, ohne){
+  const gs = typeof gameState !== "undefined" ? gameState : null;
+  const gespeichert = gs && gs.strengthProfiles && gs.strengthProfiles[country];
+  const liste = gespeichert || getCountryDivisions(country).flatMap(d => d.clubs || []);
+  return liste.filter(c => c.name !== ohne).map(c => c.strength).sort((a, b) => b - a);
+}
+
+// Wert an Rangposition q (0 = Spitze, 1 = Ende) der Ausgangsverteilung.
+function profileValueAt(profil, q){
+  const x = q * (profil.length - 1);
+  const i = Math.floor(x), f = x - i;
+  return i + 1 < profil.length ? profil[i] * (1 - f) + profil[i + 1] * f : profil[profil.length - 1];
+}
+
+// Jeder Verein wird schrittweise zu dem Wert gezogen, den sein Rang im Land
+// zum Spielstart hatte. So gibt es immer einen Spitzenverein auf dem alten
+// Spitzenniveau, aber wer oben steht, wechselt.
+function normalizeCountryStrengths(clubs, standingsMap, eigener){
+  const jeLand = new Map();
+  clubs.forEach(c => {
+    const entry = standingsMap.get(c.name);
+    if(!entry || c.name === eigener) return;
+    const land = getDivisionCountry(entry.division);
+    if(!jeLand.has(land)) jeLand.set(land, []);
+    jeLand.get(land).push(c);
+  });
+  jeLand.forEach((liste, land) => {
+    const profil = getCountryStrengthProfile(land, eigener);
+    if(profil.length < 2 || liste.length < 2) return;
+    [...liste].sort((a, b) => b.strength - a.strength).forEach((c, i) => {
+      const ziel = profileValueAt(profil, i / (liste.length - 1));
+      const schritt = CLUB_DEV_SPREAD_CORRECTION * (ziel - c.strength);
+      c.strength = Math.round(Math.max(AI_STRENGTH_FLOOR, Math.min(AI_STRENGTH_CEILING, c.strength + schritt)) * 10) / 10;
+      if(c.baseStrength != null) c.baseStrength = Math.round((c.baseStrength + schritt) * 10) / 10;
+    });
+  });
 }
 
 // ============================================
@@ -308,6 +411,7 @@ function resolveSeam(seam, obenTab, untenTab){
 
 function processPromotionRelegation(gameState){
   ensureLeaguePools(gameState);
+  ensureStrengthProfiles(gameState);
   const playedDivision = gameState.division;
   const anzahl = gameState.leaguePools.length;
 
@@ -397,7 +501,8 @@ function processPromotionRelegation(gameState){
   });
 
   const driftChanges = applyClubStrengthDrift(
-    getAllLeagueClubs(gameState), standingsMap, movementMap);
+    getAllLeagueClubs(gameState), standingsMap, movementMap, { ownClub: gameState.clubName });
+  syncOwnClubStrength(gameState);
 
   // Die Nahtstelle der eigenen Liga fuer die Meldungen heraussuchen.
   const eigene = bewegungen.find(b => b.oben === playedDivision || b.unten === playedDivision)
