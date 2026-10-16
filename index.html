@@ -101,11 +101,22 @@ tr.rowLink{ cursor:pointer; }
 tr.rowLink:hover{ background:var(--panel-2); }
 .tableWrap{ overflow-x:auto; }
 
+/* ---- Sichere Bereiche (Uhr, Notch, Home-Leiste) ----
+   Die Anzeigegroesse (zoom) verkleinert auch diese Abstaende. Geteilt durch
+   die Groesse bleiben sie so gross wie das Geraet sie braucht, sonst rutscht
+   der Kopf bei 80 % unter die Uhr. */
+:root{
+  --safe-top-raw: env(safe-area-inset-top, 0px);
+  --safe-bottom-raw: env(safe-area-inset-bottom, 0px);
+  --safe-top: calc(var(--safe-top-raw) / var(--ui-scale, 1));
+  --safe-bottom: calc(var(--safe-bottom-raw) / var(--ui-scale, 1));
+}
+
 /* ---- Kopfbereich ---- */
 /* padding-top: Platz fuer Uhr und Notch, wenn das Spiel vom Startbildschirm laeuft */
 #stickyBar{ position:sticky; top:0; z-index:60; background:rgba(11,22,32,.94); backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
-  padding-top:env(safe-area-inset-top,0px); }
-#setup{ margin-top:calc(70px + env(safe-area-inset-top,0px)) !important; }
+  padding-top:var(--safe-top); }
+#setup{ margin-top:calc(70px + var(--safe-top)) !important; }
 .onlyMobile,.tabIcon,.tabShort{ display:none; }
 .btnIcon{ margin-right:6px; }
 .iconBtn.off{ opacity:.55; }
@@ -198,10 +209,13 @@ tr.dim:hover td{ opacity:1; }
 
 /* ---- Modale ---- */
 .modalOverlay{ position:fixed; inset:0; background:rgba(4,10,16,.72); backdrop-filter:blur(3px);
-  display:none; align-items:center; justify-content:center; z-index:1000; padding:16px; }
+  display:none; align-items:center; justify-content:center; z-index:1000; padding:16px;
+  padding-top:calc(16px + var(--safe-top)); padding-bottom:calc(16px + var(--safe-bottom)); }
 .modalOverlay.show{ display:flex; }
 .modalBox{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
-  padding:22px; max-width:480px; width:100%; position:relative; max-height:88vh; overflow-y:auto; }
+  padding:22px; max-width:480px; width:100%; position:relative; overflow-y:auto;
+  /* nie hoeher als der freie Raum zwischen Uhr und Home-Leiste */
+  max-height:min(88vh, 100%); }
 .modalBox.wide{ max-width:560px; }
 .modalClose{ position:absolute; top:14px; right:16px; cursor:pointer; font-weight:700; color:var(--ink-faint); font-size:18px; line-height:1; }
 .modalClose:hover{ color:var(--loss); }
@@ -372,7 +386,7 @@ tr.dim:hover td{ opacity:1; }
   .posIcon{ display:none; }
   td.status{ white-space:nowrap; }
   .toast{ font-size:12px; padding:8px 11px; }
-  .modalOverlay{ padding:10px; }
+  .modalOverlay{ padding:10px; padding-top:calc(10px + var(--safe-top)); padding-bottom:calc(10px + var(--safe-bottom)); }
   /* Unten statt oben, damit Meldungen die Spielknoepfe nicht verdecken */
   .toastContainer{ left:12px; right:12px; top:auto; bottom:12px; max-width:none; }
   .crest{ width:36px; height:36px; }
@@ -403,7 +417,7 @@ tr.dim:hover td{ opacity:1; }
   .iconBtn{ width:42px; flex:none; padding:7px 0 !important; font-size:17px; letter-spacing:0; }
   .iconBtn .btnLabel{ display:none; } .iconBtn .btnIcon{ margin:0; }
   #tabBar{ position:fixed; left:0; right:0; bottom:0; z-index:70; background:var(--bg-deep); border-top:1px solid var(--line);
-    padding:0 0 env(safe-area-inset-bottom,0px); gap:0; overflow:visible; }
+    padding:0 0 var(--safe-bottom); gap:0; overflow:visible; }
   .tabBtn{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:7px 0 6px;
     border-bottom:none; border-top:2px solid transparent; font-size:10px; letter-spacing:.03em; }
   .tabBtn.active{ border-top-color:var(--gold); border-bottom-color:transparent; }
@@ -412,8 +426,8 @@ tr.dim:hover td{ opacity:1; }
   .tabDot{ position:absolute; margin:0 0 0 14px; }
   .tabPanel{ padding-top:12px; }
   #squadTable td,#squadTable th{ padding:6px 5px; }
-  body{ padding-bottom:calc(76px + env(safe-area-inset-bottom,0px)); }
-  .toastContainer{ bottom:calc(68px + env(safe-area-inset-bottom,0px)) !important; }
+  body{ padding-bottom:calc(76px + var(--safe-bottom)); }
+  .toastContainer{ bottom:calc(68px + var(--safe-bottom)) !important; }
 }
 @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
 </style>
