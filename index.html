@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bundesliga Karrieremodus</title>
+<script>
+// Anzeigegroesse je Geraet (wie der Browser-Zoom), vor dem ersten Zeichnen.
+// Standard 80 %: kompakter, mehr auf einen Blick.
+(function(){
+  var s = 0.8;
+  try { var g = parseFloat(localStorage.getItem("bl_ui_scale")); if(g >= 0.6 && g <= 1.3) s = g; } catch(e){}
+  document.documentElement.style.setProperty("--ui-scale", s);
+  document.documentElement.style.zoom = s;
+})();
+</script>
 
 <!-- Damit sich die Seite auf dem Handy zum Startbildschirm hinzufuegen laesst
      und dann ohne Browserleiste startet. -->
@@ -36,7 +46,10 @@
 html{ min-height:100%; background:var(--bg); }
 body{ min-height:100vh; min-height:100dvh; }
 body{ font-family:var(--body); background:var(--bg); color:var(--ink); margin:0; padding:0 0 48px; font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased; }
-.wrap{ max-width:1240px; margin:0 auto; padding:0 18px; }
+/* Bei kleinerer Anzeige bleibt die sichtbare Breite gleich: mehr Inhalt statt leerer Raender. */
+.wrap{ max-width:calc(1240px / var(--ui-scale, 1)); margin:0 auto; padding:0 18px; }
+.scaleRow{ display:flex; gap:6px; flex-wrap:wrap; }
+.scaleRow button.on{ border-color:var(--gold); color:var(--gold); }
 
 h1,h2,h3,h4{ font-family:var(--display); text-transform:uppercase; letter-spacing:.045em; margin:0; font-weight:700; }
 h1{ font-size:30px; } h2{ font-size:23px; } h3{ font-size:17px; } h4{ font-size:14px; color:var(--ink-dim); }
@@ -59,7 +72,7 @@ input:focus,select:focus{ border-color:var(--gold); outline:none; }
 
 .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:18px; }
 .cardHead{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px; }
-.grid{ display:grid; gap:16px; }
+.grid{ display:grid; gap:16px; align-content:start; }  /* Spalten nicht auf die Nachbarhoehe strecken */
 .g2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 .g3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
 .g23{ grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
@@ -425,6 +438,8 @@ tr.dim:hover td{ opacity:1; }
       <option value="defensive">🧱 Defensivkunst</option>
       <option value="jugend">🌱 Jugendförderung</option>
     </select></div>
+  <div class="field"><label>Anzeigegröße auf diesem Gerät</label>
+    <div class="scaleRow" id="uiScaleRowSetup"></div></div>
   <div class="field"><label for="difficultySelect">Schwierigkeit</label>
     <select id="difficultySelect">
       <option value="leicht">Leicht</option>
@@ -461,7 +476,7 @@ tr.dim:hover td{ opacity:1; }
       <button id="simulateBtn" onclick="handleSimulateMatchday()">Spieltag simulieren</button>
       <button class="ghost iconBtn" id="fastForwardBtn" onclick="openFastForward()" title="Mehrere Spieltage am Stück" aria-label="Vorspulen"><span class="btnIcon">⏭</span><span class="btnLabel">Vorspulen</span></button>
       <button class="ghost hideMobile" onclick="openTransferMarket()">Transfermarkt</button>
-      <button class="ghost iconBtn" onclick="openSaveModal()" title="Spielstände" aria-label="Spielstände"><span class="btnIcon">💾</span><span class="btnLabel">Spielstände</span></button>
+      <button class="ghost iconBtn" onclick="openSaveModal()" title="Spielstände und Anzeige" aria-label="Spielstände und Anzeige"><span class="btnIcon">💾</span><span class="btnLabel">Spielstände</span></button>
       <button class="ghost iconBtn" id="liveToggleBtn" onclick="toggleLiveMatches()" title="Live-Spiele an/aus">Live: an</button>
       <button class="ghost iconBtn" id="pressToggleBtn" onclick="togglePressConferences()" title="Pressekonferenzen an/aus">Presse: an</button>
       <span id="transferWindowBadge" class="windowBadge"></span>
@@ -767,6 +782,8 @@ tr.dim:hover td{ opacity:1; }
     <p class="eyebrow">Spielstände</p>
     <h3 style="margin:4px 0 14px;">Speicherplätze</h3>
     <div id="saveSlotList"></div>
+    <p class="eyebrow" style="margin-top:18px;">Anzeigegröße auf diesem Gerät</p>
+    <div class="scaleRow" id="uiScaleRow"></div>
     <p class="eyebrow" style="margin-top:18px;">Datei</p>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <button class="ghost" onclick="handleExportSave()">Als Datei exportieren</button>

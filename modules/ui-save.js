@@ -4,7 +4,33 @@
 // Teil der aufgeteilten Oberflaeche. Alle Funktionen bleiben global,
 // damit die Ladereihenfolge unkritisch bleibt.
 
+// ---------- Anzeigegroesse ----------
+// Wirkt wie der Browser-Zoom, wird je Geraet gespeichert.
+const UI_SCALES = [0.7, 0.8, 0.9, 1, 1.1];
+
+function getUiScale(){
+  const s = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ui-scale"));
+  return s > 0 ? s : 1;
+}
+
+function setUiScale(s){
+  document.documentElement.style.setProperty("--ui-scale", s);
+  document.documentElement.style.zoom = s;
+  try { localStorage.setItem("bl_ui_scale", String(s)); } catch(e){}
+  renderUiScaleControls();
+}
+
+function renderUiScaleControls(){
+  const aktuell = getUiScale();
+  ["uiScaleRow", "uiScaleRowSetup"].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.innerHTML = UI_SCALES.map(s => `<button type="button" class="ghost${Math.abs(s - aktuell) < 0.01 ? " on" : ""}" onclick="setUiScale(${s})">${Math.round(s * 100)} %</button>`).join("");
+  });
+}
+
 function openSaveModal(){
+  renderUiScaleControls();
   renderSaveSlots();
   document.getElementById("saveOverlay").classList.add("show");
 }
@@ -49,3 +75,6 @@ function renderSaveSlots(){
     </div>`;
   }).join("");
 }
+
+// Startbildschirm: Auswahl der Anzeigegroesse sofort zeigen.
+if(typeof document !== "undefined") renderUiScaleControls();
