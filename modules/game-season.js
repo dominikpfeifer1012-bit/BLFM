@@ -112,8 +112,9 @@ function acceptJobOffer(clubName){
   gameState.youthSquad = [];
   gameState.pendingYouthCandidates = null;
   if(typeof closeYouthIntakeModal === "function") closeYouthIntakeModal();
-  // Anlagen gehoeren dem Verein, nicht dem Trainer.
+  // Anlagen und Akademie gehoeren dem Verein, nicht dem Trainer.
   if(typeof createFreshFacilities === "function") gameState.facilities = createFreshFacilities();
+  if(typeof resetAcademyForClub === "function"){ resetAcademyForClub(gameState); createStartingYouthSquad(gameState); }
   gameState.incomingOffers = [];
   gameState.loans = [];
   gameState.currentWinStreak = 0;
@@ -135,6 +136,7 @@ function acceptJobOffer(clubName){
   gameState.shadowLeagues = createShadowLeagues(gameState);
   gameState.cup = createFreshCup(gameState);
   startUefaSeasonForClub(gameState);
+  if(typeof createYouthCompetitions === "function") createYouthCompetitions(gameState);
   setupSideGoals(gameState);
   gameState.marketRefreshedOnMatchday = -1;
   if(gameState.pool) advancePool(gameState);
@@ -281,6 +283,8 @@ function finishSeason(){
     `🔁 ${r.name} kehrt von ${r.club} zurück: Bewertung ${r.vorher} → ${r.nachher}.`, r.nachher > r.vorher ? "win" : null));
 
   if(typeof updateLegendsAtSeasonEnd === "function") updateLegendsAtSeasonEnd(gameState);
+  // Akademie: Jugendtitel, Durchbruch/Stagnation, Perspektive, Ruf, Scouting.
+  if(typeof runAcademySeasonEnd === "function") runAcademySeasonEnd(gameState);
   ageSquadOneYear(gameState.squad);
   processSquadTurnover();
   healAllInjuries(gameState.squad);

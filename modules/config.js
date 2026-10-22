@@ -572,8 +572,6 @@ const YOUTH_GAIN_MIN = 5;           // Luft nach oben bis zum Potenzial
 const YOUTH_GAIN_MAX = 18;
 const YOUTH_TALENT_CHANCE = 0.1;    // Chance auf ein Ausnahmetalent
 const YOUTH_TALENT_BONUS = 8;       // zusaetzliches Potenzial eines Ausnahmetalents
-const YOUTH_FACILITY_STRENGTH = 0.6; // je Ausbaustufe der Jugendarbeit
-const YOUTH_FACILITY_POTENTIAL = 0.5;
 const YOUTH_STAR_ACHIEVEMENT_RATING = 85;
 
 const LOG_MAX_ENTRIES = 300;
@@ -1039,10 +1037,9 @@ const AI_TACTIC_FAVOURITE_GAP = 6;
 // Die Jugend ist ein eigener Bereich neben dem Profikader. Sie zaehlt nicht
 // zur Kadergroesse und nicht zur Teambewertung, kostet aber Gehalt. Dadurch
 // haengt der Nachwuchs nicht mehr davon ab, ob im Profikader Platz ist.
-const YOUTH_SQUAD_MAX_SIZE = 16;
+// Plaetze und Zahl der Vorschlaege haengen an der Akademie (academy.js).
 const YOUTH_SQUAD_MAX_AGE = 21;          // danach: hochziehen oder verlieren
-const YOUTH_INTAKE_CANDIDATES = 7;       // Vorschlaege am Saisonende
-const YOUTH_INTAKE_MAX_PICK = 4;         // davon aufnehmbar
+const YOUTH_INTAKE_MAX_PICK = 4;         // aufnehmbar aus dem Jahrgang
 const YOUTH_CANDIDATE_AGE_MIN = 16;
 const YOUTH_CANDIDATE_AGE_MAX = 18;
 // Jugendspieler kosten weniger als ein Profi gleichen Alters.
@@ -1075,25 +1072,15 @@ const FACILITIES = {
     wirkung: stufe => `Entwicklung +${stufe * 5}%`,
     perLevel: 0.05
   },
-  youth: {
-    label: "Jugendarbeit",
-    icon: "🌱",
-    wirkung: stufe => `Talente +${Math.round(stufe * YOUTH_FACILITY_STRENGTH)} Bewertung, +${Math.round(stufe * (YOUTH_FACILITY_STRENGTH + YOUTH_FACILITY_POTENTIAL))} Potenzial`,
-    perLevel: 1
-  },
   medical: {
     label: "Medizin",
     icon: "🩺",
     wirkung: stufe => `Verletzungsrisiko −${stufe * 8}%`,
     perLevel: 0.08
-  },
-  scouting: {
-    label: "Scouting",
-    icon: "🔍",
-    wirkung: stufe => `Scouting-Funde +${stufe * 25}%, mehr Spieler am Markt`,
-    perLevel: 0.25
   }
 };
+// Jugendarbeit und Scouting liegen jetzt in der Akademie (academy.js,
+// scouting.js) und haben dort eigene Stufen, Personal und Kosten.
 
 // ============================================
 // Ligen
@@ -1236,3 +1223,141 @@ const DIVISIONS = [
     clubs: LIGUE2_CLUBS, revenueFactor: 0.35, staturePenalty: 8,
     goals: buildLowerDivisionGoals(18, 2, "Aufstiegs-Play-offs", 5, 15), europe: false }
 ];
+
+
+// ============================================
+// Akademie: Infrastruktur, Jugendtrainer, Ruf
+// ============================================
+// Drei Teile statt eines Pauschalbonus. Infrastruktur kostet einmalig und
+// laufend, Jugendtrainer sind Personal mit Gehalt, der Ruf laesst sich nicht
+// kaufen: er waechst, wenn Eigengewaechse es schaffen und Titel kommen.
+const ACADEMY_LEVELS = 5;
+const ACADEMY_INFRA_COSTS = [2000000, 3500000, 5500000, 8000000, 11500000];
+const ACADEMY_COACH_COSTS = [400000, 800000, 1300000, 2000000, 3000000];   // Verpflichtung
+const ACADEMY_COACH_UPKEEP = 9000;        // je Stufe und Spieltag (skaliert wie Anlagen)
+const ACADEMY_SQUAD_BASE = 12;            // Plaetze im Jugendkader
+const ACADEMY_SQUAD_PER_INFRA = 2;
+const ACADEMY_INTAKE_BASE = 5;            // Vorschlaege am Saisonende
+const ACADEMY_DEV_PER_INFRA = 0.02;       // Entwicklung der Jugend je Stufe
+const ACADEMY_DEV_PER_COACH = 0.03;
+// Talente aus dem eigenen Jahrgang: Aufschlag auf Bewertung und Potenzial.
+const ACADEMY_STRENGTH_PER_INFRA = 0.2;
+const ACADEMY_STRENGTH_PER_COACH = 0.2;
+const ACADEMY_STRENGTH_FROM_REP = 0.8;    // bei Ruf 100
+const ACADEMY_POTENTIAL_PER_INFRA = 0.1;
+const ACADEMY_POTENTIAL_PER_COACH = 0.2;
+const ACADEMY_POTENTIAL_FROM_REP = 0.8;   // bei Ruf 100
+// Ruf: Ausgangswert nach Vereinsgroesse, Entwicklung zum Saisonende.
+const ACADEMY_REP_DECAY = 0.15;           // Anteil Richtung Grundwert je Saison
+const ACADEMY_REP_PER_PRODUCT = 2;        // je Eigengewaechs mit Profieinsaetzen (hoechstens 4)
+const ACADEMY_REP_PRODUCT_APPS = 10;
+const ACADEMY_REP_U19_TITLE = 4;
+const ACADEMY_REP_YOUTH_LEAGUE_TITLE = 6;
+const ACADEMY_REP_SALE = 2;               // Eigengewaechs fuer viel Geld verkauft
+const ACADEMY_REP_SALE_MIN = 5000000;
+// Schaetzung des Potenzials eigener Talente: Breite der Spanne.
+const ACADEMY_EST_BASE = 12;
+const ACADEMY_EST_PER_COACH = 2;
+const ACADEMY_EST_MIN = 2;
+const ACADEMY_EST_MATCHDAYS_PER_POINT = 17;   // je halbe Saison im Verein ein Punkt enger
+const ACADEMY_EST_EXACT_AGE = 22;             // ab hier kennt man den Spieler
+
+// ============================================
+// Scouting: Personal, Regionen, Berichte
+// ============================================
+const SCOUT_MAX = 3;
+const SCOUT_MARKET_SIZE = 4;
+const SCOUT_SALARY = [0, 90000, 160000, 260000, 400000, 600000];   // je Saison, nach Sternen (skaliert)
+const SCOUT_FIND_CHANCE = 0.12;            // je Spieltag bei mittlerer Qualitaet
+const SCOUT_FOCUS = {
+  talente: { label: "Talente (15–17)", icon: "🌱" },
+  jung:    { label: "Junge Profis (bis 23)", icon: "📈" },
+  alle:    { label: "Alle Profis", icon: "👟" }
+};
+const SCOUT_LINES = { alle: "alle Positionen", TW: "Torwart", ABW: "Abwehr", MIT: "Mittelfeld", STU: "Angriff" };
+// Regionen: Herkunftslaender, Talentdichte, Qualitaet, Preisniveau, Eingewoehnung.
+const SCOUT_REGIONS = {
+  dach:        { label: "Deutschland & Alpen",       flag: "🇩🇪", nats: ["DE", "AT", "CH"],             density: 1.1, quality: 0,   cost: 1.0, far: false },
+  benelux:     { label: "Frankreich & Benelux",      flag: "🇫🇷", nats: ["FR", "BE", "NL"],             density: 1.1, quality: 1,   cost: 1.1, far: false },
+  iberia:      { label: "Spanien & Portugal",        flag: "🇪🇸", nats: ["ES", "PT"],                   density: 0.9, quality: 1.5, cost: 1.2, far: false },
+  italien:     { label: "Italien & Balkan",          flag: "🇮🇹", nats: ["IT", "HR", "RS"],             density: 0.9, quality: 1,   cost: 1.0, far: false },
+  britannien:  { label: "England & USA",             flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", nats: ["GB", "US"],                   density: 0.9, quality: 0.5, cost: 1.4, far: false },
+  nordost:     { label: "Skandinavien & Osteuropa",  flag: "🇩🇰", nats: ["DK", "SE", "NO", "PL", "CZ", "TR"], density: 1.0, quality: 0, cost: 0.7, far: false },
+  suedamerika: { label: "Südamerika",                flag: "🇧🇷", nats: ["BR", "AR"],                   density: 1.0, quality: 2.5, cost: 0.6, far: true },
+  afrika:      { label: "Afrika",                    flag: "🌍", nats: ["SN", "NG", "GH", "CI", "MA"], density: 1.1, quality: 1.5, cost: 0.4, far: true },
+  asien:       { label: "Asien",                     flag: "🇯🇵", nats: ["JP", "KR"],                   density: 0.6, quality: 0.5, cost: 0.6, far: true }
+};
+// Berichte: Breite der Potenzialspanne nach Scout-Qualitaet (Sterne 1–5).
+const SCOUT_REPORT_WIDTH = [0, 16, 14, 12, 10, 8];
+const SCOUT_REPORT_MIN_WIDTH = [0, 7, 5, 4, 3, 2];
+const SCOUT_REPORT_NARROW = 0.25;          // je Stern und beobachtetem Spieltag
+const SCOUT_MISJUDGE = [0, 0.25, 0.18, 0.12, 0.07, 0.03];   // Scout liegt daneben
+const SCOUT_MISJUDGE_MIN = 2;              // so weit liegt die Spanne dann daneben
+const SCOUT_MISJUDGE_MAX = 5;
+const SCOUT_MAX_REPORTS = 24;
+const SCOUT_RANGE_PER_STAR = 2;            // Regionskenntnis macht Marktschaetzungen enger
+const SCOUT_NETWORK_BONUS = 0.4;           // mehr Scouting-Funde am Markt je 5 Sterne
+// Gefundene Talente (15–17)
+const PROSPECT_MAX = 12;
+const PROSPECT_TTL = 15;                   // Spieltage, dann ist das Interesse weg
+const PROSPECT_STEAL_BASE = 0.02;          // je Spieltag, steigt mit dem Potenzial
+const PROSPECT_STEAL_PER_POINT = 0.004;    // je Potenzialpunkt ueber 70
+const PROSPECT_BASE_STRENGTH = 50;
+const PROSPECT_GAIN_MIN = 8;
+const PROSPECT_GAIN_MAX = 20;
+const TRIAL_MATCHDAYS = 2;
+const TRIAL_MAX = 3;
+const TRIAL_COST = 25000;                  // Reise und Unterkunft, mal Regionsfaktor
+const TRIAL_FAR_COST = 40000;
+const TRIAL_WIDTH_FACTOR = 0.35;           // Spanne nach dem Probetraining
+const TRAINING_COMP_BASE = 120000;         // Entschaedigung je Jahr, wenn ein eigenes Talent geht
+const PROSPECT_FEE_BASE = 50000;           // je Ausbildungsjahr beim abgebenden Verein
+const PROSPECT_CLUB_FACTOR = 0.15;         // Talentniveau der Funde nach eigener Vereinsstaerke
+const YOUTH_TEAM_PRO_MAX_AGE = 19;         // junge Profis spielen nur bis zu diesem Alter in der Jugend
+const PROSPECT_ADAPT_MORALE = 10;          // Eingewoehnung aus fernen Regionen
+const PROSPECT_ADAPT_DEV = 0.85;
+
+// ============================================
+// Entwicklung mit Risiko, Mentoren, Bindung
+// ============================================
+const DEV_RISK_MAX_AGE = 21;
+const DEV_BREAKTHROUGH_BASE = 0.06;
+const DEV_STAGNATION_BASE = 0.09;
+const DEV_EVENT_PRACTICE_APPS = 20;        // viel Spielpraxis (Profi + 0,6 × Jugend)
+const DEV_EVENT_LOW_PRACTICE = 8;
+const DEV_BREAKTHROUGH_MIN = 3;
+const DEV_BREAKTHROUGH_MAX = 7;
+const DEV_STAGNATION_MIN = 3;
+const DEV_STAGNATION_MAX = 6;
+const DEV_SPEED_MIN = 0.8;                 // persoenliches Entwicklungstempo junger Spieler
+const DEV_SPEED_MAX = 1.2;
+const MENTOR_MIN_AGE = 27;
+const MENTOR_MIN_GAP = 5;                  // Mentor mindestens so viel staerker
+const MENTOR_DEV = 1.15;
+const MENTOR_DEV_LEADER = 1.25;
+const MENTOR_BREAKTHROUGH = 0.04;
+const PERSPECTIVE_MIN_AGE = 19;           // und mindestens ein Jahr in der Akademie
+const PERSPECTIVE_BELOW_TEAM = 6;          // Potenzial ab Teamstaerke minus ... will Profi werden
+const PERSPECTIVE_LEAVE_CHANCE = 0.35;
+const PERSPECTIVE_WARN_SHARE = 0.65;       // Warnung nach diesem Anteil der Saison
+const POACH_CHANCE = 0.3;                  // je Spieltag im Fenster: Abwerbeversuch fuer ein Toptalent
+const POACH_MIN_POTENTIAL = 78;
+const POACH_FEE_MIN = 1.2;
+const POACH_FEE_MAX = 1.8;
+
+// ============================================
+// Jugendwettbewerbe und KI-Akademien
+// ============================================
+const YOUTH_LEAGUE_MAX_TEAMS = 16;
+// Erste Liga / darunter
+const YOUTH_LEAGUE_NAMES = {
+  de: ["U19-Bundesliga", "U19-Regionalliga"], en: ["U18 Premier League", "U18 Development League"],
+  es: ["División de Honor", "Liga Nacional Juvenil"], it: ["Primavera 1", "Primavera 2"], fr: ["Championnat U19", "Championnat U19 B"]
+};
+const YOUTH_LEAGUE_PRIZE = 250000;         // Meister, mal Finanzskala
+const YOUTH_CUP_NAME = "UEFA Youth League";
+const YOUTH_CUP_ROUNDS = ["Achtelfinale", "Viertelfinale", "Halbfinale", "Finale"];
+const YOUTH_CUP_MATCHDAYS = [9, 16, 24, 31];   // auf 34 Spieltage bezogen
+const YOUTH_CUP_PRIZE = 1000000;
+const AI_ACADEMY_BONUS = { ausbildung: 3, gross: 1.5, investor: 0.5, tradition: 0.5, kult: 0.5, solide: 0.5 };
+const AI_HOMEGROWN_SHARE = 0.85;           // Neuzugaenge aus dem Land des Vereins: so viele aus der eigenen Akademie

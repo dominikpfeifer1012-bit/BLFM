@@ -306,6 +306,10 @@ tr.dim:hover td{ opacity:1; }
 .offerText{ flex:1 1 260px; min-width:0; }
 .offerButtons{ display:flex; gap:6px; flex-wrap:wrap; }
 .offerButtons button{ padding:6px 10px; font-size:12px; }
+.scoutOrders{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.scoutOrders select{ font-size:12px; padding:4px 6px; max-width:100%; }
+.stars{ color:var(--gold); letter-spacing:1px; font-size:12px; white-space:nowrap; }
+tr.me td{ background:rgba(255,183,3,.12); color:var(--gold); }
 .renewBox{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
 .renewOptions{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .renewOptions button{ display:flex; flex-direction:column; align-items:flex-start; padding:7px 10px; font-size:12px; text-transform:none; letter-spacing:0; }
@@ -584,17 +588,46 @@ tr.dim:hover td{ opacity:1; }
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Jugendkader</h3></div>
-        <div id="youthSquadPanel"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="cardHead"><h3>Jugendmannschaft</h3></div>
-        <div id="youthPanel"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
         <div class="cardHead"><h3>Aufstellung</h3></div>
         <div id="lineupControls"></div>
         <div id="pitchView" class="pitch"></div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tab-akademie">
+      <div class="grid g23">
+        <div class="grid" style="gap:16px;">
+          <div class="card">
+            <div class="cardHead"><h3>Gesichtete Talente</h3><span class="eyebrow" id="prospectCount"></span></div>
+            <div id="prospectPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Jugendkader</h3></div>
+            <div id="youthSquadPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Jugendmannschaft</h3><span class="eyebrow" id="youthLeagueLabel"></span></div>
+            <div id="youthPanel"></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:16px;">
+          <div class="card">
+            <div class="cardHead"><h3>Akademie</h3><span class="eyebrow" id="academyRepLabel"></span></div>
+            <div id="academyPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Scouts</h3><span class="eyebrow" id="scoutCount"></span></div>
+            <div id="scoutPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Scoutberichte</h3><span class="eyebrow">Transfermarkt</span></div>
+            <div id="reportPanel"></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h3>Chronik</h3></div>
+            <div id="academyLogPanel" style="font-size:13px;"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -851,6 +884,9 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/legends.js"></script>
 <script src="modules/traits.js"></script>
 <script src="modules/philosophy.js"></script>
+<script src="modules/academy.js"></script>
+<script src="modules/scouting.js"></script>
+<script src="modules/youth-comps.js"></script>
 <script src="modules/ui-core.js"></script>
 <script src="modules/ui-header.js"></script>
 <script src="modules/ui-squad.js"></script>
@@ -858,6 +894,7 @@ tr.dim:hover td{ opacity:1; }
 <script src="modules/ui-competitions.js"></script>
 <script src="modules/ui-uefa.js"></script>
 <script src="modules/ui-stats.js"></script>
+<script src="modules/ui-academy.js"></script>
 <script src="modules/ui-match.js"></script>
 <script src="modules/halftime.js"></script>
 <script src="modules/ui-save.js"></script>

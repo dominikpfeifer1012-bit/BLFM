@@ -397,13 +397,15 @@ function genYouthPlayer(clubStrength, pos){
   const base = getYouthBaseStrength(clubStrength);
   const strength = Math.round(Math.max(38, Math.min(80,
     base + randInt(-YOUTH_STRENGTH_SPREAD, YOUTH_STRENGTH_SPREAD))));
-  const age = randInt(YOUTH_AGE_MIN, YOUTH_AGE_MAX);
-
   const isTalent = Math.random() < YOUTH_TALENT_CHANCE;
   const gain = randInt(YOUTH_GAIN_MIN, YOUTH_GAIN_MAX) + (isTalent ? YOUTH_TALENT_BONUS : 0);
-  const maxStrength = Math.min(99, strength + gain);
+  return buildYouthPlayer(strength, gain, pos, pickYouthNationality(), randInt(YOUTH_AGE_MIN, YOUTH_AGE_MAX), isTalent);
+}
 
-  const nat = pickYouthNationality();
+// Gemeinsamer Bau fuer Talente aus dem eigenen Jahrgang und aus dem Scouting.
+// devSpeed ist das persoenliche Entwicklungstempo (verdeckt).
+function buildYouthPlayer(strength, gain, pos, nat, age, isTalent){
+  const maxStrength = Math.min(99, strength + gain);
   const attributes = buildAttributes(strength, pos, ATTRIBUTE_SPREAD);
   const rawMax = {};
   ATTRIBUTES.forEach(a => { rawMax[a] = attributes[a] + gain; });
@@ -425,10 +427,12 @@ function genYouthPlayer(clubStrength, pos){
     isScoutingFind: false,
     isYouthProduct: true,
     isTalent: isTalent,
+    devSpeed: Math.round(randFloat(DEV_SPEED_MIN, DEV_SPEED_MAX) * 100) / 100,
     contractYears: CONTRACT_YOUTH_YEARS,
     goalsSeason: 0,
     yellowCards: 0,
     suspendedUntilMatchday: 0,
-    consecutiveStarts: 0
+    consecutiveStarts: 0,
+    traits: typeof rollTraits === "function" ? rollTraits(pos) : []
   });
 }
