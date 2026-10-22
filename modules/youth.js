@@ -52,7 +52,7 @@ function simulateYouthMatchday(gameState){
   }
 
   const eigene = getYouthTeamStrength(lineup);
-  const basis = (gameState.clubStature != null ? gameState.clubStature : 65) - YOUTH_OPPONENT_OFFSET;
+  const basis = getYouthBaseStrength(gameState.clubStature != null ? gameState.clubStature : 65) + YOUTH_OPPONENT_EDGE;
   const gegner = Math.max(35, basis + randInt(-YOUTH_OPPONENT_SPREAD, YOUTH_OPPONENT_SPREAD));
 
   const { goalsA, goalsB } = simulateGenericMatch(eigene, gegner);

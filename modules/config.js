@@ -492,7 +492,9 @@ const CLUB_DEV_TREND_DECAY = 0.6;       // Momentum klingt ab
 const CLUB_DEV_TREND_FROM_PERF = 0.3;
 const CLUB_DEV_NOISE = 1.0;
 const CLUB_DEV_MAX_PER_SEASON = 4.5;
-const CLUB_DEV_SPREAD_CORRECTION = 0.1; // Rueckfuehrung zur Rangverteilung des Landes pro Saison
+const CLUB_DEV_SPREAD_CORRECTION = 0.15; // Rueckfuehrung zur Rangverteilung der Liga pro Saison
+const CLUB_DEV_TOP_CORRECTION = 0.15;    // fuer den Spitzenverein jeder Liga
+const CLUB_DEV_TOP_GAP_SHRINK = 0.3;     // Abstand Platz 1 zu 2 in der Zielverteilung verkleinern
 const CLUB_DEV_EVENT_CHANCE = 0.035;    // je Verein und Saison, fuer Investor und Krise
 const CLUB_DEV_EVENT_MIN = 1.5;
 const CLUB_DEV_EVENT_MAX = 3.0;
@@ -500,8 +502,12 @@ const CLUB_DEV_DYNASTY_PER_TITLE = 0.12; // Umbruchrisiko je Titel in Folge (ab 
 const CLUB_DEV_DYNASTY_MAX = 0.5;
 const CLUB_DEV_DYNASTY_HIT_MIN = 2.0;
 const CLUB_DEV_DYNASTY_HIT_MAX = 3.5;
-const AI_DRIFT_PROMOTION_BOOST = 2.5;   // Aufsteiger investieren
-const AI_DRIFT_RELEGATION_HIT = -2.5;   // Absteiger verlieren Spieler
+// Liga-Wechsel: Anteil des Abstands zum Median der neuen Liga, mindestens
+// CLUB_DEV_MOVE_MIN, dazu Zufall bis CLUB_DEV_MOVE_SPREAD.
+const CLUB_DEV_DIVISION_PULL = 0.5;
+const CLUB_DEV_MOVE_MIN = 1.5;
+const CLUB_DEV_MOVE_SPREAD = 3;
+const CLUB_DEV_MOVE_BASE_SHARE = 0.6;    // so viel davon wird dauerhaft (Fundament)
 const AI_STRENGTH_FLOOR = 42;
 const AI_STRENGTH_CEILING = 94;
 
@@ -555,11 +561,19 @@ const RETIREMENT_WEAK_BONUS = 0.20;
 const YOUTH_INTAKE_MAX = 4;
 const YOUTH_AGE_MIN = 16;
 const YOUTH_AGE_MAX = 19;
-const YOUTH_STRENGTH_OFFSET = 20;   // Abstand zur Vereinsstaerke
-const YOUTH_STRENGTH_SPREAD = 5;
-const YOUTH_POTENTIAL_MIN = 8;
-const YOUTH_POTENTIAL_MAX = 34;
-const YOUTH_TALENT_CHANCE = 0.15;   // Chance auf ein Ausnahmetalent
+// Talente zwischen 16 und 18: meist 45 bis 65, Potenzial meist 60 bis 80,
+// 85+ ist die Ausnahme. Die Vereinsstaerke zaehlt nur zu einem Viertel
+// (Anziehungskraft, Trainer) - frueher lag ein Bayern-Talent bei 72 mit
+// Potenzial 92, mit ausgebauter Jugend bei 82 und 98.
+const YOUTH_BASE_STRENGTH = 52;     // Talent eines Vereins der Staerke 70
+const YOUTH_CLUB_FACTOR = 0.25;     // je Punkt Vereinsstaerke ueber/unter 70
+const YOUTH_STRENGTH_SPREAD = 6;
+const YOUTH_GAIN_MIN = 5;           // Luft nach oben bis zum Potenzial
+const YOUTH_GAIN_MAX = 18;
+const YOUTH_TALENT_CHANCE = 0.1;    // Chance auf ein Ausnahmetalent
+const YOUTH_TALENT_BONUS = 8;       // zusaetzliches Potenzial eines Ausnahmetalents
+const YOUTH_FACILITY_STRENGTH = 0.6; // je Ausbaustufe der Jugendarbeit
+const YOUTH_FACILITY_POTENTIAL = 0.5;
 const YOUTH_STAR_ACHIEVEMENT_RATING = 85;
 
 const LOG_MAX_ENTRIES = 300;
@@ -677,6 +691,14 @@ const POOL_FREE_AGENT_COUNT = 40;
 const POOL_FREE_AGENT_MAX = 60;
 const POOL_FREE_AGENT_SIGN_CHANCE = 0.5;
 const POOL_FREE_AGENT_DECLINE = 1.5;
+// Bis 26 Jahre und ab Staerke 72 findet jeder sofort einen Verein; ab 80
+// bleiben hoechstens zwei vereinslos, ab 85 keiner.
+const FREE_AGENT_YOUNG_MAX_AGE = 26;
+const FREE_AGENT_YOUNG_STAR = 72;
+const FREE_AGENT_ELITE_STRENGTH = 80;
+const FREE_AGENT_ELITE_MAX = 2;
+const FREE_AGENT_TOP_LIMIT = 85;
+const FREE_AGENT_START_VETERANS = 4;     // erfahrene 70er zum Karrierestart
 // genPlayer streut intern bereits um +-10. Ein grosser Zusatzwert hier wuerde
 // das verdoppeln und einem Mittelklasseverein Weltklassespieler bescheren.
 const POOL_STRENGTH_SPREAD = 3;
@@ -809,7 +831,7 @@ const YOUTH_TEAM_MIN_PLAYERS = 6;
 // Zwischen Bank (1.0) und Startelf (1.7): Jugendspiele entwickeln, aber
 // weniger als Einsaetze bei den Profis.
 const YOUTH_DEV_MULTIPLIER = 1.45;
-const YOUTH_OPPONENT_OFFSET = 20;     // Gegner sind deutlich schwaecher
+const YOUTH_OPPONENT_EDGE = 4;        // Jugendgegner: Talentniveau des Vereins plus Reife
 const YOUTH_OPPONENT_SPREAD = 7;
 const YOUTH_PROMOTION_GAP = 3;        // ab hier lohnt der Sprung in den Profikader
 
@@ -1056,7 +1078,7 @@ const FACILITIES = {
   youth: {
     label: "Jugendarbeit",
     icon: "🌱",
-    wirkung: stufe => `Talente +${stufe * 2} Bewertung, +${stufe * 3} Potenzial`,
+    wirkung: stufe => `Talente +${Math.round(stufe * YOUTH_FACILITY_STRENGTH)} Bewertung, +${Math.round(stufe * (YOUTH_FACILITY_STRENGTH + YOUTH_FACILITY_POTENTIAL))} Potenzial`,
     perLevel: 1
   },
   medical: {

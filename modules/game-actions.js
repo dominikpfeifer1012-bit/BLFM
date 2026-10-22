@@ -239,8 +239,9 @@ function applyLoadedState(state){
       });
       syncPoolWithLeagues(gameState);
       // Aeltere Staende: zu viele Vereinslose und eine zu lange Transferliste.
+      // Auch Stars ohne Verein unterbringen, die nach alten Regeln frei blieben.
       const freie = gameState.pool.players.filter(p => !p.clubName).length;
-      if(freie > POOL_FREE_AGENT_MAX) placeSurplusFreeAgents(gameState, gameState.pool.players, buildPoolClubList(gameState));
+      placeSurplusFreeAgents(gameState, gameState.pool.players, buildPoolClubList(gameState));
       const gelistet = gameState.pool.players.filter(p => p.transferListed).length;
       if(freie > POOL_FREE_AGENT_MAX || gelistet > gameState.pool.players.length * TRANSFER_LIST_SHARE * 1.5){
         drawTransferList(gameState.pool);
@@ -255,6 +256,7 @@ function applyLoadedState(state){
     if(gameState.pool) ensurePlayerTraits(gameState.pool.players);
     if(gameState.board && !gameState.board.sideGoals) setupSideGoals(gameState);
     repairExClubStrengths(gameState);
+    delete gameState.strengthProfiles;   // ersetzt durch divisionProfiles
     // Fehlende Parallelligen anlegen und auf den aktuellen Spieltag bringen.
     for(let nr = 1; nr <= gameState.leaguePools.length; nr++){
       if(nr === gameState.division || gameState.shadowLeagues[nr]) continue;

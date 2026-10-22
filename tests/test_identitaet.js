@@ -49,7 +49,7 @@ console.log("--- Vereinsidentität ---");
   });
   check("Ausbildungsverein: bessere Talente, höhere Verkaufserlöse", () => {
     const yb=w.getYouthQualityBonus(gs); const p=gs.squad[0];
-    return yb.strength>=3 && yb.potential>=5 && w.getSellPrice(p) > w.calculateSellValue(p.value) ? true : JSON.stringify(yb);
+    return yb.strength>=2 && yb.potential>=3 && w.getSellPrice(p) > w.calculateSellValue(p.value) ? true : JSON.stringify(yb);
   });
   check("Zwei Nebenziele, im Vorstand sichtbar", () => {
     w.switchTab("uebersicht");
