@@ -388,17 +388,19 @@ function generateMarketOffer(baseStrength, filters){
 
 // Nachwuchs bekommt eine eigene Potenzialkurve: schwaecher als ein
 // Marktspieler, aber mit deutlich mehr Entwicklungsspielraum.
+// Talentniveau eines Vereins: die Staerke zaehlt nur zu einem Teil.
+function getYouthBaseStrength(clubStrength){
+  return YOUTH_BASE_STRENGTH + (clubStrength - 70) * YOUTH_CLUB_FACTOR;
+}
+
 function genYouthPlayer(clubStrength, pos){
-  const base = Math.max(40, clubStrength - YOUTH_STRENGTH_OFFSET);
-  const strength = Math.max(40, Math.min(99,
-    base + randInt(-YOUTH_STRENGTH_SPREAD, YOUTH_STRENGTH_SPREAD)));
+  const base = getYouthBaseStrength(clubStrength);
+  const strength = Math.round(Math.max(38, Math.min(80,
+    base + randInt(-YOUTH_STRENGTH_SPREAD, YOUTH_STRENGTH_SPREAD))));
   const age = randInt(YOUTH_AGE_MIN, YOUTH_AGE_MAX);
 
   const isTalent = Math.random() < YOUTH_TALENT_CHANCE;
-  const midPotential = Math.round((YOUTH_POTENTIAL_MIN + YOUTH_POTENTIAL_MAX) / 2);
-  const gain = isTalent
-    ? randInt(midPotential, YOUTH_POTENTIAL_MAX)
-    : randInt(YOUTH_POTENTIAL_MIN, YOUTH_POTENTIAL_MAX);
+  const gain = randInt(YOUTH_GAIN_MIN, YOUTH_GAIN_MAX) + (isTalent ? YOUTH_TALENT_BONUS : 0);
   const maxStrength = Math.min(99, strength + gain);
 
   const nat = pickYouthNationality();

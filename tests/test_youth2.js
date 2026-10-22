@@ -252,11 +252,14 @@ check("Transferinteresse folgt der Kaderstärke", () => {
 });
 
 console.log("\n--- Transfermarkt ---");
-check("Vereinslose bleiben begrenzt und ohne Spitzenspieler", () => {
+check("Vereinslose bleiben begrenzt, höchstens vereinzelt erfahrene 80er", () => {
   for(let i=0;i<3;i++){ gs.season++; win.advancePool(gs); }
   const frei=gs.pool.players.filter(p=>!p.clubName);
   const max=Math.max(...frei.map(p=>p.strength));
-  return frei.length<=win.POOL_FREE_AGENT_MAX_TEST && max<70 ? true : `${frei.length} frei, stärkster ${max}`;
+  const ueber80=frei.filter(p=>p.strength>=80).length;
+  const jungerStar=frei.some(p=>p.age<=26&&p.strength>=72);
+  return frei.length<=win.POOL_FREE_AGENT_MAX_TEST && max<85 && ueber80<=2 && !jungerStar
+    ? true : `${frei.length} frei, stärkster ${max}, ab 80: ${ueber80}, junger Star: ${jungerStar}`;
 });
 check("Kein Gewinn durch Weiterverkauf in derselben Saison", () => {
   gs.matchday=0;

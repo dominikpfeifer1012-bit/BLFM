@@ -108,6 +108,7 @@ function startCareer(){
     gameState.board = createFreshBoard(getBoardReferenceStrength(gameState), gameState.division, schwierigkeit.patience);
     addLogEntry(gameState, "📂 Eigene Kaderdatei verwendet.");
   }
+  captureDivisionProfiles(gameState);
   ensureCoaches(gameState);
   startUefaSeasonForClub(gameState);
   setupSideGoals(gameState);

@@ -56,25 +56,34 @@ function capPoolPlayer(player, clubStrength){
 
 function createWorldPool(gameState){
   const players = [];
+  const clubs = buildPoolClubList(gameState);
 
-  buildPoolClubList(gameState).forEach(club => {
+  clubs.forEach(club => {
     poolPositionsForClub(club.size || POOL_PLAYERS_PER_CLUB).forEach(pos => {
       const target = club.strength + randInt(-POOL_STRENGTH_SPREAD, POOL_STRENGTH_SPREAD);
       const player = withHomeNationality(club.nat, () => genPlayer(Math.max(45, Math.min(94, target)), pos, [18, 34], true));
       capPoolPlayer(player, club.strength);
       player.clubName = club.name;
       player.clubTier = club.tier;
+      // Gestaffelte Restlaufzeiten: schon im ersten Sommer laufen Vertraege aus.
+      player.contractYears = randInt(1, CONTRACT_MAX_YEARS);
       players.push(player);
     });
   });
 
-  // Vereinslose Spieler: kosten keine Abloese, nur Handgeld.
+  // Vereinslose Spieler: kosten keine Abloese, nur Handgeld. Dazu ein paar
+  // erfahrene gute Spieler, wie sie jeden Sommer auf dem Markt sind.
   for(let i = 0; i < POOL_FREE_AGENT_COUNT; i++){
-    const player = genPlayer(randInt(46, 66), randChoice(POSITION_ORDER), [22, 35], true);
+    const routinier = i < FREE_AGENT_START_VETERANS;
+    const player = routinier
+      ? genPlayer(randInt(70, 78), randChoice(POSITION_ORDER.filter(p => p !== "TW")), [29, 33], false)
+      : genPlayer(randInt(46, 66), randChoice(POSITION_ORDER), [22, 35], true);
     player.clubName = null;
     player.clubTier = "frei";
     players.push(player);
   }
+  // Ausreisser der Zufallsstreuung (junger Star, 85+) kommen gleich unter.
+  placeSurplusFreeAgents(gameState, players, clubs);
 
   const pool = { players: players, season: gameState.season };
   drawTransferList(pool);
@@ -241,15 +250,27 @@ function signPlayerFromPool(gameState, playerId){
   };
 }
 
-// Vereine wechseln zwischen den Ligen und der Regionalliga. Spieler von
-// Vereinen, die die Ligen verlassen haben, werden vereinslos; Aufsteiger aus
-// der Regionalliga bekommen einen spielfaehigen Stamm.
+// Vereine wechseln zwischen den Ligen und der Regionalliga. Der Kader eines
+// Vereins, der die Ligen verlaesst, geht an einen Aufsteiger aus demselben
+// Land (beide spielen auf demselben Niveau). Frueher wurde er vereinslos und
+// der Aufsteiger bekam neue Spieler: der Bestand lief jedes Jahr um rund 250
+// Spieler ueber, und der Ueberhang wurde bei den Aeltesten abgeschnitten -
+// der ganze Bestand wurde Jahr fuer Jahr juenger.
 function syncPoolWithLeagues(gameState){
   if(!gameState.pool || !gameState.pool.players) return;
   const ligen = new Set(getAllLeagueClubs(gameState).map(c => c.name));
   const ausland = new Set(EURO_CLUBS.map(c => c.name));
+  const verwaist = new Map();   // Land -> Map(alter Verein -> Spieler)
   gameState.pool.players.forEach(p => {
     if(p.clubName && !ligen.has(p.clubName) && !ausland.has(p.clubName)){
+      const nr = /^div(\d+)$/.test(p.clubTier || "") ? parseInt(p.clubTier.slice(3), 10) : null;
+      const land = nr ? getDivisionCountry(nr) : null;
+      if(land){
+        if(!verwaist.has(land)) verwaist.set(land, new Map());
+        const kader = verwaist.get(land);
+        if(!kader.has(p.clubName)) kader.set(p.clubName, []);
+        kader.get(p.clubName).push(p);
+      }
       p.clubName = null; p.clubTier = "frei";
     }
   });
@@ -257,7 +278,20 @@ function syncPoolWithLeagues(gameState){
   gameState.pool.players.forEach(p => { if(p.clubName) proVerein.set(p.clubName, (proVerein.get(p.clubName) || 0) + 1); });
   gameState.leaguePools.forEach((pool, idx) => pool.forEach(club => {
     if(club.name === gameState.clubName) return;
-    const vorhanden = (proVerein.get(club.name) || 0);
+    let vorhanden = (proVerein.get(club.name) || 0);
+    if(vorhanden >= 8) return;
+    // Zuerst den Kader eines Vereins uebernehmen, der das Land verlassen hat.
+    const reste = verwaist.get(getDivisionCountry(idx + 1));
+    const alt = reste && reste.size ? reste.keys().next().value : null;
+    if(alt){
+      reste.get(alt).forEach(p => {
+        if(p.clubName) return;   // inzwischen anderweitig untergekommen
+        p.clubName = club.name; p.clubTier = "div" + (idx + 1);
+        vorhanden++;
+      });
+      reste.delete(alt);
+      proVerein.set(club.name, vorhanden);
+    }
     // Nur neu hinzugekommene Vereine (Regionalliga-Aufsteiger) auffuellen;
     // den normalen Schwund gleicht der Jugend-Zustrom aus.
     if(vorhanden >= 8) return;
@@ -427,15 +461,31 @@ function advancePool(gameState){
 }
 
 // Zu viele Vereinslose: die Staerksten kommen bei einem Verein unter.
+// Der Markt der Vereinslosen soll wie im echten Sommer aussehen: viel
+// Mittelmass, ein paar erfahrene gute Spieler, keine jungen Stars.
+// Frueher kamen hier die Staerksten zuerst bei Vereinen unter, und uebrig
+// blieben nur noch Spieler um 45 bis 50.
 function placeSurplusFreeAgents(gameState, spieler, clubs){
-  const frei = spieler.filter(p => !p.clubName).sort((a, b) => b.strength - a.strength);
-  const ueber = frei.length - POOL_FREE_AGENT_MAX;
-  for(let i = 0; i < ueber; i++){
-    const club = findNewClubFor(gameState, frei[i], clubs);
-    if(!club) break;
-    frei[i].clubName = club.name; frei[i].clubTier = club.tier;
-    frei[i].contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
-  }
+  const unterbringen = p => {
+    const club = findNewClubFor(gameState, p, clubs);
+    if(!club) return false;
+    p.clubName = club.name; p.clubTier = club.tier;
+    p.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
+    return true;
+  };
+  let frei = spieler.filter(p => !p.clubName);
+  // Junge Leistungstraeger und Weltklasse bleiben nicht vereinslos.
+  frei.filter(p => (p.age <= FREE_AGENT_YOUNG_MAX_AGE && p.strength >= FREE_AGENT_YOUNG_STAR)
+    || p.strength >= FREE_AGENT_TOP_LIMIT).forEach(unterbringen);
+  // Hoechstens ein paar Spitzenkraefte, bevorzugt die aelteren.
+  frei = spieler.filter(p => !p.clubName);
+  frei.filter(p => p.strength >= FREE_AGENT_ELITE_STRENGTH).sort((a, b) => a.age - b.age)
+    .slice(0, Math.max(0, frei.filter(p => p.strength >= FREE_AGENT_ELITE_STRENGTH).length - FREE_AGENT_ELITE_MAX))
+    .forEach(unterbringen);
+  // Zu viele insgesamt: zufaellig ausgewaehlte finden einen Verein, damit
+  // die Mischung erhalten bleibt.
+  frei = shuffleArray(spieler.filter(p => !p.clubName));
+  frei.slice(0, Math.max(0, frei.length - POOL_FREE_AGENT_MAX)).forEach(unterbringen);
 }
 
 // Ein Nachwuchsspieler fuer den Bestand: jung, noch schwach, mit Luft nach oben.
