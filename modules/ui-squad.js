@@ -492,7 +492,10 @@ function showPlayerDetail(playerId){
   if(player.isYouthProduct) tags.push('<span class="profTag gold">🌱 Eigengewächs</span>');
   if((gameState.legends || []).some(l => l.id === player.id && l.club === gameState.clubName)) tags.push('<span class="profTag gold">🏛️ Vereinslegende</span>');
   if(player.clubApps) tags.push(`<span class="profTag">Für uns: ${player.clubApps} Spiele · ${typeof getClubGoals === "function" ? getClubGoals(player) : 0} Tore</span>`);
-  if(player.isTalent) tags.push('<span class="profTag gold">✨ Ausnahmetalent</span>');
+  if(isTalentVisible(gameState, player)) tags.push('<span class="profTag gold">✨ Ausnahmetalent</span>');
+  if(player.wantsPerspective === gameState.season) tags.push('<span class="profTag warn">🗣️ Will einen Profivertrag</span>');
+  if(player.adaptSeason === gameState.season) tags.push('<span class="profTag warn">🌍 Eingewöhnung</span>');
+  if(player.scoutedFrom && SCOUT_REGIONS[player.scoutedFrom]) tags.push(`<span class="profTag">🔍 Gesichtet: ${SCOUT_REGIONS[player.scoutedFrom].label}</span>`);
   if(player.isScoutingFind) tags.push('<span class="profTag gold">🔍 Scouting-Fund</span>');
   if(fatigue > 0) tags.push(`<span class="profTag warn">🥵 Müde -${fatigue.toFixed(1)}</span>`);
   if(player.age >= RETIREMENT_MIN_AGE) tags.push('<span class="profTag warn">Karriereende möglich</span>');
@@ -502,6 +505,7 @@ function showPlayerDetail(playerId){
   }
 
   const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+  const potE = getPotentialEstimate(gameState, player);
 
   document.getElementById("playerModalContent").innerHTML = `
     <div class="profHead">
@@ -518,7 +522,7 @@ function showPlayerDetail(playerId){
     <div style="margin:6px 0 16px;">
       ${ATTRIBUTES.map(a => {
         const wert = player.attributes ? player.attributes[a] : 0;
-        const cap = player.maxAttributes ? player.maxAttributes[a] : wert;
+        const cap = potE.exact && player.maxAttributes ? player.maxAttributes[a] : wert;
         const gewicht = (POSITION_WEIGHTS[player.pos] || {})[a] || 0;
         const wichtig = gewicht >= 0.30;
         return `<div style="display:flex; align-items:center; gap:9px; margin-bottom:6px;">
@@ -528,21 +532,22 @@ function showPlayerDetail(playerId){
             <i class="ghost" style="width:${cap}%;"></i>
             <i style="width:${wert}%; position:relative;"></i>
           </span>
-          <span class="num" style="width:52px; text-align:right; font-size:12px;">${Math.round(wert)}<span style="color:var(--ink-faint);">/${Math.round(cap)}</span></span>
+          <span class="num" style="width:52px; text-align:right; font-size:12px;">${Math.round(wert)}${potE.exact ? `<span style="color:var(--ink-faint);">/${Math.round(cap)}</span>` : ""}</span>
         </div>`;
       }).join("")}
     </div>
 
     <p class="eyebrow">Entwicklung</p>
     <div class="bar" style="margin:6px 0 4px;">
-      <i class="ghost" style="width:${pct(player.maxStrength)}%;"></i>
+      <i class="ghost" style="width:${pct(potE.hi)}%;"></i>
       <i style="width:${pct(player.strength)}%; position:relative;"></i>
     </div>
     <p class="muted" style="margin:0 0 16px;">
       Start <span class="num">${Math.round(player.baseStrength)}</span> ·
       jetzt <span class="num">${Math.round(player.strength)}</span> ·
-      Potenzial <span class="num">${Math.round(player.maxStrength)}</span>
+      Potenzial <span class="num">${potE.exact ? potE.lo : `${potE.lo}–${potE.hi}`}</span>${potE.exact ? "" : ' <span title="Einschätzung der Jugendtrainer; wird mit der Zeit genauer">(Schätzung)</span>'}
     </p>
+    ${typeof renderMentorBlock === "function" ? renderMentorBlock(gameState, player) : ""}
 
     <div class="statGrid">
       ${stat("Marktwert", fmtMoney(player.value))}
@@ -652,10 +657,6 @@ function renderYouthPanel(gameState){
   const lineup = getYouthLineup(gameState, day);
   const kandidaten = getYouthPromotionCandidates(gameState);
 
-  if(lineup.length < YOUTH_TEAM_MIN_PLAYERS){
-    el.innerHTML = `<p class="muted">Spielbetrieb ruht · mindestens ${YOUTH_TEAM_MIN_PLAYERS} Spieler nötig.</p>`;
-    return;
-  }
 
   const bilanz = youth.played > 0
     ? `${youth.won}-${youth.drawn}-${youth.lost} · ${youth.gf}:${youth.ga} Tore`
@@ -666,12 +667,15 @@ function renderYouthPanel(gameState){
        <span class="badge ${youth.lastResult.result}">${LOG_BADGE_LABELS[youth.lastResult.result]}</span></p>`
     : "";
 
+  const ligaLabel = document.getElementById("youthLeagueLabel");
+  if(ligaLabel) ligaLabel.textContent = gameState.youthLeague ? gameState.youthLeague.name : "";
   let html = `
     <div class="statGrid" style="margin-bottom:12px;">
       ${statBox("Spiele", youth.played, bilanz)}
-      ${statBox("Im Kader", lineup.length, `Ø ${getYouthTeamStrength(lineup).toFixed(1)}`)}
+      ${statBox("Stärke", getYouthTeamStrength(lineup, gameState).toFixed(1), lineup.length < YOUTH_TEAM_SIZE ? `${lineup.length} aus dem Kader, ${YOUTH_TEAM_SIZE - lineup.length} aus der Akademie` : `${lineup.length} Spieler`)}
     </div>
-    ${letztes}`;
+    ${letztes}
+    ${typeof renderYouthCompetitionBlock === "function" ? renderYouthCompetitionBlock(gameState) : ""}`;
 
   if(kandidaten.length > 0){
     html += `<p style="margin:0 0 10px; color:var(--gold); font-size:13px;">
@@ -681,14 +685,14 @@ function renderYouthPanel(gameState){
   html += `<div class="tableWrap"><table>
     <tr><th>Pos</th><th>Name</th><th class="n">Bew.</th><th class="n">Pot.</th><th class="n">Alter</th><th class="n">Tore</th></tr>`;
   lineup.forEach(p => {
-    const rest = Math.max(0, Math.round(p.maxStrength - p.strength));
+    const pot = getPotentialView(gameState, p);
     const tore = youth.scorers[p.id] || 0;
     const jung = p.age <= YOUTH_TEAM_MAX_AGE;
     html += `<tr class="rowLink${jung ? "" : " dim"}" onclick="showPlayerDetail('${p.id}')">
       <td><b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b></td>
       <td>${getFlag(p)} ${p.name}${p.isYouthProduct ? " 🌱" : ""}</td>
       <td class="n">${Math.round(p.strength)}</td>
-      <td class="n" style="color:${rest > 8 ? "var(--win)" : "var(--ink-faint)"};">+${rest}</td>
+      <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}">${pot.text}</td>
       <td class="n">${p.age}</td>
       <td class="n">${tore || ""}</td></tr>`;
   });
@@ -712,7 +716,7 @@ function renderYouthSquad(gameState){
   const day = gameState.matchday + 1;
 
   const kopf = `<div class="statGrid" style="margin-bottom:12px;">
-    ${statBox("Jugendkader", `${kader.length}/${YOUTH_SQUAD_MAX_SIZE}`)}
+    ${statBox("Jugendkader", `${kader.length}/${getYouthSquadCapacity(gameState)}`)}
     ${statBox("Gehalt", fmtMoney(getYouthSquadSalary(gameState)), "pro Saison")}
   </div>
   <label class="muted" style="display:flex; gap:8px; align-items:center; margin:0 0 12px; font-size:13px;">
@@ -730,14 +734,19 @@ function renderYouthSquad(gameState){
     <th class="n">Alter</th><th></th></tr>`;
 
   [...kader].sort((a, b) => b.strength - a.strength).forEach(p => {
-    const rest = Math.max(0, Math.round(p.maxStrength - p.strength));
+    const pot = getPotentialView(gameState, p);
     const reif = isReadyForPromotion(gameState, p);
     const letztesJahr = p.age >= YOUTH_SQUAD_MAX_AGE;
+    const mentor = typeof getMentor === "function" ? getMentor(gameState, p) : null;
+    const zeichen = (isTalentVisible(gameState, p) ? " ✨" : "")
+      + (p.wantsPerspective === gameState.season ? ' <span title="Will eine Perspektive (Profivertrag)">🗣️</span>' : "")
+      + (p.adaptSeason === gameState.season ? ' <span title="Eingewöhnung">🌍</span>' : "")
+      + (mentor ? ` <span title="Mentor: ${mentor.name}">🤝</span>` : "");
     html += `<tr class="rowLink" onclick="showPlayerDetail('${p.id}')">
       <td><b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b></td>
-      <td>${getFlag(p)} ${p.name}${p.isTalent ? " ✨" : ""}</td>
+      <td>${getFlag(p)} ${p.name}${zeichen}</td>
       <td class="n">${Math.round(p.strength)}</td>
-      <td class="n" style="color:${rest > 8 ? "var(--win)" : "var(--ink-faint)"};">+${rest}</td>
+      <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}">${pot.text}</td>
       <td class="n"${letztesJahr ? ' style="color:#FCA311;" title="Letztes Jahr in der Jugend"' : ""}>${p.age}</td>
       <td><button class="ghost" onclick="event.stopPropagation(); handlePromoteYouth('${p.id}')"
 >
@@ -754,7 +763,7 @@ function renderYouthIntakeModal(){
   if(!el) return;
   const kandidaten = gameState.pendingYouthCandidates || [];
   const gewaehlt = kandidaten.filter(k => k.__gewaehlt).length;
-  const frei = YOUTH_SQUAD_MAX_SIZE - (gameState.youthSquad || []).length;
+  const frei = getYouthSquadCapacity(gameState) - (gameState.youthSquad || []).length;
 
   el.innerHTML = `
     <p class="eyebrow">Jugendabteilung</p>
@@ -763,17 +772,19 @@ function renderYouthIntakeModal(){
       Aufgenommen <b>${gewaehlt}/${YOUTH_INTAKE_MAX_PICK}</b> · ${frei <= 0 ? "Jugendkader voll" : `${frei} Plätze frei`}
     </p>
     ${kandidaten.map((p, i) => {
-      const rest = Math.max(0, Math.round(p.maxStrength - p.strength));
+      const e = getPotentialEstimate(gameState, p);
+      const empf = getRecommendation(gameState, (e.lo + e.hi) / 2, p.strength);
       const aus = p.__gewaehlt || gewaehlt >= YOUTH_INTAKE_MAX_PICK || frei <= 0;
       return `<div class="lineupOption${p.__gewaehlt ? " auto" : ""}${aus && !p.__gewaehlt ? " disabled" : ""}"
         ${p.__gewaehlt || aus ? "" : `onclick="handlePickYouthCandidate(${i})"`}>
         <span style="flex:1;">
-          <b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b> ${getFlag(p)} ${p.name}${p.isTalent ? " ✨" : ""}
+          <b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b> ${getFlag(p)} ${p.name}${isTalentVisible(gameState, p) ? " ✨" : ""}
           <br><span class="muted" style="font-size:11px;">${p.age} Jahre · Gehalt ${fmtMoney(Math.round(getPlayerSalary(p) * YOUTH_SALARY_FACTOR))}</span>
         </span>
         <span style="text-align:right;">
           <span class="lineupValue">${Math.round(p.strength)}</span>
-          <br><span style="font-size:11px; color:${rest > 12 ? "var(--win)" : "var(--ink-faint)"};">Potenzial +${rest}</span>
+          <br><span style="font-size:11px; color:${empf.stars >= 4 ? "var(--win)" : "var(--ink-faint)"};" title="Einschätzung der Jugendtrainer">Potenzial ${e.exact ? e.lo : `${e.lo}–${e.hi}`}</span>
+          <br>${starText(empf.stars)}
         </span>
         ${p.__gewaehlt ? '<span class="badge win" style="margin-left:8px;">aufgenommen</span>' : ""}
       </div>`;

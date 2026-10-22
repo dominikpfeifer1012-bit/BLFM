@@ -8,7 +8,7 @@ const mods=[...fs.readFileSync("/home/claude/bl/index.html","utf8")
   .matchAll(/modules\/([a-z-]+\.js)/g)].map(m=>m[1]);
 win.eval("try{localStorage.clear();}catch(e){}");
 win.eval(mods.map(f=>fs.readFileSync("/home/claude/bl/"+f,"utf8")).join("\n")
-  +"\nwindow.K={YOUTH_SQUAD_MAX_SIZE,YOUTH_SQUAD_MAX_AGE,YOUTH_INTAKE_CANDIDATES,YOUTH_INTAKE_MAX_PICK,YOUTH_TEAM_SIZE,MIN_SQUAD_SIZE,TOTAL_MATCHDAYS};window.POOL_FREE_AGENT_MAX_TEST=POOL_FREE_AGENT_MAX;");
+  +"\nwindow.K={YOUTH_SQUAD_MAX_AGE,YOUTH_INTAKE_MAX_PICK,YOUTH_TEAM_SIZE,YOUTH_TEAM_MAX_AGE,MIN_SQUAD_SIZE,TOTAL_MATCHDAYS};window.POOL_FREE_AGENT_MAX_TEST=POOL_FREE_AGENT_MAX;");
 let fails=0;
 function check(l,fn){ try{ const r=fn(); const ok=r===true||r===undefined;
   console.log(`${ok?"OK  ":"FAIL"}  ${l}${ok?"":" -> "+r}`); if(!ok)fails++;
@@ -29,12 +29,16 @@ function saisonSpielen(){
 }
 
 console.log("--- Eigener Jugendkader ---");
-check("Zu Beginn ist er leer", () => Array.isArray(gs.youthSquad) && gs.youthSquad.length===0);
+// Zu Beginn: ein Startjahrgang aus der eigenen Akademie.
+const startJugend=gs.youthSquad.length;
+check("Zu Beginn: Startjahrgang aus der Akademie", () =>
+  Array.isArray(gs.youthSquad) && startJugend>=3 && startJugend<=8 && gs.youthSquad.every(p=>p.age>=16&&p.age<=19)
+    ? true : `${startJugend} Talente`);
 
 check("Am Saisonende kommen Vorschläge", () => {
   saisonSpielen();
   const k=gs.pendingYouthCandidates;
-  return k && k.length===K.YOUTH_INTAKE_CANDIDATES ? true : `${k?k.length:0} Vorschläge`;
+  return k && k.length===win.getYouthIntakeCount(gs) && k.length>=5 ? true : `${k?k.length:0} Vorschläge`;
 });
 
 check("Die Vorschläge sind jung und ausgestattet", () => {
@@ -47,19 +51,21 @@ check("Das Auswahlfenster öffnet sich", () => {
   win.showYouthIntakeModal();
   const offen=$("youthIntakeOverlay").classList.contains("show");
   const optionen=$("youthIntakeContent").querySelectorAll(".lineupOption").length;
-  return offen && optionen===K.YOUTH_INTAKE_CANDIDATES ? true : `offen=${offen}, ${optionen} Optionen`;
+  return offen && optionen===gs.pendingYouthCandidates.length ? true : `offen=${offen}, ${optionen} Optionen`;
 });
 
+let vorAufnahme=0;
 check("Talente lassen sich aufnehmen", () => {
+  vorAufnahme=gs.youthSquad.length;
   win.handlePickYouthCandidate(0);
   win.handlePickYouthCandidate(1);
-  return gs.youthSquad.length===2 ? true : `${gs.youthSquad.length} im Jugendkader`;
+  return gs.youthSquad.length===vorAufnahme+2 ? true : `${gs.youthSquad.length} im Jugendkader`;
 });
 
 check("Mehr als das Maximum geht nicht", () => {
-  for(let i=2;i<K.YOUTH_INTAKE_CANDIDATES;i++) win.handlePickYouthCandidate(i);
-  return gs.youthSquad.length===K.YOUTH_INTAKE_MAX_PICK
-    ? true : `${gs.youthSquad.length} statt ${K.YOUTH_INTAKE_MAX_PICK}`;
+  for(let i=2;i<gs.pendingYouthCandidates.length;i++) win.handlePickYouthCandidate(i);
+  return gs.youthSquad.length===vorAufnahme+K.YOUTH_INTAKE_MAX_PICK
+    ? true : `${gs.youthSquad.length} statt ${vorAufnahme+K.YOUTH_INTAKE_MAX_PICK}`;
 });
 
 check("Derselbe Spieler nicht zweimal", () => {
@@ -113,8 +119,9 @@ check("Die Jugendmannschaft nutzt beide Gruppen", () => {
   const lineup=win.getYouthLineup(gs, gs.matchday+1);
   const ausJugend=lineup.filter(p=>gs.youthSquad.some(j=>j.id===p.id)).length;
   const ausKader=lineup.filter(p=>gs.squad.some(s=>s.id===p.id)).length;
-  return lineup.length===K.YOUTH_TEAM_SIZE && ausJugend>0 && ausKader>0
-    ? true : `${ausJugend} Jugend, ${ausKader} Reserve, ${lineup.length} gesamt`;
+  // Profi-Reservisten spielen nicht mehr mit, Luecken fuellt die Akademie.
+  return lineup.length<=K.YOUTH_TEAM_SIZE && ausJugend>0 && lineup.every(p=>p.age<=K.YOUTH_TEAM_MAX_AGE)
+    ? true : `${ausJugend} Jugend, ${ausKader} junge Profis, ${lineup.length} gesamt`;
 });
 
 check("Jugendspieler haben Vorrang", () => {
@@ -218,7 +225,7 @@ check("Fünf Saisons laufen mit Jugendkader durch", () => {
     }
     gs.board.patience=90; gs.board.dismissed=false;
     win.startNextSeason();
-    if(gs.youthSquad.length>K.YOUTH_SQUAD_MAX_SIZE) return "Jugendkader zu groß";
+    if(gs.youthSquad.length>win.getYouthSquadCapacity(gs)) return "Jugendkader zu groß";
     if(gs.squad.length<K.MIN_SQUAD_SIZE) return `Profikader auf ${gs.squad.length}`;
   }
   return true;
@@ -233,7 +240,7 @@ console.log("\n--- Geparkte Profis ---");
 check("Jugend und zurück verlängert keinen Vertrag, Gehalt bleibt voll", () => {
   const p=gs.squad.find(x=>!x.isYouthProduct) || gs.squad[0];
   p.age=Math.min(p.age,K.YOUTH_SQUAD_MAX_AGE); p.contractYears=1;
-  while(gs.youthSquad.length>=K.YOUTH_SQUAD_MAX_SIZE) gs.youthSquad.pop();
+  while(gs.youthSquad.length>=win.getYouthSquadCapacity(gs)) gs.youthSquad.pop();
   const vor=win.getMatchdaySalaryCost(gs.squad,gs.youthSquad);
   const r=win.demoteToYouthSquad(gs,p.id); if(!r.success) return r.message;
   const nach=win.getMatchdaySalaryCost(gs.squad,gs.youthSquad);

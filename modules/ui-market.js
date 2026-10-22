@@ -128,10 +128,10 @@ function renderMarket(gameState){
 
       html += `<tr class="rowLink" onclick="showPoolPlayerDetail('${p.id}')">
         <td><b>${POSITION_ICONS[p.pos] || ""} ${p.pos}</b></td>
-        <td>${getFlag(p)} ${p.name}${p.isScoutingFind ? ' <span title="Scouting-Fund">🔍</span>' : ""}${typeof renderTraitIcons === "function" ? renderTraitIcons(p) : ""}${typeof isFollower === "function" && isFollower(gameState, p) ? ' <span class="badge win" title="Will dir folgen: wechselbereit, Ablöse reduziert">🤝 folgt dir</span>' : ""}</td>
+        <td>${getFlag(p)} ${p.name}${pot.source === "bericht" ? ' <span title="Scoutbericht liegt vor">📋</span>' : ""}${p.homegrownAt ? ` <span title="Eigengewächs von ${p.homegrownAt}">🌱</span>` : ""}${typeof renderTraitIcons === "function" ? renderTraitIcons(p) : ""}${typeof isFollower === "function" && isFollower(gameState, p) ? ' <span class="badge win" title="Will dir folgen: wechselbereit, Ablöse reduziert">🤝 folgt dir</span>' : ""}</td>
         <td style="font-size:12px;">${vereinsText}</td>
         <td class="n">${Math.round(p.strength)}</td>
-        <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}" title="${pot.exact ? "beobachtet" : "Schätzung"}">${pot.text}</td>
+        <td class="n" style="color:${pot.mid > 8 ? "var(--win)" : "var(--ink-faint)"};${pot.exact ? "" : " font-size:12px;"}" title="${pot.exact ? "beobachtet" : pot.source === "bericht" ? "Scoutbericht" : "Schätzung"}">${pot.text}</td>
         <td class="n">${p.age}</td>
         <td>${topAttributeTags(p)}</td>
         <td class="n"${bezahlbar ? "" : ' style="color:var(--loss);"'}>${fmtMoney(fee)}</td>
@@ -225,9 +225,9 @@ function showPoolPlayerDetail(playerId){
       ${stat("Vertrag", `${getContractYears(player)} J.`, isContractExpiring(player) ? "läuft aus" : "")}
     </div>
 
-    ${player.isScoutingFind ? '<div class="profTags"><span class="profTag gold">🔍 Scouting-Fund</span></div>' : ""}
+    ${renderPoolPlayerScoutInfo(gameState, player)}
     ${getPotentialView(gameState, player).exact ? "" : `<div style="margin-top:10px;">
-      <button class="ghost" onclick="handleScoutPlayer('${player.id}')"${getScoutingCost(gameState) > gameState.budget ? " disabled" : ""}>🔍 Beobachten lassen · ${fmtMoney(getScoutingCost(gameState))}</button>
+      <button class="ghost" onclick="handleScoutPlayer('${player.id}')"${getScoutingCost(gameState, player) > gameState.budget ? " disabled" : ""}>🔍 Beobachten lassen · ${fmtMoney(getScoutingCost(gameState, player))}</button>
 </div>`}
 
     <div style="margin-top:14px;">
@@ -266,4 +266,26 @@ function handleScoutPlayer(playerId){
   const r = scoutPlayer(gameState, playerId);
   showToast(r.message, r.success ? "success" : "error");
   if(r.success){ addLogEntry(gameState, r.message); showPoolPlayerDetail(playerId); renderMarket(gameState); renderHeader(gameState); }
+}
+
+// Scoutbericht und Herkunft im Profil eines Marktspielers.
+function renderPoolPlayerScoutInfo(gameState, player){
+  const tags = [];
+  if(player.homegrownAt) tags.push(`<span class="profTag">🌱 Eigengewächs von ${player.homegrownAt}</span>`);
+  const pv = getPotentialView(gameState, player);
+  // Ein Scouting-Fund (unterschaetzt) faellt nur auf, wenn man genau hinsieht.
+  if(player.isScoutingFind && (pv.exact || pv.source === "bericht")) tags.push('<span class="profTag gold">🔍 Unterschätzt</span>');
+  let bericht = "";
+  if(pv.report){
+    const r = pv.report;
+    const a = ensureAcademy(gameState);
+    const scout = a.scouts.find(s => s.id === r.scoutId);
+    const empf = getRecommendation(gameState, (pv.lo + pv.hi) / 2, player.strength);
+    bericht = `<div class="renewBox" style="font-size:13px;">
+      <p class="eyebrow" style="margin:0 0 4px;">Scoutbericht${scout ? ` · ${scout.name} ${starText(scout.quality)}` : ""}</p>
+      <p style="margin:0;">Potenzial ${pv.lo}–${pv.hi} · ${starText(empf.stars)} ${empf.text}</p>
+      <p class="muted" style="margin:2px 0 0; font-size:12px;">${r.watched || 0} Spieltage beobachtet${scout && scout.region === r.region ? ", wird genauer" : ""}</p>
+    </div>`;
+  }
+  return (tags.length ? `<div class="profTags">${tags.join("")}</div>` : "") + bericht;
 }

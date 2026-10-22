@@ -192,6 +192,8 @@ function applyLoadedState(state){
     gameState.pressHistory = gameState.pressHistory || [];
     ensureFacilities(gameState);
     if(!Array.isArray(gameState.youthSquad)) gameState.youthSquad = [];
+    ensureAcademy(gameState);
+    registerExistingNames(gameState.academy.prospects.map(x => x.player).concat(gameState.academy.scouts));
     ensureSquadAttributes(gameState.youthSquad);
     if(typeof ensureSquadMorale === "function") ensureSquadMorale(gameState.youthSquad);
     registerExistingNames(gameState.youthSquad);
@@ -266,6 +268,8 @@ function applyLoadedState(state){
     if(typeof ensureCoaches === "function") ensureCoaches(gameState);
     // Neue Europapokal-Wettbewerbe fuer aeltere Spielstaende.
     if(typeof ensureUefaState === "function") ensureUefaState(gameState);
+    // Jugendliga und Youth League fuer aeltere Spielstaende.
+    if(gameState.youthLeague === undefined && typeof createYouthCompetitions === "function") createYouthCompetitions(gameState);
 
     (gameState.squad || []).forEach(p => {
       if(p.goalsSeason == null) p.goalsSeason = 0;
@@ -365,7 +369,8 @@ function handlePickYouthCandidate(index){
   if(!result.success){ showToast(result.message, "error"); return; }
 
   spieler.__gewaehlt = true;
-  addLogEntry(gameState, `\u{1F331} Aus der Jugendabteilung: ${spieler.name} (${spieler.pos}, Potenzial bis ${Math.round(spieler.maxStrength)}).`);
+  const schaetzung = getPotentialEstimate(gameState, spieler);
+  addLogEntry(gameState, `\u{1F331} Aus der Jugendabteilung: ${spieler.name} (${spieler.pos}, Potenzial ${schaetzung.exact ? schaetzung.lo : `${schaetzung.lo}–${schaetzung.hi}`}).`);
   renderYouthIntakeModal();
 }
 

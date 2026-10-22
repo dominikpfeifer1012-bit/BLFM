@@ -41,10 +41,13 @@ function updateIncomingOffers(gameState){
   const tag = gameState.matchday + 1;
   const offen = isTransferWindowOpen(tag);
   gameState.incomingOffers = offers.filter(o =>
-    offen && o.expires >= tag && (gameState.squad || []).some(p => p.id === o.playerId));
+    offen && o.expires >= tag && !!findOfferPlayer(gameState, o.playerId));
 
   if(!offen || gameState.seasonEnded) return null;
   if(gameState.incomingOffers.length >= OFFER_MAX_ACTIVE) return null;
+  // Grossvereine versuchen, Toptalente abzuwerben.
+  const abwerben = tryPoachOffer(gameState, tag);
+  if(abwerben) return abwerben;
   if(Math.random() > OFFER_CHANCE_PER_MATCHDAY) return null;
 
   const spieler = pickOfferTarget(gameState);
@@ -64,6 +67,39 @@ function updateIncomingOffers(gameState){
   return angebot;
 }
 
+// Spieler eines Angebots: Profikader oder Jugendkader.
+function findOfferPlayer(gameState, playerId){
+  return (gameState.squad || []).find(p => p.id === playerId)
+    || (gameState.youthSquad || []).find(p => p.id === playerId) || null;
+}
+
+function pickPoachTarget(gameState){
+  const vergeben = new Set(ensureOffers(gameState).map(o => o.playerId));
+  return (gameState.youthSquad || []).concat((gameState.squad || []).filter(p => p.age <= DEV_RISK_MAX_AGE))
+    .filter(p => !vergeben.has(p.id) && !p.isOnLoan && p.maxStrength >= POACH_MIN_POTENTIAL && p.maxStrength - p.strength >= 6)
+    .sort((a, b) => b.maxStrength - a.maxStrength)[0] || null;
+}
+
+function tryPoachOffer(gameState, tag){
+  if(ensureOffers(gameState).some(o => o.poach)) return null;
+  if(Math.random() > POACH_CHANCE) return null;
+  const spieler = pickPoachTarget(gameState);
+  if(!spieler) return null;
+  const eigene = getOwnClubStrength(gameState);
+  const gross = buildPoolClubList(gameState).filter(c => c.strength >= Math.max(eigene + 3, 82));
+  if(!gross.length) return null;
+  const k = randChoice(gross);
+  const fee = Math.max(100000, Math.round(spieler.value * randFloat(POACH_FEE_MIN, POACH_FEE_MAX) / 50000) * 50000);
+  const angebot = {
+    id: Math.random().toString(36).slice(2),
+    playerId: spieler.id, playerName: spieler.name, pos: spieler.pos,
+    club: k.name, clubStrength: k.strength, clubTier: k.tier,
+    fee, expires: getCurrentWindowEnd(tag) || tag, countered: false, poach: true
+  };
+  gameState.incomingOffers.push(angebot);
+  return angebot;
+}
+
 function findOffer(gameState, offerId){
   return ensureOffers(gameState).find(o => o.id === offerId) || null;
 }
@@ -76,14 +112,26 @@ function acceptIncomingOffer(gameState, offerId){
   const o = findOffer(gameState, offerId);
   if(!o) return { success: false, message: "Das Angebot liegt nicht mehr vor." };
   const idx = gameState.squad.findIndex(p => p.id === o.playerId);
-  if(idx === -1){ removeOffer(gameState, offerId); return { success: false, message: "Der Spieler ist nicht mehr im Kader." }; }
-  if(!canSellFromSquad(gameState.squad)){
+  const jugendIdx = (gameState.youthSquad || []).findIndex(p => p.id === o.playerId);
+  if(idx === -1 && jugendIdx === -1){ removeOffer(gameState, offerId); return { success: false, message: "Der Spieler ist nicht mehr im Kader." }; }
+  if(idx !== -1 && !canSellFromSquad(gameState.squad)){
     return { success: false, message: `Mindestkader: ${MIN_SQUAD_SIZE} Spieler.` };
   }
-  const spieler = gameState.squad[idx];
-  if(typeof noteDeparture === "function") noteDeparture(gameState, spieler, "verkauft");
-  gameState.squad.splice(idx, 1);
-  pruneLineup(gameState);
+  let spieler;
+  if(idx !== -1){
+    spieler = gameState.squad[idx];
+    if(typeof noteDeparture === "function") noteDeparture(gameState, spieler, "verkauft");
+    gameState.squad.splice(idx, 1);
+    pruneLineup(gameState);
+  } else {
+    spieler = gameState.youthSquad[jugendIdx];
+    gameState.youthSquad.splice(jugendIdx, 1);
+    delete spieler.isYouthSquad; delete spieler.hasProContract; delete spieler.wantsPerspective;
+  }
+  // Ein Eigengewaechs fuer viel Geld: Werbung fuer die Akademie.
+  if(spieler.isYouthProduct && o.fee >= ACADEMY_REP_SALE_MIN && typeof changeAcademyReputation === "function"){
+    changeAcademyReputation(gameState, ACADEMY_REP_SALE, `${spieler.name} für ${fmtMoney(o.fee)} verkauft`);
+  }
   spieler.clubName = o.club;
   spieler.clubTier = o.clubTier || "div1";
   spieler.transferListed = false;
@@ -100,7 +148,8 @@ function rejectIncomingOffer(gameState, offerId){
   const o = findOffer(gameState, offerId);
   if(!o) return { success: false, message: "Das Angebot liegt nicht mehr vor." };
   removeOffer(gameState, offerId);
-  const spieler = gameState.squad.find(p => p.id === o.playerId);
+  const spieler = findOfferPlayer(gameState, o.playerId);
+  if(spieler && o.poach) spieler.poachRejected = gameState.season;
   // Ein Top-Angebot eines groesseren Vereins abzulehnen enttaeuscht den Spieler.
   const grosserVerein = o.clubStrength > getOwnClubStrength(gameState) + 3;
   if(spieler && grosserVerein && o.fee >= spieler.value * OFFER_DISAPPOINT_RATIO){
@@ -116,7 +165,7 @@ function counterIncomingOffer(gameState, offerId){
   const o = findOffer(gameState, offerId);
   if(!o) return { success: false, message: "Das Angebot liegt nicht mehr vor." };
   if(o.countered) return { success: false, message: "Du hast bereits nachverhandelt." };
-  const spieler = gameState.squad.find(p => p.id === o.playerId);
+  const spieler = findOfferPlayer(gameState, o.playerId);
   const forderung = Math.round(o.fee * (1 + OFFER_COUNTER_RAISE) / 50000) * 50000;
   const ueberzahlt = spieler ? forderung / Math.max(1, spieler.value) : 1;
   // Je weiter die Forderung ueber dem Marktwert liegt, desto eher springt der Verein ab.
@@ -141,10 +190,10 @@ function renderOfferPanel(gameState){
     return;
   }
   el.innerHTML = offers.map(o => {
-    const p = gameState.squad.find(x => x.id === o.playerId);
+    const p = findOfferPlayer(gameState, o.playerId);
     const verhaeltnis = p ? Math.round(o.fee / Math.max(1, p.value) * 100) : 100;
     return `<div class="offerRow">
-      <div class="offerText"><b>${o.club}</b> bietet <b class="num">${fmtMoney(o.fee)}</b> für
+      <div class="offerText">${o.poach ? `<span class="badge loss" title="Ein Großverein will dein Talent">Abwerbeversuch</span> ` : ""}<b>${o.club}</b> bietet <b class="num">${fmtMoney(o.fee)}</b> für
         <b>${o.pos} ${o.playerName}</b>${p ? ` <span class="muted">(${Math.round(p.strength)}, ${p.age} J., ${verhaeltnis} % MW)</span>` : ""}
         <span class="muted"> · bis ST ${o.expires}</span></div>
       <div class="offerButtons">
@@ -211,6 +260,7 @@ function returnLoans(gameState){
     if(gewinn > 0){ applyAttributeChange(p, gewinn); refreshPlayerValue(p); }
     if(typeof setMorale === "function") setMorale(p, getMorale(p) + 5);
     p.consecutiveStarts = 0;
+    p.loanPractice = anteil;   // Spielpraxis zaehlt fuer die Entwicklung (academy.js)
     gameState.squad.push(p);
     zurueck.push({ name: p.name, club: l.club, vorher, nachher: Math.round(p.strength) });
   });

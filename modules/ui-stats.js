@@ -112,14 +112,16 @@ function renderSquadAnalysis(gameState){
   const youth = squad.filter(p => p.isYouthProduct).length;
   const veterans = squad.filter(p => p.age >= RETIREMENT_MIN_AGE).length;
   const best = [...squad].sort((a, b) => b.strength - a.strength)[0];
-  const talent = [...squad].sort((a, b) => (b.maxStrength - b.strength) - (a.maxStrength - a.strength))[0];
+  // Nach der Einschaetzung des Vereins, nicht nach dem verdeckten Wert.
+  const sicht = p => getPotentialView(gameState, p);
+  const talent = [...squad].sort((a, b) => sicht(b).mid - sicht(a).mid)[0];
 
   el.innerHTML =
     statBox("Ø Bewertung", avg(squad.map(p => p.strength)).toFixed(1), null, true) +
     statBox("Ø Alter", avg(squad.map(p => p.age)).toFixed(1), `${veterans} über ${RETIREMENT_MIN_AGE - 1}`) +
     statBox("Eigengewächse", youth, `von ${squad.length}`) +
     statBox("Bester", Math.round(best.strength), best.name) +
-    statBox("Größtes Potenzial", `+${Math.round(talent.maxStrength - talent.strength)}`, talent.name) +
+    statBox("Größtes Potenzial", sicht(talent).text, talent.name) +
     ATTRIBUTES.map(a => {
       const werte = squad.filter(p => p.attributes).map(p => p.attributes[a]);
       return werte.length ? statBox(`Ø ${ATTRIBUTE_LABELS[a]}`, avg(werte).toFixed(1)) : "";

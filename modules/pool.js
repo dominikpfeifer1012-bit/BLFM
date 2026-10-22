@@ -235,6 +235,10 @@ function signPlayerFromPool(gameState, playerId){
   player.contractYears = randInt(CONTRACT_MIN_YEARS, CONTRACT_MAX_YEARS);
   player.joinedSeason = gameState.season;
   player.purchaseFee = fee;
+  // Was Scouts ueber ihn wissen, bleibt beim Wechsel erhalten.
+  const bericht = typeof findReportFor === "function" ? findReportFor(gameState, player.id) : null;
+  if(gameState.scouted && gameState.scouted[player.id]) player.estWidth = 0;
+  else if(bericht) player.estWidth = Math.round(getReportWidth(bericht));
   // Bilanz beim neuen Verein beginnt bei null.
   Object.assign(player, { clubApps: 0, clubGoals: 0, clubSeasons: 0, clubSince: gameState.season });
   delete player.followCoach; delete player.followSeason;
@@ -435,9 +439,13 @@ function advancePool(gameState){
     bleibt.splice(0, Math.min(ueberhang, bleibt.length));
   }
 
+  const neueTalente = [];
   for(let i = 0; i < zugaenge; i++){
-    bleibt.push(createPoolProspect(randChoice(gewichtet)));
+    const talent = createPoolProspect(randChoice(gewichtet));
+    neueTalente.push(talent);
+    bleibt.push(talent);
   }
+  if(typeof announceAiJewel === "function") announceAiJewel(gameState, neueTalente);
 
   // Falls der Bestand trotzdem unter das Soll faellt, mit Spielern im
   // besten Alter auffuellen.
@@ -497,6 +505,8 @@ function createPoolProspect(club){
   capPoolPlayer(spieler, club.strength);
   spieler.clubName = club.name;
   spieler.clubTier = club.tier;
+  // Auch KI-Vereine bilden aus: Eigengewaechse mit Akademie-Aufschlag.
+  if(typeof markAiHomegrown === "function") markAiHomegrown(gameState, spieler, club);
   if(typeof ensureMorale === "function") ensureMorale(spieler);
   return spieler;
 }
@@ -610,30 +620,28 @@ function isPlayerScouted(gameState, player){
   return !!(gameState.scouted && gameState.scouted[player.id]);
 }
 
+// Potenzial als Luft nach oben ("+8–14"). Die Spanne kommt aus der Akademie
+// (eigene Spieler), aus Scoutberichten oder der allgemeinen Markteinschaetzung.
 function getPotentialView(gameState, player){
-  const exakt = Math.max(0, Math.round(player.maxStrength - player.strength));
-  const stufe = typeof getFacilityLevel === "function" ? getFacilityLevel(gameState, "scouting") : 0;
-  const breite = Math.max(0, SCOUT_RANGE_BASE - stufe * SCOUT_RANGE_PER_LEVEL);
-  if(isPlayerScouted(gameState, player) || breite === 0){
-    return { exact: true, low: exakt, high: exakt, mid: exakt, text: `+${exakt}` };
-  }
-  let h = 0;
-  for(let i = 0; i < player.id.length; i++) h = (h * 31 + player.id.charCodeAt(i)) % 9973;
-  const unten = h % (breite + 1);
-  const low = Math.max(0, exakt - unten), high = exakt + (breite - unten);
-  return { exact: false, low, high, mid: (low + high) / 2, text: `+${low}–${high}` };
+  const e = getPotentialEstimate(gameState, player);
+  const low = Math.max(0, Math.round(e.lo - player.strength));
+  const high = Math.max(low, Math.round(e.hi - player.strength));
+  return { exact: e.exact, low, high, mid: (low + high) / 2, lo: e.lo, hi: e.hi, source: e.source,
+    report: e.report || null, text: e.exact ? `+${low}` : `+${low}–${high}` };
 }
 
-function getScoutingCost(gameState){
+// Gezielte Beobachtung; mit einem eigenen Scout in der Region zum halben Preis.
+function getScoutingCost(gameState, player){
   const s = typeof getFinanceScale === "function" ? getFinanceScale(gameState) : 1;
-  return Math.round(SCOUT_COST_BASE * s / 10000) * 10000;
+  const vorOrt = player && typeof getRegionStars === "function" && getRegionStars(gameState, player.nat) > 0 ? 0.5 : 1;
+  return Math.round(SCOUT_COST_BASE * s * vorOrt / 10000) * 10000;
 }
 
 function scoutPlayer(gameState, playerId){
   const p = getPoolPlayer(gameState.pool, playerId);
   if(!p) return { success: false, message: "Spieler nicht gefunden." };
   if(isPlayerScouted(gameState, p)) return { success: false, message: "Bereits beobachtet." };
-  const kosten = getScoutingCost(gameState);
+  const kosten = getScoutingCost(gameState, p);
   if(kosten > gameState.budget) return { success: false, message: `Budget reicht nicht (${fmtMoney(kosten)}).` };
   gameState.budget -= kosten;
   gameState.scouted = gameState.scouted || {};
