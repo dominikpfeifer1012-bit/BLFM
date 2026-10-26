@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bundesliga Karrieremodus</title>
 <script>
+// Versionskennung: steht auch an jedem Modul (?v=) und in config.js (GAME_BUILD).
+// Bei jeder Aenderung an den Modulen erhoehen, sonst mischt der Browser alte
+// und neue Dateien aus seinem Speicher (siehe tests/test_build.js).
+window.BLFM_BUILD = "18";
 // Anzeigegroesse je Geraet (wie der Browser-Zoom), vor dem ersten Zeichnen.
 // Standard 80 %: kompakter, mehr auf einen Blick.
 (function(){
@@ -26,7 +30,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230B1620'/%3E%3Ctext y='.85em' x='8' font-size='78'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
 <!-- Schriften liegen lokal in modules/fonts.css — kein Internet noetig. -->
-<link rel="stylesheet" href="modules/fonts.css">
+<link rel="stylesheet" href="modules/fonts.css?v=18">
 <style>
 :root{
   --bg:#0B1620; --bg-deep:#071019;
@@ -585,6 +589,10 @@ tr.me td{ background:rgba(255,183,3,.12); color:var(--gold); }
             <div class="cardHead"><h3>Verliehene Spieler</h3></div>
             <div id="loanPanel"></div>
           </div>
+          <div class="card">
+            <div class="cardHead"><h3>Jugend</h3></div>
+            <div id="youthHintPanel"></div>
+          </div>
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
@@ -854,56 +862,56 @@ tr.me td{ background:rgba(255,183,3,.12); color:var(--gold); }
   </div>
 </div>
 
-<script src="modules/clubs-intl.js"></script>
-<script src="modules/config.js"></script>
-<script src="modules/names.js"></script>
-<script src="modules/players.js"></script>
-<script src="modules/squad.js"></script>
-<script src="modules/morale.js"></script>
-<script src="modules/development.js"></script>
-<script src="modules/budget.js"></script>
-<script src="modules/transfermarkt.js"></script>
-<script src="modules/pool.js"></script>
-<script src="modules/offers.js"></script>
-<script src="modules/youth.js"></script>
-<script src="modules/match.js"></script>
-<script src="modules/match-events.js"></script>
-<script src="modules/league.js"></script>
-<script src="modules/board.js"></script>
-<script src="modules/facilities.js"></script>
-<script src="modules/finance.js"></script>
-<script src="modules/press.js"></script>
-<script src="modules/records.js"></script>
-<script src="modules/league-life.js"></script>
-<script src="modules/custom-data.js"></script>
-<script src="modules/cup.js"></script>
-<script src="modules/uefa.js"></script>
-<script src="modules/jobs.js"></script>
-<script src="modules/career.js"></script>
-<script src="modules/identity.js"></script>
-<script src="modules/legends.js"></script>
-<script src="modules/traits.js"></script>
-<script src="modules/philosophy.js"></script>
-<script src="modules/academy.js"></script>
-<script src="modules/scouting.js"></script>
-<script src="modules/youth-comps.js"></script>
-<script src="modules/ui-core.js"></script>
-<script src="modules/ui-header.js"></script>
-<script src="modules/ui-squad.js"></script>
-<script src="modules/ui-market.js"></script>
-<script src="modules/ui-competitions.js"></script>
-<script src="modules/ui-uefa.js"></script>
-<script src="modules/ui-stats.js"></script>
-<script src="modules/ui-academy.js"></script>
-<script src="modules/ui-match.js"></script>
-<script src="modules/halftime.js"></script>
-<script src="modules/ui-save.js"></script>
-<script src="modules/save.js"></script>
-<script src="modules/game-state.js"></script>
-<script src="modules/game-loop.js"></script>
-<script src="modules/game-competitions.js"></script>
-<script src="modules/game-season.js"></script>
-<script src="modules/game-actions.js"></script>
+<script src="modules/clubs-intl.js?v=18"></script>
+<script src="modules/config.js?v=18"></script>
+<script src="modules/names.js?v=18"></script>
+<script src="modules/players.js?v=18"></script>
+<script src="modules/squad.js?v=18"></script>
+<script src="modules/morale.js?v=18"></script>
+<script src="modules/development.js?v=18"></script>
+<script src="modules/budget.js?v=18"></script>
+<script src="modules/transfermarkt.js?v=18"></script>
+<script src="modules/pool.js?v=18"></script>
+<script src="modules/offers.js?v=18"></script>
+<script src="modules/youth.js?v=18"></script>
+<script src="modules/match.js?v=18"></script>
+<script src="modules/match-events.js?v=18"></script>
+<script src="modules/league.js?v=18"></script>
+<script src="modules/board.js?v=18"></script>
+<script src="modules/facilities.js?v=18"></script>
+<script src="modules/finance.js?v=18"></script>
+<script src="modules/press.js?v=18"></script>
+<script src="modules/records.js?v=18"></script>
+<script src="modules/league-life.js?v=18"></script>
+<script src="modules/custom-data.js?v=18"></script>
+<script src="modules/cup.js?v=18"></script>
+<script src="modules/uefa.js?v=18"></script>
+<script src="modules/jobs.js?v=18"></script>
+<script src="modules/career.js?v=18"></script>
+<script src="modules/identity.js?v=18"></script>
+<script src="modules/legends.js?v=18"></script>
+<script src="modules/traits.js?v=18"></script>
+<script src="modules/philosophy.js?v=18"></script>
+<script src="modules/academy.js?v=18"></script>
+<script src="modules/scouting.js?v=18"></script>
+<script src="modules/youth-comps.js?v=18"></script>
+<script src="modules/ui-core.js?v=18"></script>
+<script src="modules/ui-header.js?v=18"></script>
+<script src="modules/ui-squad.js?v=18"></script>
+<script src="modules/ui-market.js?v=18"></script>
+<script src="modules/ui-competitions.js?v=18"></script>
+<script src="modules/ui-uefa.js?v=18"></script>
+<script src="modules/ui-stats.js?v=18"></script>
+<script src="modules/ui-academy.js?v=18"></script>
+<script src="modules/ui-match.js?v=18"></script>
+<script src="modules/halftime.js?v=18"></script>
+<script src="modules/ui-save.js?v=18"></script>
+<script src="modules/save.js?v=18"></script>
+<script src="modules/game-state.js?v=18"></script>
+<script src="modules/game-loop.js?v=18"></script>
+<script src="modules/game-competitions.js?v=18"></script>
+<script src="modules/game-season.js?v=18"></script>
+<script src="modules/game-actions.js?v=18"></script>
 
 </body>
 </html>

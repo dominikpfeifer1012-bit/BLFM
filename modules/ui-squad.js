@@ -709,7 +709,19 @@ function renderYouthPanel(gameState){
 // Jugendkader
 // ============================================
 
+// Kurzer Hinweis im Kader-Tab: Jugendkader und Talente liegen in der Akademie.
+function renderYouthHint(gameState){
+  const el = document.getElementById("youthHintPanel");
+  if(!el) return;
+  const kader = gameState.youthSquad || [];
+  const bereit = kader.filter(p => isReadyForPromotion(gameState, p)).length;
+  const talente = gameState.academy ? gameState.academy.prospects.length : 0;
+  el.innerHTML = `<p style="margin:0 0 10px; font-size:13px;">${kader.length} ${kader.length === 1 ? "Talent" : "Talente"} im Jugendkader${bereit ? ` · <b style="color:var(--gold);">${bereit} profireif</b>` : ""}${talente ? ` · ${talente} gesichtet` : ""}</p>
+    <button class="ghost" onclick="switchTab('akademie'); window.scrollTo(0, 0);">🌱 Zur Akademie</button>`;
+}
+
 function renderYouthSquad(gameState){
+  renderYouthHint(gameState);
   const el = document.getElementById("youthSquadPanel");
   if(!el) return;
   const kader = gameState.youthSquad || [];

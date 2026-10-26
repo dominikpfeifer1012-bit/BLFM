@@ -2,6 +2,9 @@
 // CONFIG.JS - Zentrale Konstanten und Einstellungen
 // ============================================
 
+// Muss zu window.BLFM_BUILD in index.html passen (Versionskennung der Dateien).
+const GAME_BUILD = "18";
+
 // Bundesliga 2026/27. Staerken nach Abschlusstabelle 2025/26, Kaderwert und Groesse.
 const CLUBS = [
   {name:"FC Bayern München", strength:92},
