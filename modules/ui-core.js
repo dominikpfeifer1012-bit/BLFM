@@ -10,6 +10,7 @@ const LOG_BADGE_LABELS = { win: "Sieg", loss: "Niederlage", draw: "Remis" };
 const TABS = [
   { id:"uebersicht",  label:"Übersicht",   short:"Start",     icon:"🏠" },
   { id:"kader",       label:"Kader",       short:"Kader",     icon:"👥" },
+  { id:"akademie",    label:"Akademie",    short:"Jugend",    icon:"🌱" },
   { id:"transfers",   label:"Transfers",   short:"Transfers", icon:"🔁" },
   { id:"wettbewerbe", label:"Wettbewerbe", short:"Tabellen",  icon:"🏆" },
   { id:"statistik",   label:"Statistik",   short:"Statistik", icon:"📊" },
@@ -47,6 +48,7 @@ function switchTab(id){
   if(id === "kader" && typeof renderSquad === "function") renderSquad(gameState);
   if(id === "wettbewerbe" && typeof renderFixtureList === "function") renderFixtureList(gameState);
   if(id === "jobs" && typeof renderJobMarket === "function") renderJobMarket(gameState);
+  if(id === "akademie" && typeof renderAcademyTab === "function") renderAcademyTab(gameState);
   if(id === "uebersicht"){
     // Der Uebersichtsbereich enthaelt Karten, die sich zwischen zwei
     // Spieltagen aendern koennen — etwa nach einer Investition.
@@ -177,6 +179,7 @@ function renderAll(gameState){
   renderFacilities(gameState);
   renderYouthPanel(gameState);
   renderYouthSquad(gameState);
+  if(typeof renderAcademyTab === "function") renderAcademyTab(gameState);
   renderOverviewLog(gameState);
   renderTable(gameState);
   renderShadowTable(gameState);

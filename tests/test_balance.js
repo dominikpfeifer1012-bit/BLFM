@@ -104,7 +104,9 @@ console.log("--- Vereinslose Spieler ---");
 console.log("--- Jugendjahrgänge ---");
 {
   const jahrgaenge=(verein, stufe)=>{
-    const w=neueWelt(verein); const gs=w.gameState; gs.facilities.youth=stufe;
+    // stufe 0: Akademie ohne Ausbau, Trainer und Ruf; 5: alles voll.
+    const w=neueWelt(verein); const gs=w.gameState;
+    Object.assign(gs.academy, { infra: stufe, coaches: stufe, reputation: stufe*20 });
     const alle=[]; for(let i=0;i<40;i++) alle.push(...w.createYouthCandidates(gs));
     return { st: schnitt(alle.map(p=>p.strength)), pot: schnitt(alle.map(p=>p.maxStrength)),
       top: alle.filter(p=>p.maxStrength>=85).length/alle.length, ueber80: alle.filter(p=>p.strength>=80).length };

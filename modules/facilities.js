@@ -75,18 +75,9 @@ function getCoachingDevBonus(gameState){
   return 1 + getFacilityLevel(gameState, "coaching") * FACILITIES.coaching.perLevel;
 }
 
-function getYouthQualityBonus(gameState){
-  const stufe = getFacilityLevel(gameState, "youth");
-  const profil = typeof getOwnProfile === "function" ? getOwnProfile(gameState).youth : { strength: 0, potential: 0 };
-  const stil = typeof getPhilosophy === "function" ? getPhilosophy(gameState).youthPotential : 0;
-  return { strength: stufe * YOUTH_FACILITY_STRENGTH + profil.strength,
-           potential: stufe * YOUTH_FACILITY_POTENTIAL + profil.potential + stil };
-}
 
 function getMedicalInjuryFactor(gameState){
   return Math.max(0.2, 1 - getFacilityLevel(gameState, "medical") * FACILITIES.medical.perLevel);
 }
 
-function getScoutingChanceBonus(gameState){
-  return 1 + getFacilityLevel(gameState, "scouting") * FACILITIES.scouting.perLevel;
-}
+// Jugend und Scouting: siehe academy.js und scouting.js.

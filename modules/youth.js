@@ -28,17 +28,27 @@ function getYouthLineup(gameState, currentMatchday1Based){
   const verfuegbar = gameState.squad.filter(p =>
     !firstTeamIds.has(p.id) && !isUnavailable(p, currentMatchday1Based));
 
-  const jungeProfis = verfuegbar.filter(p => p.age <= YOUTH_TEAM_MAX_AGE)
+  const jungeProfis = verfuegbar.filter(p => p.age <= YOUTH_TEAM_PRO_MAX_AGE)
     .sort((a, b) => b.strength - a.strength);
-  const reservisten = verfuegbar.filter(p => p.age > YOUTH_TEAM_MAX_AGE)
-    .sort((a, b) => a.strength - b.strength);   // schwaechste zuerst
 
-  return jugendkader.concat(jungeProfis, reservisten).slice(0, YOUTH_TEAM_SIZE);
+  // Keine Profi-Reservisten mehr: sonst gewann ein Grossverein jede
+  // Jugendliga mit seiner Ersatzbank. Freie Plaetze fuellt der uebrige
+  // Nachwuchs der Akademie (siehe getYouthTeamStrength).
+  return jugendkader.concat(jungeProfis).slice(0, YOUTH_TEAM_SIZE);
 }
 
-function getYouthTeamStrength(lineup){
-  if(lineup.length === 0) return 0;
-  return lineup.reduce((sum, p) => sum + p.strength, 0) / lineup.length;
+// Uebriger Nachwuchs der Akademie, der die Elf auffuellt.
+function getAcademyFillStrength(gameState){
+  const staerke = gameState.clubStature != null ? gameState.clubStature : getOwnClubStrength(gameState);
+  const bonus = typeof getYouthQualityBonus === "function" ? getYouthQualityBonus(gameState).strength : 0;
+  return getYouthBaseStrength(staerke) + bonus - 2;
+}
+
+function getYouthTeamStrength(lineup, gameState){
+  const echte = lineup.reduce((sum, p) => sum + p.strength, 0);
+  if(!gameState) return lineup.length ? echte / lineup.length : 0;
+  const fehlen = Math.max(0, YOUTH_TEAM_SIZE - lineup.length);
+  return (echte + fehlen * getAcademyFillStrength(gameState)) / Math.max(1, lineup.length + fehlen);
 }
 
 function simulateYouthMatchday(gameState){
@@ -47,16 +57,26 @@ function simulateYouthMatchday(gameState){
 
   const day = gameState.matchday + 1;
   const lineup = getYouthLineup(gameState, day);
-  if(lineup.length < YOUTH_TEAM_MIN_PLAYERS){
-    return { skipped: true, reason: "zu wenige Spieler", appearances: new Set() };
+  const eigene = getYouthTeamStrength(lineup, gameState);
+  // In der Jugendliga gegen den Gegner laut Spielplan, danach Testspiele.
+  const liga = typeof getYouthLeagueFixture === "function" ? getYouthLeagueFixture(gameState) : null;
+  let gegner, gegnerName = null, goalsA, goalsB;
+  if(liga){
+    gegner = liga.strength;
+    gegnerName = liga.opponent;
+    const r = liga.home ? simulateGenericMatch(eigene, gegner) : simulateGenericMatch(gegner, eigene);
+    goalsA = liga.home ? r.goalsA : r.goalsB;
+    goalsB = liga.home ? r.goalsB : r.goalsA;
+    completeYouthLeagueRound(gameState, { own: goalsA, opp: goalsB });
+  } else {
+    const basis = getYouthBaseStrength(gameState.clubStature != null ? gameState.clubStature : 65) + YOUTH_OPPONENT_EDGE;
+    gegner = Math.max(35, basis + randInt(-YOUTH_OPPONENT_SPREAD, YOUTH_OPPONENT_SPREAD));
+    const r = simulateGenericMatch(eigene, gegner);
+    goalsA = r.goalsA; goalsB = r.goalsB;
   }
-
-  const eigene = getYouthTeamStrength(lineup);
-  const basis = getYouthBaseStrength(gameState.clubStature != null ? gameState.clubStature : 65) + YOUTH_OPPONENT_EDGE;
-  const gegner = Math.max(35, basis + randInt(-YOUTH_OPPONENT_SPREAD, YOUTH_OPPONENT_SPREAD));
-
-  const { goalsA, goalsB } = simulateGenericMatch(eigene, gegner);
   const scorers = assignYouthScorers(youth, lineup, goalsA);
+  lineup.forEach(p => { p.youthApps = (p.youthApps || 0) + 1; });
+  const cup = typeof playYouthCupRound === "function" ? playYouthCupRound(gameState, eigene) : null;
 
   youth.played++;
   youth.gf += goalsA; youth.ga += goalsB;
@@ -66,7 +86,7 @@ function simulateYouthMatchday(gameState){
 
   const result = goalsA > goalsB ? "win" : goalsA < goalsB ? "loss" : "draw";
   youth.lastResult = { matchday: day, ownGoals: goalsA, oppGoals: goalsB,
-    opponentStrength: gegner, result, scorers };
+    opponentStrength: gegner, opponent: gegnerName, league: !!liga, result, scorers };
   youth.history.push(youth.lastResult);
   if(youth.history.length > 40) youth.history = youth.history.slice(-40);
 
@@ -74,7 +94,7 @@ function simulateYouthMatchday(gameState){
     skipped: false,
     appearances: new Set(lineup.map(p => p.id)),
     lineup, result, ownGoals: goalsA, oppGoals: goalsB,
-    opponentStrength: gegner, ownStrength: eigene, scorers
+    opponentStrength: gegner, opponent: gegnerName, league: !!liga, ownStrength: eigene, scorers, cup
   };
 }
 
@@ -99,6 +119,7 @@ function assignYouthScorers(youth, lineup, goalCount){
 
 function resetYouthSeason(gameState){
   gameState.youth = createFreshYouthTeam();
+  if(typeof createYouthCompetitions === "function") createYouthCompetitions(gameState);
 }
 
 // Wer in der Jugend so stark geworden ist, dass er der ersten Mannschaft
@@ -142,7 +163,8 @@ function createYouthCandidates(gameState){
   const kandidaten = [];
   const positionen = shuffleArray(POSITION_ORDER.slice());
 
-  for(let i = 0; i < YOUTH_INTAKE_CANDIDATES; i++){
+  const anzahl = typeof getYouthIntakeCount === "function" ? getYouthIntakeCount(gameState) : 7;
+  for(let i = 0; i < anzahl; i++){
     const pos = positionen[i % positionen.length];
     const spieler = genYouthPlayer(staerke, pos);
     spieler.age = randInt(YOUTH_CANDIDATE_AGE_MIN, YOUTH_CANDIDATE_AGE_MAX);
@@ -161,6 +183,7 @@ function createYouthCandidates(gameState){
     }
     refreshPlayerValue(spieler);
     if(typeof ensureMorale === "function") ensureMorale(spieler);
+    spieler.isIntakeCandidate = true;
     kandidaten.push(spieler);
   }
   return kandidaten;
@@ -168,11 +191,14 @@ function createYouthCandidates(gameState){
 
 function addToYouthSquad(gameState, player){
   ensureYouthSquad(gameState);
-  if(gameState.youthSquad.length >= YOUTH_SQUAD_MAX_SIZE){
-    return { success: false, message: `Die Jugend ist voll (${YOUTH_SQUAD_MAX_SIZE} Plätze).` };
+  const plaetze = getYouthSquadCapacity(gameState);
+  if(gameState.youthSquad.length >= plaetze){
+    return { success: false, message: `Die Jugend ist voll (${plaetze} Plätze).` };
   }
   player.isYouthSquad = true;
   player.isYouthProduct = true;
+  delete player.isIntakeCandidate;
+  if(player.academySince == null) player.academySince = gameState.season;
   gameState.youthSquad.push(player);
   return { success: true, message: `${player.name} (${player.pos}) kommt in die Jugend.` };
 }
@@ -191,6 +217,7 @@ function promoteYouthPlayer(gameState, playerId){
   // beim ersten Hochziehen ihren Profivertrag.
   if(player.hasProContract) delete player.hasProContract;
   else player.contractYears = Math.max(getContractYears(player), CONTRACT_YOUTH_YEARS);
+  delete player.wantsPerspective;
   gameState.squad.push(player);
 
   return { success: true, player: player,
@@ -211,7 +238,7 @@ function demoteToYouthSquad(gameState, playerId){
   if(gameState.squad.length - 1 < MIN_SQUAD_SIZE){
     return { success: false, message: `Der Profikader darf nicht unter ${MIN_SQUAD_SIZE} Spieler fallen.` };
   }
-  if(gameState.youthSquad.length >= YOUTH_SQUAD_MAX_SIZE){
+  if(gameState.youthSquad.length >= getYouthSquadCapacity(gameState)){
     return { success: false, message: "Die Jugend ist voll." };
   }
 

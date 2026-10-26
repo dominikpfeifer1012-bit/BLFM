@@ -109,8 +109,11 @@ function startCareer(){
     addLogEntry(gameState, "📂 Eigene Kaderdatei verwendet.");
   }
   captureDivisionProfiles(gameState);
+  ensureAcademy(gameState);
+  createStartingYouthSquad(gameState);
   ensureCoaches(gameState);
   startUefaSeasonForClub(gameState);
+  createYouthCompetitions(gameState);
   setupSideGoals(gameState);
   addLogEntry(gameState, `📋 Kader: ${describeSquadPlan(plan)}.`);
   markSeasonStart(gameState);

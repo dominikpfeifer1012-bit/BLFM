@@ -103,7 +103,8 @@ check("Medizin senkt das Verletzungsrisiko", () => {
 
 check("Scouting findet häufiger Talente", () => {
   const messen=stufe=>{
-    gs.facilities.scouting=stufe;
+    // Scouting ist jetzt Personal in der Akademie: stufe = Scouts mit 5 Sternen.
+    gs.academy.scouts=Array.from({length:stufe?3:0},()=>win.createScout(gs,5));
     let funde=0;
     for(let i=0;i<3000;i++) if(win.genPlayer(70,"ST",[19,22],true).isScoutingFind) funde++;
     return funde;
@@ -114,7 +115,7 @@ check("Scouting findet häufiger Talente", () => {
 
 check("Jugendarbeit liefert bessere Talente", () => {
   const schnitt=stufe=>{
-    gs.facilities.youth=stufe;
+    Object.assign(gs.academy, { infra: stufe, coaches: stufe, reputation: stufe*20 });
     const k=[]; for(let i=0;i<8;i++) k.push(...win.createYouthCandidates(gs));
     return { bew:k.reduce((a,p)=>a+p.strength,0)/k.length,
              pot:k.reduce((a,p)=>a+p.maxStrength,0)/k.length };
@@ -125,7 +126,7 @@ check("Jugendarbeit liefert bessere Talente", () => {
 });
 
 check("Talente sprengen ihre Obergrenze nicht", () => {
-  gs.facilities.youth=K.FACILITY_LEVELS;
+  Object.assign(gs.academy, { infra: 5, coaches: 5, reputation: 100 });
   const k=win.createYouthCandidates(gs);
   return k.every(p=>p.maxStrength<=99.5 && p.strength<=p.maxStrength+0.2)
     ? true : "Grenze überschritten";

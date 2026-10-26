@@ -93,7 +93,8 @@ function developSquad(squad, currentMatchday1Based, youthAppearances){
     // Bei Wachstum verstaerkt oder bremst die Moral; beim Abbau wirkt sie
     // umgekehrt. Der Trainerstab wirkt nur auf das Wachstum.
     const eigenschaft = typeof getTraitDevFactor === "function" ? getTraitDevFactor(player, rate) : 1;
-    applyAttributeChange(player, (rate >= 0 ? rate * moral * trainer : rate / Math.max(0.5, moral)) * eigenschaft);
+    const persoenlich = rate > 0 && typeof getPersonalDevFactor === "function" ? getPersonalDevFactor(gameState, player) : 1;
+    applyAttributeChange(player, (rate >= 0 ? rate * moral * trainer * persoenlich : rate / Math.max(0.5, moral)) * eigenschaft);
     refreshPlayerValue(player);
   });
 }
@@ -286,8 +287,11 @@ function developYouthSquad(gameState, currentMatchday1Based, youthAppearances){
     const level = eingesetzt.has(player.id) ? "youth" : "bench";
     const moral = typeof getMoraleDevMultiplier === "function" ? getMoraleDevMultiplier(player) : 1;
     const trainer = typeof getCoachingDevBonus === "function" ? getCoachingDevBonus(gameState) : 1;
+    // Akademie (Infrastruktur, Jugendtrainer) und persoenliches Tempo, Mentor.
+    const akademie = typeof getAcademyDevFactor === "function" ? getAcademyDevFactor(gameState) : 1;
+    const persoenlich = typeof getPersonalDevFactor === "function" ? getPersonalDevFactor(gameState, player) : 1;
     const rate = getDevelopmentRate(player.age, level);
-    applyAttributeChange(player, rate >= 0 ? rate * moral * trainer : rate / Math.max(0.5, moral));
+    applyAttributeChange(player, rate >= 0 ? rate * moral * trainer * akademie * persoenlich : rate / Math.max(0.5, moral));
     refreshPlayerValue(player);
   });
 }

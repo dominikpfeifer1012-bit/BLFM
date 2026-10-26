@@ -216,6 +216,8 @@ function runMatchdaySimulation(override){
 
   developYouthSquad(gameState, gameState.matchday,
     youthResult ? youthResult.appearances : new Set());
+  // Akademie: Scouts, Probetrainings, Warnungen der Talente.
+  if(typeof advanceAcademyMatchday === "function") advanceAcademyMatchday(gameState);
 
   if(result.events.length === 0 && result.finished){
     finishSeason();
@@ -273,7 +275,7 @@ function runMatchdaySimulation(override){
   });
 
   const salaryCost = getMatchdaySalaryCost(gameState.squad, gameState.youthSquad);
-  const upkeep = getFacilityUpkeep(gameState);
+  const upkeep = getFacilityUpkeep(gameState) + (typeof getAcademyUpkeep === "function" ? getAcademyUpkeep(gameState) : 0);
   const budgetBeforeSalary = gameState.budget;
   gameState.budget -= salaryCost + upkeep;
   addLogEntry(gameState, `💰 Einnahmen: +${fmtMoney(baseRevenue + ownBonus)} · 💸 Gehälter: -${fmtMoney(salaryCost)}${upkeep ? ` · 🏗 Unterhalt: -${fmtMoney(upkeep)}` : ""} · Kontostand ${fmtMoney(gameState.budget)}`);
@@ -326,7 +328,7 @@ function runMatchdaySimulation(override){
     const y = youthResult;
     const torText = y.scorers.length > 0 ? ` (⚽ ${y.scorers.join(", ")})` : "";
     addLogEntry(gameState,
-      `\u{1F331} Jugend: ${y.ownGoals}:${y.oppGoals} gegen eine Auswahl (Stärke ${Math.round(y.opponentStrength)})${torText}`);
+      `\u{1F331} Jugend: ${y.ownGoals}:${y.oppGoals} ${y.opponent ? `gegen ${y.opponent}` : "im Testspiel"} (Stärke ${Math.round(y.opponentStrength)})${torText}`);
   }
 
   checkYouthStarAchievement();
