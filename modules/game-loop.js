@@ -220,7 +220,7 @@ function runMatchdaySimulation(override){
   if(typeof advanceAcademyMatchday === "function") advanceAcademyMatchday(gameState);
 
   if(result.events.length === 0 && result.finished){
-    finishSeason();
+    finishSeasonSafely();
     renderAll(gameState);
     return;
   }
@@ -339,7 +339,7 @@ function runMatchdaySimulation(override){
   announceTransferWindowChange();
 
   if(result.finished){
-    finishSeason();
+    finishSeasonSafely();
   }
 
   renderAll(gameState);

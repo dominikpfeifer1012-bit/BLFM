@@ -145,7 +145,39 @@ function handleImportSave(input){
   input.value = "";
 }
 
+// Passen Seite und Module nicht zusammen (alte Datei aus dem Browserspeicher),
+// laeuft das Spiel nur halb: dann lieber sauber neu laden lassen.
+function checkGameBuild(){
+  const seite = window.BLFM_BUILD;
+  const module = typeof GAME_BUILD !== "undefined" ? GAME_BUILD : null;
+  const vollstaendig = typeof ensureAcademy === "function" && typeof renderAcademyTab === "function";
+  if(seite && module === seite && vollstaendig) return true;
+  showUpdateNotice();
+  return false;
+}
+
+function showUpdateNotice(){
+  if(document.getElementById("updateNotice")) return;
+  const box = document.createElement("div");
+  box.id = "updateNotice";
+  box.className = "modalOverlay show";
+  box.innerHTML = `<div class="modalBox" style="max-width:420px; text-align:center;">
+    <p class="eyebrow">Update</p>
+    <h3 style="margin:6px 0 10px;">Das Spiel wurde aktualisiert</h3>
+    <p class="muted" style="margin:0 0 16px;">Dein Browser hat noch alte Dateien geladen. Einmal neu laden, dann passt alles. Spielstände bleiben erhalten.</p>
+    <button onclick="reloadFresh()">Neu laden</button>
+  </div>`;
+  document.body.appendChild(box);
+}
+
+// Neu laden mit geaenderter Adresse, damit auch die Seite selbst frisch kommt.
+function reloadFresh(){
+  const url = location.pathname + "?neu=" + Date.now() + location.hash;
+  location.replace(url);
+}
+
 window.onload = function(){
+  if(!checkGameBuild()) return;
   migrateLegacySave();
   const belegt = listSaveSlots().filter(p => p.belegt);
   const auto = readAutoSaveInfo();
@@ -194,6 +226,10 @@ function applyLoadedState(state){
     if(!Array.isArray(gameState.youthSquad)) gameState.youthSquad = [];
     ensureAcademy(gameState);
     registerExistingNames(gameState.academy.prospects.map(x => x.player).concat(gameState.academy.scouts));
+    // Abgebrochenes, mehrfach angelaufenes Saisonende zurueckdrehen. Vor dem
+    // Aufraeumen des Bestands, sonst waeren die Abgewanderten schon verteilt.
+    const reparatur = typeof repairInterruptedSeasonEnd === "function" ? repairInterruptedSeasonEnd(gameState) : null;
+    if(reparatur) setTimeout(() => showToast(`🔧 Spielstand repariert: ${reparatur.zurueck} Spieler zurück im Kader.`, "success"), 300);
     ensureSquadAttributes(gameState.youthSquad);
     if(typeof ensureSquadMorale === "function") ensureSquadMorale(gameState.youthSquad);
     registerExistingNames(gameState.youthSquad);

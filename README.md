@@ -24,6 +24,11 @@ python3 -m http.server 8000
 
 ## Aufbau
 
+Nach jeder Aenderung an `modules/` die Versionskennung erhoehen: `window.BLFM_BUILD`
+in `index.html`, das `?v=` an allen Modulen und `GAME_BUILD` in `modules/config.js`.
+Sonst mischt der Browser nach einem Update alte und neue Dateien aus seinem
+Speicher. `tests/test_build.js` prueft, dass alle drei zusammenpassen.
+
 ```
 index.html                      Oberflaeche und Einstiegspunkt
 manifest.json                   Angaben fuer den Startbildschirm
@@ -38,6 +43,8 @@ modules/                        40 Module, klassische Skripte ohne Bundler
   uefa.js  ui-uefa.js           CL, EL, Conference League, Wertung, Supercups
   board.js                      Vorstand und Trainer-Ruf
   youth.js  facilities.js       Jugendkader, Investitionen
+  academy.js  scouting.js       Akademie, Scouts, Talentsichtung
+  youth-comps.js                Jugendliga und UEFA Youth League
   press.js  records.js          Pressekonferenzen, Bestmarken
   ui-*.js                       Oberflaeche, nach Bereichen getrennt
   game-*.js                     Spielablauf, Zustand, Eingaben

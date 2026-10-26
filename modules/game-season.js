@@ -256,6 +256,104 @@ function describeCupExit(cup){
   return label === "1. Runde" ? "Aus in der 1. Runde" : `Aus im ${label}`;
 }
 
+// Das Saisonende veraendert viel auf einmal (Alter, Vertraege, Auf- und
+// Abstieg). Bricht es mit einem Fehler ab, wird alles auf den Stand davor
+// zurueckgesetzt. Frueher blieb ein halbes Saisonende stehen, wurde
+// gespeichert und lief bei jedem weiteren Klick erneut an.
+function finishSeasonSafely(){
+  const sicherung = JSON.stringify(gameState);
+  try {
+    finishSeason();
+  } catch(e) {
+    gameState = JSON.parse(sicherung);
+    throw e;
+  }
+}
+
+// Reparatur fuer Spielstaende, in denen das Saisonende abgebrochen ist und
+// mehrfach angelaufen war (Update mit alten Dateien im Browserspeicher).
+// Jeder Anlauf hat die Spieler altern lassen, Vertraege verkuerzt, Spieler
+// verabschiedet und den Kader mit Vereinslosen aufgefuellt. Wie oft ein
+// Spieler betroffen war, steht in seinem Zaehler der Saisons im Verein.
+function repairInterruptedSeasonEnd(gs){
+  if(!gs || gs.seasonEnded || !Array.isArray(gs.teams) || !gs.teams.length) return null;
+  if(gs.matchday < getSeasonMatchdays(gs)) return null;
+  const saison = gs.season;
+  const zuviel = p => Math.max(0, (p.clubSeasons || 0) - (p.clubSince != null ? Math.max(0, saison - p.clubSince) : 0));
+  const pool = gs.pool && Array.isArray(gs.pool.players) ? gs.pool.players : [];
+  const gegangen = pool.filter(p => !p.clubName && p.leftClub === gs.clubName && p.leftSeason === saison);
+  const anlaeufe = Math.max(0, ...(gs.squad || []).map(zuviel), ...gegangen.map(zuviel));
+  if(anlaeufe <= 0) return null;
+
+  const bericht = { anlaeufe, zurueck: 0, abgegeben: 0 };
+  const verjuengen = (p, n) => { p.age = Math.max(15, p.age - n); if(typeof refreshPlayerValue === "function") refreshPlayerValue(p); };
+  const zurJugend = [];
+
+  // Jugendkader: jeder Anlauf hat ihn ein Jahr altern lassen.
+  (gs.youthSquad || []).forEach(p => {
+    verjuengen(p, anlaeufe);
+    if(p.hasProContract) p.contractYears = getContractYears(p) + anlaeufe;
+  });
+
+  // Profikader: Stammspieler zurueckdrehen, waehrend der Anlaeufe Dazugekommene aussortieren.
+  const bleibt = [];
+  (gs.squad || []).forEach(p => {
+    const n = zuviel(p);
+    p.clubSeasons = Math.max(0, (p.clubSeasons || 0) - n);
+    const stammspieler = p.seasonStartStrength != null || p.joinedSeason === saison;
+    if((n >= anlaeufe || p.joinedSeason === saison) && stammspieler){
+      verjuengen(p, n);
+      p.contractYears = getContractYears(p) + n;
+      bleibt.push(p);
+    } else if(p.isYouthProduct){
+      // Aus der Jugend hochgerutscht, weil er durch die Anlaeufe zu alt wurde.
+      verjuengen(p, anlaeufe);
+      zurJugend.push(p);
+    } else {
+      // Notverpflichtung waehrend der Anlaeufe: zurueck in den Bestand.
+      verjuengen(p, n);
+      Object.assign(p, { clubName: null, clubTier: "frei", transferListed: false, contractYears: 1 });
+      pool.push(p);
+      bericht.abgegeben++;
+    }
+  });
+  gs.squad = bleibt;
+
+  // Bei den Anlaeufen Abgewanderte zurueckholen. Wer erst als Notverpflichtung
+  // kam (kein Saisonstart bei uns, nicht gekauft), bleibt vereinslos.
+  gegangen.forEach(p => {
+    const n = zuviel(p);
+    if(p.seasonStartStrength == null && p.joinedSeason !== saison && !p.isYouthProduct){
+      verjuengen(p, n);
+      p.clubSeasons = Math.max(0, (p.clubSeasons || 0) - n);
+      delete p.leftClub; delete p.leftSeason;
+      return;
+    }
+    gs.pool.players = gs.pool.players.filter(x => x.id !== p.id);
+    delete p.clubName; delete p.clubTier; delete p.leftClub; delete p.leftSeason;
+    p.transferListed = false;
+    if(n > 0){
+      verjuengen(p, n);
+      p.clubSeasons = Math.max(0, (p.clubSeasons || 0) - n);
+      p.contractYears = n;
+      gs.squad.push(p);
+    } else {
+      // Ohne Zaehler (kam aus der Jugend): ein Jahr zurueck, wieder in die Jugend.
+      verjuengen(p, 1);
+      p.contractYears = 1;
+      zurJugend.push(p);
+    }
+    bericht.zurueck++;
+  });
+  zurJugend.forEach(p => { p.isYouthSquad = true; gs.youthSquad.push(p); });
+
+  // Meldungen der Anlaeufe entfernen, das echte Saisonende schreibt sie neu.
+  gs.news = (gs.news || []).filter(n => !(n.season === saison && n.matchday >= gs.matchday));
+  gs.lineup = {};
+  addLogEntry(gs, `🔧 Abgebrochenes Saisonende repariert (${anlaeufe} ${anlaeufe === 1 ? "Anlauf" : "Anläufe"}): ${bericht.zurueck} Spieler zurückgeholt, ${bericht.abgegeben} Notverpflichtungen aufgelöst, Alter und Verträge zurückgesetzt.`, null, true);
+  return bericht;
+}
+
 function finishSeason(){
   const playedDivision = gameState.division;
   const sorted = getSortedStandings(gameState.teams);
